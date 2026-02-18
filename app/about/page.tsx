@@ -171,7 +171,7 @@ export default function AboutPage() {
                                         is decision-led, restrained and aligned to the authority of the leader.
                                     </p>
                                     <p className="text-white/60 font-light leading-relaxed">
-                                        The result is structured signal that clarifies options, exposes second-order effects,
+                                        The result is structured signal that clarifies options, exposes second-order effects
                                         and strengthens decision ownership without replacing judgement.
                                     </p>
                                     <div className="flex gap-3 pt-2">
