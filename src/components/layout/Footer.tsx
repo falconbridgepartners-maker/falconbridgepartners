@@ -65,7 +65,7 @@ const Footer: React.FC = () => {
                         </div>
 
                         <div className="text-[0.65rem] font-technical text-brand-gold/40 uppercase tracking-[0.2em] text-center">
-                            All engagements are confidential and by referral or introduction only.
+                            All engagements are confidential, and by referral or introduction only.
                         </div>
 
                         <div className="text-[0.65rem] text-white/20 text-center md:text-right">
