@@ -67,6 +67,11 @@ const Navbar: React.FC = () => {
                             </Link>
                         </li>
                         <li>
+                            <Link href="/insights" className="text-[0.8rem] font-medium text-white/70 px-5 py-2.5 rounded-full hover:text-white hover:bg-white/5 transition-all">
+                                Insights
+                            </Link>
+                        </li>
+                        <li>
                             <Link href="/about" className="text-[0.8rem] font-medium text-white/70 px-5 py-2.5 rounded-full hover:text-white hover:bg-white/5 transition-all">
                                 About Us
                             </Link>
@@ -97,6 +102,9 @@ const Navbar: React.FC = () => {
                         </Link>
                         <Link href="/how-we-work" onClick={() => setMenuOpen(false)} className="block text-white/80 text-sm font-technical uppercase tracking-widest">
                             How We Work
+                        </Link>
+                        <Link href="/insights" onClick={() => setMenuOpen(false)} className="block text-white/80 text-sm font-technical uppercase tracking-widest">
+                            Insights
                         </Link>
                         <Link href="/about" onClick={() => setMenuOpen(false)} className="block text-white/80 text-sm font-technical uppercase tracking-widest">
                             About Us

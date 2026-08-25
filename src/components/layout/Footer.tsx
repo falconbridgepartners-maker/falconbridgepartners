@@ -44,6 +44,7 @@ const Footer: React.FC = () => {
                         <h4 className="font-technical text-sm uppercase tracking-widest mb-8 text-brand-gold">The Partnership</h4>
                         <ul className="space-y-4">
                             <li><Link href="/about" className="text-white/50 hover:text-white transition-colors text-sm">About Us</Link></li>
+                            <li><Link href="/insights" className="text-white/50 hover:text-white transition-colors text-sm">Insights</Link></li>
                             <li><Link href="/privacy-policy" className="text-white/50 hover:text-white transition-colors text-sm">Privacy Policy</Link></li>
                             <li><Link href="/terms-of-engagement" className="text-white/50 hover:text-white transition-colors text-sm">Terms of Engagement</Link></li>
                         </ul>
