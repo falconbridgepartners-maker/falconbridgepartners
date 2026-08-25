@@ -1,10 +1,15 @@
 import { config, fields, collection } from '@keystatic/core';
 
+const hasGitHubCreds = Boolean(
+  process.env.KEYSTATIC_GITHUB_CLIENT_ID &&
+    process.env.KEYSTATIC_GITHUB_CLIENT_SECRET &&
+    process.env.KEYSTATIC_SECRET,
+);
+
 export default config({
-  storage: {
-    kind: 'github',
-    repo: 'falconbridgepartners-maker/falconbridgepartners',
-  },
+  storage: hasGitHubCreds
+    ? { kind: 'github', repo: 'falconbridgepartners-maker/falconbridgepartners' }
+    : { kind: 'local' },
   ui: {
     brand: { name: 'FalconBridge Insights' },
     navigation: {
