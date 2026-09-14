@@ -12,6 +12,7 @@ export const TERRITORIES = [
   { label: 'New Zealand', value: 'new-zealand' },
   { label: 'Mauritius', value: 'mauritius' },
   { label: 'North Carolina', value: 'north-carolina' },
+  { label: 'Singapore', value: 'singapore' },
 ] as const;
 
 export const SERVICES = [

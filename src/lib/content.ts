@@ -111,4 +111,5 @@ export const territoryName: Record<string, string> = {
   'new-zealand': 'New Zealand',
   mauritius: 'Mauritius',
   'north-carolina': 'North Carolina',
+  singapore: 'Singapore',
 };

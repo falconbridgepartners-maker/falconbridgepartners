@@ -711,9 +711,10 @@ export const research = {
       { key: 'south-africa', name: 'South Africa', status: 'active' },
       { key: 'new-zealand', name: 'New Zealand', status: 'active' },
       { key: 'mauritius', name: 'Mauritius', status: 'active' },
-      { key: 'north-carolina', name: 'North Carolina', status: 'planned' },
+      { key: 'north-carolina', name: 'North Carolina', status: 'active' },
+      { key: 'singapore', name: 'Singapore', status: 'planned' },
     ] as const,
-    territoryNote: 'Current scans: UAE/GCC, South Africa, New Zealand and Mauritius. North Carolina is planned.',
+    territoryNote: 'Current scans: UAE/GCC, South Africa, New Zealand, Mauritius and North Carolina. Singapore is building.',
     distinction:
       'The scan frames an investigation; subsequent research must establish the evidence supporting its findings. Research findings and FBP’s interpretation are kept visibly distinct.',
   },

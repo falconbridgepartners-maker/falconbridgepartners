@@ -36,7 +36,7 @@ export default function AboutPage() {
         </div>
       </Section>
 
-      <Section eyebrow="Where we work" title="Territories and partners" intro="Our weekly scans cover four territories today, with North Carolina planned. Partners are based in the UAE, remotely, and in North Carolina.">
+      <Section eyebrow="Where we work" title="Territories and partners" intro="Our weekly scans cover five territories: UAE/GCC, South Africa, New Zealand, Mauritius and North Carolina. Singapore is building. Partners are based in the UAE, remotely, and in North Carolina.">
         <TerritoryMap />
       </Section>
 

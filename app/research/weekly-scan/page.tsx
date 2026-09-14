@@ -29,7 +29,7 @@ export default async function WeeklyScanPage({ searchParams }: { searchParams?: 
             t.status === 'active' ? (
               <Link key={t.key} href={`/research/weekly-scan?territory=${t.key}`} className={`px-4 py-2 rounded-full text-sm border ${filter === t.key ? 'border-brand-gold text-white' : 'border-brand-gold/30 text-white/60'}`}>{t.name}</Link>
             ) : (
-              <span key={t.key} className="px-4 py-2 rounded-full text-sm border border-dashed border-brand-gold/40 text-white/45">{t.name} · planned</span>
+              <span key={t.key} className="px-4 py-2 rounded-full text-sm border border-dashed border-brand-gold/40 text-white/45">{t.name} · building</span>
             )
           ))}
           <a href="/research/weekly-scan/rss.xml" className="ml-auto text-sm text-white/45 hover:text-white self-center">RSS</a>

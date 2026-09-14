@@ -7,7 +7,8 @@ const points: { key: string; name: string; lon: number; lat: number; kind: 'scan
     { key: 'south-africa', name: 'South Africa', lon: 28.0, lat: -26.2, kind: 'scan' },
     { key: 'new-zealand', name: 'New Zealand', lon: 174.8, lat: -41.3, kind: 'scan' },
     { key: 'mauritius', name: 'Mauritius', lon: 57.5, lat: -20.2, kind: 'scan' },
-    { key: 'north-carolina', name: 'North Carolina', lon: -79.0, lat: 35.6, kind: 'planned', partner: 'Wayne Loraine-Grews · Partner — North America' },
+    { key: 'north-carolina', name: 'North Carolina', lon: -79.0, lat: 35.6, kind: 'scan', partner: 'Wayne Loraine-Grews · Partner — North America' },
+    { key: 'singapore', name: 'Singapore', lon: 103.8, lat: 1.35, kind: 'planned' },
 ];
 
 const W = 1000, H = 440;
@@ -37,14 +38,14 @@ const TerritoryMap: React.FC = () => (
                         <circle cx={x} cy={y} r="18" fill="#c8a86a" fillOpacity="0.12" />
                         <text x={tx} y={y + 5} textAnchor={anchor} fontFamily="Arial, Helvetica, sans-serif" fontSize="15" fontWeight="700" fill="#f4f2ec">{p.name}</text>
                         {p.partner && <text x={tx} y={y + 24} textAnchor={anchor} fontFamily="Arial, Helvetica, sans-serif" fontSize="12" fill="#b8bdc8">{p.partner}</text>}
-                        {planned && <text x={tx} y={p.partner ? y + 42 : y + 24} textAnchor={anchor} fontFamily="Georgia, serif" fontStyle="italic" fontSize="12" fill="#e3ce98">scan planned</text>}
+                        {planned && <text x={tx} y={p.partner ? y + 42 : y + 24} textAnchor={anchor} fontFamily="Georgia, serif" fontStyle="italic" fontSize="12" fill="#e3ce98">building</text>}
                     </g>
                 );
             })}
         </svg>
         <div className="flex flex-wrap gap-x-8 gap-y-2 mt-4 text-sm text-white/55">
             <span className="inline-flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-brand-gold inline-block" /> Weekly scan territory</span>
-            <span className="inline-flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full border border-dashed border-brand-gold-pale inline-block" /> Scan planned</span>
+            <span className="inline-flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full border border-dashed border-brand-gold-pale inline-block" /> Building</span>
             <span className="ml-auto">{research.curiosity.territoryNote}</span>
         </div>
         <p className="text-sm text-white/45 mt-3">
