@@ -13,7 +13,7 @@ export const firm = {
   shortDescription:
     'FalconBridge Partners provides research and strategic support for consequential business decisions, combining experienced human judgement with proprietary, AI-assisted methods.',
   standardIntroduction:
-    'FalconBridge Partners helps founders, leaders, investors and advisers examine propositions, develop evidence and work through consequential business decisions. Its Decision Support System comprises Critical Evaluation, Research, Coaching, Execution Modelling and Advisory, available independently or together by choice. Experienced partners direct the work through proprietary systems, with humans remaining in control and actively involved throughout. The client retains the decision.',
+    'FalconBridge Partners helps founders, leaders, investors and advisers examine propositions, develop evidence and work through consequential business decisions. Its Decision Support System™ comprises Critical Evaluation, Research, Coaching, Execution Modelling and Advisory, available independently or together by choice. Experienced partners direct the work through proprietary systems, with humans remaining in control and actively involved throughout. The client retains the decision.',
   clientPromise:
     'We help you understand what supports a proposition, what remains uncertain and what your next decision requires. You retain the authority to decide. We agree the research, challenge or support that will be useful in your circumstances.',
   invitation: {
@@ -22,6 +22,28 @@ export const firm = {
     cta: 'Start a conversation',
   },
   linkedin: 'https://www.linkedin.com/company/falconbps',
+  systemName: 'FalconBridge Decision Support System™',
+  trademarkLine: 'FalconBridge Decision Support System™ is a trademark of FalconBridge Partners FZC LLC.',
+  clarityLine: 'When the decision is yours, clarity cannot be outsourced. Borrowed certainty often introduces more risk than uncertainty itself.',
+  integration:
+    'Most decision-makers are not short of intelligence, experience or input. They are short of integration. Evidence, judgement and execution reality are usually examined separately, at different times, by different parties. The services below are available independently; what they have in common is that each is anchored to the decision the leader is actually making, so that the leader can integrate them.',
+  whoWeAreNot: {
+    heading: 'What FalconBridge is not',
+    intro: 'The clearest way to describe the work is to say what it does not do.',
+    items: [
+      { title: 'Not a consultancy delivering recommendations', body: 'We do not provide answers for leaders to adopt, defend or hide behind. We examine what supports a proposition and what remains uncertain.' },
+      { title: 'Not outsourced leadership', body: 'We do not step into the role of decision-maker, and we do not dilute accountability. The client retains the decision and operational responsibility.' },
+      { title: 'Not coaching detached from consequence', body: 'Coaching is decision-bound. It exists to help a leader own a consequential choice, not as personal development without an outcome attached.' },
+      { title: 'Not research without a decision attached', body: 'Research starts with the decision, the intended use and the evidence required. Information volume is not the product.' },
+    ],
+    closing: 'We do not make decisions for leaders. We make their thinking sharper.',
+  },
+  noDependency:
+    'Our involvement is time-bound and decision-bound. When clarity stabilises and ownership is secure, our role diminishes. The goal is closure, not dependency.',
+  honestFit:
+    'Not every conversation results in an engagement. Where the decision does not warrant external support, or where the decision-maker is not prepared to retain ownership, we will say so. That protects trust and focus on both sides.',
+  professionalExchange: 'A professional exchange, not a sales discussion.',
+  firstQuestion: 'What decision are you actually being asked to make?',
   emails: { quincy: 'quincy@falconbp.com', joel: 'joel@falconbp.com', wayne: 'wayne@falconbp.com' },
 };
 
@@ -70,6 +92,7 @@ export interface Service {
   limits: { title: string; body: string };
   closing: { title: string; body: string };
   related: ServiceKey[];
+  notes?: { heading: string; items: { title: string; body: string }[]; closing?: string };
 }
 
 export const services: Service[] = [
@@ -231,6 +254,20 @@ export const services: Service[] = [
       body: 'Bring the proposition, question or direction you are working on. Together, we can define the support it requires.',
     },
     related: ['aaas', 'raas'],
+    notes: {
+      heading: 'Two moments where coaching is used',
+      items: [
+        {
+          title: 'Before research: clarity on the question',
+          body: 'A leader senses that research is needed but cannot yet say what must be known to decide responsibly. Coaching isolates the decision, defines its constraints and articulates the question so that any research, by FBP or anyone else, is scoped to it.',
+        },
+        {
+          title: 'After research: integration into a decision',
+          body: 'Evidence is available but clarity has not translated into commitment. Coaching integrates the findings with the leader’s own judgement and execution reality, examines the trade-offs and surfaces the real source of hesitation.',
+        },
+      ],
+      closing: 'Our involvement is time-bound and decision-bound. When clarity stabilises and ownership is secure, our role diminishes. The goal is closure, not dependency.',
+    },
   },
   {
     key: 'emaas',
@@ -335,6 +372,19 @@ export const services: Service[] = [
       body: 'Each DSS service is available independently. Further work follows an agreed need and scope. The client retains decision authority.',
     },
     related: ['emaas', 'caas'],
+    notes: {
+      heading: 'What advisory pays attention to',
+      items: [
+        {
+          title: 'Pace and timing',
+          body: 'Some directions fail because they move too slowly and the opportunity passes; others because they move too quickly, before integration has occurred. Advisory helps a leader sense when to slow because clarity is degrading, and when to accelerate because hesitation has become the risk.',
+        },
+        {
+          title: 'Second-order consequences',
+          body: 'The most common source of regret is not the primary outcome but the downstream effects across execution, culture, capability and stakeholder response. Examining them early is realism, not risk avoidance.',
+        },
+      ],
+    },
   },
 ];
 // AaaS has no service brief in the September set; its columns and steps are drawn from the
@@ -477,7 +527,7 @@ export const humanAuthority = [
 export const trustAndUse = [
   {
     title: 'Confidentiality',
-    body: 'Client information and commissioned work stay within agreed disclosure boundaries.',
+    body: 'Client information and commissioned work stay within agreed disclosure boundaries. We do not publish client names. We do not showcase case studies publicly. We do not discuss engagements outside strict boundaries.',
   },
   {
     title: 'Ownership and licence',
@@ -488,6 +538,7 @@ export const trustAndUse = [
     body: 'Findings carry a date and scope. We disclose material uncertainty and address source or correction queries.',
   },
 ];
+export const trustLine = 'Trust is not a by-product of the work. It is the product.';
 
 export const origins = {
   heading: 'Experience before establishment',
@@ -622,6 +673,7 @@ export const research = {
       body: 'Approximately 158 research reports were produced across the development of the FalconBridge concept, including its earlier ERT origins, as at September 2026. This is a record of output, not a count of clients or proof of commercial outcomes.',
     },
   ],
+  readersLine: 'Research is written to be read by decision-makers, not analysts. The six elements exist so that a reader can orient, discuss, examine and challenge the work at the depth their decision requires.',
   publicNote:
     'FBP funds selected studies out of professional curiosity and makes reports available to readers. Client-confidential work remains within its agreed disclosure boundaries.',
   evidence: [
@@ -830,7 +882,7 @@ export const nav = {
   primary: [
     { label: 'Home', href: '/' },
     {
-      label: 'Decision Support System',
+      label: 'Decision Support System™',
       href: '/decision-support-system',
       children: [
         ...services.map((s) => ({ label: `${s.acronym} · ${s.name}`, href: `/decision-support-system/${s.slug}` })),

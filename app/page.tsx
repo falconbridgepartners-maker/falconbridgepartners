@@ -40,7 +40,8 @@ export default function Home() {
             </Tile>
           ))}
         </div>
-        <p className="mt-8 text-white/70">The client retains the decision. FBP supplies the agreed research, challenge and support.</p>
+        <p className="mt-8 text-white/70 max-w-4xl">{firm.integration}</p>
+        <p className="governing text-xl md:text-2xl mt-6 max-w-4xl">{firm.clarityLine}</p>
       </Section>
 
       {/* Who we serve — four situations */}
@@ -58,7 +59,7 @@ export default function Home() {
       </Section>
 
       {/* Decision Support System */}
-      <Section eyebrow="Decision Support System" title="Five services, available independently" intro="Enter where the need arises. Combine services by choice.">
+      <Section eyebrow="FalconBridge Decision Support System™" title="Five services, available independently" intro="Enter where the need arises. Combine services by choice.">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           <div className="lg:col-span-6">
             <Compass />
@@ -92,6 +93,7 @@ export default function Home() {
           {humanAuthority.map((h) => <Tile key={h.title} title={h.title} body={h.body} />)}
         </div>
         <p className="mt-8 text-white/70">AI assists discovery, analysis and production. Coaching and advisory remain human relationships. The client retains the decision.</p>
+        <p className="governing text-xl md:text-2xl mt-4">{firm.whoWeAreNot.closing}</p>
       </Section>
 
       {/* Research in practice */}

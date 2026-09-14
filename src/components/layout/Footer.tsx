@@ -26,7 +26,7 @@ const Footer: React.FC = () => {
                     </div>
 
                     <div className="lg:col-span-3">
-                        <h4 className="label-tech mb-6">Decision Support System</h4>
+                        <h4 className="label-tech mb-6">Decision Support System™</h4>
                         <ul className="space-y-3">
                             <li><Link href="/decision-support-system" className={col}>The five services</Link></li>
                             {services.map((s) => (
@@ -72,7 +72,7 @@ const Footer: React.FC = () => {
                 <div className="hairline mb-6" />
                 <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between text-[0.72rem] text-white/40">
                     <div>&copy; {year} {firm.legalEntity}. All rights reserved.</div>
-                    <div>Research is licensed for agreed use. FalconBridge retains its intellectual property.</div>
+                    <div className="md:text-right">{firm.trademarkLine}<br />Research is licensed for agreed use. FalconBridge retains its intellectual property.</div>
                 </div>
             </div>
         </footer>

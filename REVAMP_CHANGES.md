@@ -1,4 +1,4 @@
-# falconbp.com revamp — branch `revamp/dss` (prototype v1, 14 September 2026)
+# falconbp.com revamp — branch `revamp/dss` (prototype v2, 14 September 2026)
 
 Built from the September 2026 partner-review documents. All copy lives in `src/content/site.ts`;
 change it there and every page updates. Lines marked `[DRAFT]` in that file were written where the
@@ -32,3 +32,16 @@ documents are silent — strike or edit.
 ## Not yet built
 - Keystatic collections for Weekly Scan and Studies (structure is defined by `ScanEntry` in `site.ts`).
 - Per-page Open Graph image generation.
+
+## v2 — restored messaging from the original site (14 Sept 2026)
+Carried forward because it is consistent with the foundation and was lost only by omission:
+- "What FalconBridge is not" (About; one-line version on the DSS overview) and "We do not make decisions for leaders. We make their thinking sharper."
+- Two coaching moments — before research (clarity on the question) and after research (integration) — on the Coaching page and the DSS overview.
+- Integration paragraph under the three forces on Home; "clarity cannot be outsourced" line on Home and About.
+- Concrete confidentiality statements and "Trust is not a by-product of the work. It is the product." (About → Trust and use).
+- No dependency by design (Coaching, About, Working with FalconBridge).
+- "We will say so" / "A professional exchange, not a sales discussion." / "What decision are you actually being asked to make?" (Contact, Working with).
+- Pace and timing; second-order consequences (Advisory).
+- "Research is written to be read by decision-makers, not analysts." (Research).
+- ™ applied to FalconBridge Decision Support System™ at first mention per page, in the nav and footer; trademark line in the footer.
+- Pricing stays off the site (partner decision).

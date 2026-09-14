@@ -4,7 +4,7 @@ import PageHero from '@/components/dss/PageHero';
 import Compass from '@/components/dss/Compass';
 import Invitation from '@/components/dss/Invitation';
 import { Section, Tile, Band, NextLink } from '@/components/dss/Tiles';
-import { forces, humanAuthority, serviceByKey } from '@/content/site';
+import { firm, forces, humanAuthority, serviceByKey } from '@/content/site';
 
 export const metadata: Metadata = {
   title: 'Decision Support System — FalconBridge Partners',
@@ -15,7 +15,7 @@ export default function DSSPage() {
   return (
     <>
       <PageHero
-        eyebrow="Decision Support System"
+        eyebrow="FalconBridge Decision Support System™"
         title="Five services, available independently"
         governing="Enter where the need arises. Combine services by choice."
         intro="Experienced partners lead the work. Proprietary systems and AI assist delivery, with humans in control and involved throughout. Your decision remains yours."
@@ -53,7 +53,11 @@ export default function DSSPage() {
       </Section>
 
       <Section eyebrow="How the groupings work">
-        <Band title="The groupings show each service’s primary emphasis" body="External signal primarily connects CEaaS and RaaS. Internal judgement centres on CaaS. Execution reality primarily connects EMaaS and AaaS. These emphases help explain the architecture without isolating the services from one another. There is no mandatory sequence of service purchases." />
+        <div className="space-y-8">
+          <Band title="The groupings show each service’s primary emphasis" body="External signal primarily connects CEaaS and RaaS. Internal judgement centres on CaaS. Execution reality primarily connects EMaaS and AaaS. These emphases help explain the architecture without isolating the services from one another. There is no mandatory sequence of service purchases." />
+          <Band title="Coaching sits on either side of research" body="Coaching is used before research, to clarify what must be known to decide responsibly, and after research, to integrate the evidence into a decision the leader can own. Neither requires the other; each is anchored to the same decision." />
+          <Band title={firm.whoWeAreNot.heading} body={`${firm.whoWeAreNot.items.map((i) => i.title.replace('Not ', 'not ')).join('; ')}. ${firm.whoWeAreNot.closing}`} />
+        </div>
       </Section>
 
       <Section eyebrow="Our philosophy" title="Human authority in AI-assisted work">

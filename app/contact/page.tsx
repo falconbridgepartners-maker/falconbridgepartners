@@ -63,13 +63,19 @@ const ContactPage: React.FC = () => {
 
     return (
         <>
-            <PageHero eyebrow="A conversation about your decision" title="What needs to be understood" governing="before your next decision?" intro={firm.invitation.body} />
+            <PageHero eyebrow="A conversation about your decision" title="What needs to be understood" governing="before your next decision?" intro={firm.invitation.body}>
+                <p className="mt-6 text-sm text-brand-gold-pale">{firm.professionalExchange}</p>
+            </PageHero>
 
             <section className="pb-24">
                 <div className="container-editorial">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
                         <div className="lg:col-span-5 space-y-5">
-                            <Tile title="What the first conversation does" body="It establishes what you need to establish, decide or make workable, and what research, challenge or support would be useful in your circumstances. Sector, geography and business maturity refine the context; they do not, by themselves, determine fit." />
+                            <Tile title="What the first conversation does">
+                                <p className="governing text-xl mb-3">{firm.firstQuestion}</p>
+                                <p className="text-[0.95rem]">It establishes what you need to establish, decide or make workable, and what research, challenge or support would be useful in your circumstances. Sector, geography and business maturity refine the context; they do not, by themselves, determine fit.</p>
+                                <p className="text-[0.95rem] mt-3 text-white/60">{firm.honestFit}</p>
+                            </Tile>
                             <Tile title={workingWith.fit.title} body={workingWith.fit.body} />
                             <div className="tile p-6">
                                 <h3 className="text-base mb-3">Or write directly</h3>

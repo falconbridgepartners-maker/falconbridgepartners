@@ -61,6 +61,7 @@ export default function ResearchPage() {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {raas.work.map((w) => <Tile key={w.title} ivory title={w.title} body={w.body} />)}
         </div>
+        <p className="governing text-xl md:text-2xl mt-8 max-w-4xl">{research.readersLine}</p>
       </Section>
 
       <Section eyebrow="Evidence, interpretation and use" title="Substance includes clarity about what a study establishes and what it leaves open">

@@ -4,7 +4,7 @@ import Invitation from '@/components/dss/Invitation';
 import PartnerCard from '@/components/dss/PartnerCard';
 import TerritoryMap from '@/components/dss/TerritoryMap';
 import { Section, Tile, Band } from '@/components/dss/Tiles';
-import { firm, origins, partners, humanAuthority, trustAndUse } from '@/content/site';
+import { firm, origins, partners, humanAuthority, trustAndUse, trustLine } from '@/content/site';
 
 export const metadata: Metadata = {
   title: 'About — FalconBridge Partners',
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <>
-      <PageHero eyebrow="About FalconBridge" title="Experience with personal accountability" intro={firm.standardIntroduction} />
+      <PageHero eyebrow="About FalconBridge" title="Experience with personal accountability" governing={firm.clarityLine} intro={firm.standardIntroduction} />
 
       <Section eyebrow="Our origins" title={origins.heading} intro={origins.intro}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -47,10 +47,18 @@ export default function AboutPage() {
         <p className="text-white/70 mt-8">Coaching and advisory remain human relationships. Any supporting technology use must respect the engagement’s purpose and confidentiality.</p>
       </Section>
 
+      <Section eyebrow={firm.whoWeAreNot.heading} title={firm.whoWeAreNot.closing} intro={firm.whoWeAreNot.intro}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {firm.whoWeAreNot.items.map((i) => <Tile key={i.title} title={i.title} body={i.body} />)}
+        </div>
+        <p className="text-white/70 mt-8 max-w-4xl">{firm.noDependency}</p>
+      </Section>
+
       <Section eyebrow="Trust and use" title="Confidentiality and agreed use rights" intro="The engagement defines what FBP will deliver, how the client may use it and how sensitive information is handled.">
         <div className="space-y-6">
           {trustAndUse.map((t) => <Band key={t.title} title={t.title} body={t.body} />)}
         </div>
+        <p className="governing text-xl md:text-2xl mt-10">{trustLine}</p>
       </Section>
 
       <Invitation />

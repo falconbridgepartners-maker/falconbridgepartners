@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import PageHero from '@/components/dss/PageHero';
 import Invitation from '@/components/dss/Invitation';
 import { Section, Tile, Band } from '@/components/dss/Tiles';
-import { workingWith } from '@/content/site';
+import { firm, workingWith } from '@/content/site';
 
 export const metadata: Metadata = {
   title: 'Working with FalconBridge — FalconBridge Partners',
@@ -23,7 +23,11 @@ export default function WorkingWithPage() {
             </div>
           ))}
         </div>
-        <div className="mt-10"><Band title={workingWith.completionTitle} body={workingWith.completion} /></div>
+        <div className="mt-10 space-y-8">
+          <Band title={workingWith.completionTitle} body={workingWith.completion} />
+          <Band title="No dependency by design" body={firm.noDependency} />
+          <Band title="We will say so" body={firm.honestFit} />
+        </div>
       </Section>
       <Section eyebrow="Trust, rights and questions" title="Agree how the work may be used before it is circulated or relied upon for a different purpose">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

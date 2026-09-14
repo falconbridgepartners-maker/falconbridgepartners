@@ -53,6 +53,15 @@ export default function ServicePage({ params }: { params: { slug: string } }) {
         )}
       </Section>
 
+      {s.notes && (
+        <Section eyebrow={s.notes.heading}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {s.notes.items.map((n) => <Tile key={n.title} ivory title={n.title} body={n.body} />)}
+          </div>
+          {s.notes.closing && <p className="governing text-xl md:text-2xl mt-8 max-w-4xl">{s.notes.closing}</p>}
+        </Section>
+      )}
+
       <Section>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {!isRaaS && <Tile title={s.outputs.title} body={s.outputs.body} />}
