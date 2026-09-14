@@ -36,7 +36,7 @@ export default function PrivacyPolicyPage() {
                     <div className="text-white/50 text-sm font-light">
                         FalconBridge Partners FZC LLC
                         <span className="mx-2 text-white/30">&#8226;</span>
-                        Last updated: 16 February 2026
+                        Last updated: 14 September 2026
                     </div>
 
                     <p className="text-white/60 font-light leading-relaxed">
@@ -125,7 +125,7 @@ export default function PrivacyPolicyPage() {
                     </section>
 
                     <p className="text-white/60 font-light leading-relaxed">
-                        FalconBridge Partners is a private strategic partnership providing boardroom clarity and decision-grade research for leaders in moments of consequence. All engagements are confidential and by referral or introduction only.
+                        FalconBridge Partners provides research and strategic support for consequential business decisions, combining experienced human judgement with proprietary, AI-assisted methods. Client information and commissioned work stay within agreed disclosure boundaries.
                     </p>
                 </div>
             </div>

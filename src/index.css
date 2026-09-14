@@ -1,42 +1,33 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Inter:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --color-brand-navy: #151c2f;
-  --color-brand-navy-dark: #010614;
-  --color-brand-gold: #c7a975;
-  --color-brand-grey: #c5c6cb;
+  /* Approved visual language — FBP Visual Identity Working Guide v1.0 */
+  --color-brand-navy: #262626;        /* charcoal — page surface (token name kept for compatibility) */
+  --color-brand-navy-dark: #1c1c1c;   /* deeper charcoal — overlays, tiles */
+  --color-brand-charcoal: #262626;
+  --color-brand-charcoal-tile: #2e2e2e;
+  --color-brand-ivory: #f4f2ec;
+  --color-brand-gold: #c8a86a;
+  --color-brand-gold-pale: #e3ce98;
+  --color-brand-grey: #b8bdc8;        /* body grey */
 
-  --font-technical: "IBM Plex Sans", "monospace";
-  --font-primary: "Inter", "system-ui", "-apple-system", "sans-serif";
-  --font-serif-accent: "IBM Plex Serif", "serif";
+  --font-technical: Arial, Helvetica, sans-serif;
+  --font-primary: Arial, Helvetica, sans-serif;
+  --font-serif-accent: Georgia, "Times New Roman", serif;
 
-  --spacing-section: clamp(4rem, 8vh, 10rem);
+  --spacing-section: clamp(4rem, 8vh, 9rem);
   --spacing-gutter: clamp(3rem, 5vh, 6rem);
 
   --animate-fade-in: fade-in 1s ease-out forwards;
   --animate-fade-in-up: fade-in-up 1s ease-out forwards;
 
   @keyframes fade-in {
-    0% {
-      opacity: 0;
-    }
-
-    100% {
-      opacity: 1;
-    }
+    0% { opacity: 0; }
+    100% { opacity: 1; }
   }
-
   @keyframes fade-in-up {
-    0% {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-
-    100% {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
   }
 }
 
@@ -45,23 +36,22 @@
     @apply bg-brand-navy text-brand-grey font-primary antialiased overflow-x-hidden;
     line-height: 1.65;
   }
-
   h1 {
-    @apply text-5xl md:text-7xl font-technical tracking-tighter leading-[1.1] text-white;
+    @apply text-4xl md:text-6xl font-technical font-bold tracking-tight leading-[1.08] text-white;
     text-wrap: balance;
   }
-
   h2 {
-    @apply text-4xl md:text-5xl font-technical tracking-tight leading-[1.2] text-white;
+    @apply text-3xl md:text-[2.6rem] font-technical font-bold tracking-tight leading-[1.15] text-white;
     text-wrap: balance;
   }
-
   h3 {
-    @apply text-2xl md:text-3xl font-serif-accent italic text-brand-gold opacity-90;
+    @apply text-xl md:text-2xl font-technical font-bold text-white;
   }
-
   p {
-    @apply text-base md:text-lg font-primary font-light leading-relaxed text-brand-grey;
+    @apply text-base md:text-lg font-primary font-normal leading-relaxed text-brand-grey;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
   }
 }
 
@@ -69,44 +59,48 @@
   .container-editorial {
     @apply max-w-[1280px] mx-auto px-6 md:px-12 w-full;
   }
-
   .section-padding {
     @apply py-section;
   }
-
+  /* Governing question / emphasis — Georgia Italic, gold */
+  .governing {
+    @apply font-serif-accent italic text-brand-gold-pale font-normal;
+  }
+  /* Shallow charcoal tile with a fine gold hairline and restrained bevel */
+  .tile {
+    @apply relative rounded-xl border border-brand-gold/25 bg-brand-charcoal-tile;
+    box-shadow:
+      inset 0 1px 0 rgba(227, 206, 152, 0.18),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+      0 10px 30px -18px rgba(0, 0, 0, 0.8);
+  }
+  .tile-ivory {
+    @apply relative rounded-xl bg-brand-ivory text-brand-charcoal border border-brand-gold/40;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.7),
+      inset 0 -1px 0 rgba(200, 168, 106, 0.35),
+      0 14px 36px -20px rgba(0, 0, 0, 0.9);
+  }
+  .tile-ivory p, .tile-ivory li { color: #3a3a3a; }
+  .tile-ivory h3, .tile-ivory h4 { color: #262626; }
   .frosted-glass {
-    @apply backdrop-blur-xl bg-white/[0.015] border border-white/5;
+    @apply backdrop-blur-xl bg-white/[0.02] border border-brand-gold/15;
   }
-
   .label-tech {
-    @apply text-[0.6rem] font-technical uppercase tracking-[0.4em] text-brand-gold opacity-60;
+    @apply text-[0.68rem] font-technical font-bold tracking-[0.18em] uppercase text-brand-gold;
   }
-
-  .accent-divider {
-    @apply h-px flex-1 bg-white/5;
+  .hairline {
+    @apply h-px w-full bg-brand-gold/25;
   }
-
   .grain-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 9999;
-    opacity: 0.03;
+    position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0.03;
     background-image: url('https://grainy-gradients.vercel.app/noise.svg');
   }
-
-  .text-balance {
-    text-wrap: balance;
-  }
-
-  .text-pretty {
-    text-wrap: pretty;
-    hyphens: auto;
-  }
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; hyphens: auto; }
+  .prose-fbp p { @apply mb-5; }
+  .prose-fbp h2 { @apply mt-12 mb-4; }
+  .prose-fbp h3 { @apply mt-8 mb-3; }
+  .prose-fbp ul { @apply list-disc pl-6 space-y-2 text-brand-grey mb-6; }
+  a:focus-visible, button:focus-visible { outline: 2px solid #e3ce98; outline-offset: 3px; }
 }
-
-
-

@@ -16,13 +16,13 @@ export default function NotFound() {
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                     <Button href="/" variant="primary" size="md" icon={ArrowRight}>
-                        Return Home
+                        Return home
                     </Button>
                     <Link
                         href="/contact"
                         className="text-[0.7rem] font-technical uppercase tracking-[0.2em] text-brand-gold/70 hover:text-brand-gold transition-colors"
                     >
-                        Request Conversation
+                        Start a conversation
                     </Link>
                 </div>
             </div>
