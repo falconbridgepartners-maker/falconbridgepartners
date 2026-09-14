@@ -34,7 +34,7 @@
 
 @layer base {
   body {
-    @apply bg-brand-navy text-brand-grey font-primary antialiased overflow-x-hidden;
+    @apply bg-brand-navy text-brand-grey font-primary antialiased overflow-x-clip;
     line-height: 1.65;
   }
   h1 {

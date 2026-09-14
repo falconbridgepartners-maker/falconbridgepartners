@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-brand-navy text-brand-grey font-primary antialiased overflow-x-hidden">
+      <body className="bg-brand-navy text-brand-grey font-primary antialiased overflow-x-clip">
         <div className="app-wrapper">
           <div className="grain-overlay"></div>
           <Navbar />
