@@ -4,13 +4,13 @@ import { WORLD_OUTLINE } from './worldOutline';
 
 /** Where we work — scan territories and partner bases on a restrained equirectangular map. */
 // Quincy covers South Africa, Mauritius, New Zealand and Singapore remotely until partners are found in those regions.
-const QUINCY = 'Quincy JC Beukes (Remote) · Research Partner';
+const QUINCY = 'Quincy JC Beukes · Research Partner';
 const points: { key: string; name: string; lon: number; lat: number; kind: 'scan' | 'planned'; partner?: string; labelLeft?: boolean }[] = [
-    { key: 'uae-gcc', name: 'UAE / GCC', lon: 55.3, lat: 25.2, kind: 'scan', partner: 'Joel Arcus (UAE) · Managing Partner' },
+    { key: 'uae-gcc', name: 'UAE / GCC', lon: 55.3, lat: 25.2, kind: 'scan', partner: 'Joel Arcus · Managing Partner' },
     { key: 'south-africa', name: 'South Africa', lon: 28.0, lat: -26.2, kind: 'scan', partner: QUINCY, labelLeft: true },
     { key: 'new-zealand', name: 'New Zealand', lon: 174.8, lat: -41.3, kind: 'scan', partner: QUINCY },
     { key: 'mauritius', name: 'Mauritius', lon: 57.5, lat: -20.2, kind: 'scan', partner: QUINCY },
-    { key: 'north-carolina', name: 'North Carolina', lon: -79.0, lat: 35.6, kind: 'scan', partner: 'Wayne Loraine-Grews (North Carolina) · Partner — North America' },
+    { key: 'north-carolina', name: 'North Carolina', lon: -79.0, lat: 35.6, kind: 'scan', partner: 'Wayne Loraine-Grews · Partner' },
     { key: 'singapore', name: 'Singapore', lon: 103.8, lat: 1.35, kind: 'planned', partner: QUINCY },
 ];
 
@@ -46,7 +46,6 @@ const TerritoryMap: React.FC = () => (
                         <circle cx={x} cy={y} r="18" fill="#c8a86a" fillOpacity="0.12" />
                         <text x={tx} y={y + 5} textAnchor={anchor} fontFamily="Arial, Helvetica, sans-serif" fontSize="15" fontWeight="700" fill="#f4f2ec">{p.name}</text>
                         {p.partner && <text x={tx} y={y + 24} textAnchor={anchor} fontFamily="Arial, Helvetica, sans-serif" fontSize="12" fill="#b8bdc8">{p.partner}</text>}
-                        {planned && <text x={tx} y={p.partner ? y + 42 : y + 24} textAnchor={anchor} fontFamily="Georgia, serif" fontStyle="italic" fontSize="12" fill="#e3ce98">building</text>}
                     </g>
                 );
             })}
