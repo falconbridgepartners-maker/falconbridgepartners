@@ -4,7 +4,7 @@ import heroBg from '@/assets/images/how-we-work.png';
 
 export default function TermsOfEngagementPage() {
     return (
-        <section className="relative pt-48 pb-24 overflow-hidden bg-brand-navy">
+        <section className="relative pt-20 pb-24 overflow-hidden bg-brand-navy">
             <div className="absolute inset-0 z-0">
                 <Image
                     src={heroBg}
@@ -37,7 +37,7 @@ export default function TermsOfEngagementPage() {
                     <div className="text-white/50 text-sm font-light">
                         FalconBridge Partners FZC LLC
                         <span className="mx-2 text-white/30">&#8226;</span>
-                        Last updated: 16 February 2026
+                        Last updated: 14 September 2026
                     </div>
 
                     <p className="text-white/60 font-light leading-relaxed">
@@ -111,7 +111,7 @@ export default function TermsOfEngagementPage() {
                     <section className="space-y-4">
                         <h2 className="text-2xl md:text-3xl font-technical text-white">8. Intellectual Property</h2>
                         <p className="text-white/60 font-light leading-relaxed">
-                            All frameworks, methodologies and proprietary materials remain the intellectual property of FalconBridge. Clients are granted a non-transferable licence to use deliverables for internal decision-making purposes only.
+                            All systems, methodologies and proprietary materials, including the Decision Support System and the Global Discovery Research System (GDRS), remain the intellectual property of FalconBridge. The client receives agreed rights to use the work. For research, the default licence is Type-1 for the specified purpose; additional internal uses, external circulation, reproduction, publication or exclusivity require the appropriate agreed rights and may attract additional fees. For execution tools, editing, updating and team-access rights are agreed in the engagement terms. For bespoke programmes, branding, attribution, exclusivity and continuing use are defined in the signed engagement and licence.
                         </p>
                     </section>
 
@@ -130,7 +130,7 @@ export default function TermsOfEngagementPage() {
                     </section>
 
                     <p className="text-white/60 font-light leading-relaxed">
-                        FalconBridge Partners is a private strategic partnership providing boardroom clarity and decision-grade research for leaders in moments of consequence. All engagements are confidential and by referral or introduction only.
+                        FalconBridge Partners provides research and strategic support for consequential business decisions, combining experienced human judgement with proprietary, AI-assisted methods. Client information and commissioned work stay within agreed disclosure boundaries.
                     </p>
                 </div>
             </div>

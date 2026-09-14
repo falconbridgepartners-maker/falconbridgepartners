@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
     const email = sanitizeInput(data.email).toLowerCase();
     const organization = data.organization ? sanitizeInput(data.organization) : '';
     const decisionContext = sanitizeInput(data.decisionContext);
+    const role = data.role ? sanitizeInput(data.role) : '';
+    const region = data.region ? sanitizeInput(data.region) : '';
 
     // Validate email format
     if (!isValidEmail(email)) {
@@ -88,6 +90,8 @@ export async function POST(request: NextRequest) {
       { label: 'Full name', value: fullName },
       { label: 'Work email', value: email },
       ...(organization ? [{ label: 'Organisation', value: organization }] : []),
+      ...(role ? [{ label: 'Role', value: role }] : []),
+      ...(region ? [{ label: 'Where they are based', value: region }] : []),
       { label: 'Decision context', value: decisionContext },
     ];
 
