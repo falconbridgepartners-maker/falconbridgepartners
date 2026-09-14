@@ -4,7 +4,7 @@ import heroBg from '@/assets/images/how-we-work.png';
 
 export default function TermsOfEngagementPage() {
     return (
-        <section className="relative pt-48 pb-24 overflow-hidden bg-brand-navy">
+        <section className="relative pt-20 pb-24 overflow-hidden bg-brand-navy">
             <div className="absolute inset-0 z-0">
                 <Image
                     src={heroBg}

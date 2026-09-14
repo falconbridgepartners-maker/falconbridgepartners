@@ -9,7 +9,7 @@ interface Props {
 }
 
 const PageHero: React.FC<Props> = ({ eyebrow, title, governing, intro, children }) => (
-    <section className="relative pt-40 md:pt-48 pb-16 md:pb-20 overflow-hidden">
+    <section className="relative pt-14 md:pt-20 pb-16 md:pb-20 overflow-hidden">
         <div className="absolute inset-x-0 top-0 h-[28rem] bg-gradient-to-b from-brand-navy-dark to-brand-navy pointer-events-none" />
         <div className="container-editorial relative z-10">
             <div className="max-w-4xl">

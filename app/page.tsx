@@ -16,7 +16,7 @@ export default async function Home() {
   return (
     <>
       {/* Hero — the approved client promise */}
-      <section className="relative min-h-[88vh] flex items-center pt-40 pb-24 overflow-hidden">
+      <section className="relative min-h-[calc(88vh-6.5rem)] flex items-center pt-14 pb-24 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-brand-navy-dark via-brand-navy to-brand-navy pointer-events-none" />
         <div className="absolute right-[-4rem] top-28 w-[34rem] pointer-events-none hidden lg:block select-none" aria-hidden="true">
           <Image src={falconMark} alt="" className="w-full h-auto opacity-[0.07]" priority />

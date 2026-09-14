@@ -36,7 +36,7 @@ export const NextLink: React.FC<{ href: string; label: string; sub?: string }> =
 );
 
 export const Section: React.FC<{ eyebrow?: string; title?: string; intro?: string; className?: string; children?: React.ReactNode; wide?: boolean }> = ({ eyebrow, title, intro, className, children }) => (
-    <section className={cn("py-16 md:py-24", className)}>
+    <section className={cn("py-16 md:py-24 scroll-mt-28", className)}>
         <div className="container-editorial">
             {(eyebrow || title || intro) && (
                 <div className="max-w-3xl mb-10 md:mb-12">

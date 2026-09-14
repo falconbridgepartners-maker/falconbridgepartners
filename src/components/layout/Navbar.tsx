@@ -10,16 +10,31 @@ import logo from '@/assets/logos/logo.png';
 import { nav } from '@/content/site';
 
 const Navbar: React.FC = () => {
-    const [scrolled, setScrolled] = useState(false);
+    const [scrolled, setScrolled] = useState(false);   // > 20px: pill condenses (existing behaviour)
+    const [elevated, setElevated] = useState(false);   // > 8px: subtle shadow on the floating bar
     const [menuOpen, setMenuOpen] = useState(false);
     const [openDropdown, setOpenDropdown] = useState<string | null>(null);
     const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const navRef = useRef<HTMLElement | null>(null);
+    const [barHeight, setBarHeight] = useState(0);     // mobile sheet opens below the bar
 
     useEffect(() => {
-        const handleScroll = () => setScrolled(window.scrollY > 20);
-        window.addEventListener('scroll', handleScroll);
+        const handleScroll = () => {
+            const y = window.scrollY;
+            setScrolled(y > 20);
+            setElevated(y > 8);
+        };
+        handleScroll();
+        window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    useEffect(() => {
+        const measure = () => setBarHeight(navRef.current?.offsetHeight ?? 0);
+        measure();
+        window.addEventListener('resize', measure);
+        return () => window.removeEventListener('resize', measure);
+    }, [scrolled]);
 
     useEffect(() => {
         if (!menuOpen) return;
@@ -38,7 +53,14 @@ const Navbar: React.FC = () => {
     const linkClass = "text-[0.8rem] font-medium text-white/70 px-4 py-2.5 rounded-full hover:text-white hover:bg-white/5 transition-all whitespace-nowrap";
 
     return (
-        <nav className={cn("fixed top-0 left-0 w-full z-1000 transition-all duration-500", scrolled ? "py-3" : "py-6")}>
+        <nav
+            ref={navRef}
+            className={cn(
+                "sticky top-0 z-50 w-full transition-all duration-500 bg-brand-navy/80 backdrop-blur-md border-b border-brand-gold/15",
+                scrolled ? "py-3" : "py-6",
+                elevated && "shadow-sm shadow-black/40"
+            )}
+        >
             <div className={cn(
                 "mx-auto px-6 flex justify-between items-center transition-all duration-500",
                 scrolled
@@ -117,16 +139,14 @@ const Navbar: React.FC = () => {
             </div>
 
             {menuOpen && (
-                <div className="lg:hidden fixed inset-0 z-50 bg-brand-navy overflow-y-auto">
-                    <div className="relative px-6 pt-24 pb-10 space-y-6">
-                        <button
-                            type="button"
-                            className="absolute top-6 right-6 p-2 rounded-full border border-brand-gold/20 bg-white/5 text-white/80"
-                            aria-label="Close menu"
-                            onClick={() => setMenuOpen(false)}
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
+                <div
+                    className="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-brand-navy overflow-y-auto border-t border-brand-gold/15"
+                    style={{ top: barHeight }}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Site menu"
+                >
+                    <div className="relative px-6 pt-8 pb-10 space-y-6">
                         {nav.primary.map((item) => (
                             <div key={item.label} className="space-y-3">
                                 <Link href={item.href} onClick={() => setMenuOpen(false)} className="block text-white text-base font-bold">
