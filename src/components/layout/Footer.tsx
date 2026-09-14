@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Linkedin } from 'lucide-react';
+import { Linkedin, Phone } from 'lucide-react';
 import logo from '@/assets/logos/logo.png';
 import { firm, services, situations } from '@/content/site';
 
@@ -20,9 +20,14 @@ const Footer: React.FC = () => {
                         <p className="text-white/55 max-w-sm text-sm leading-relaxed mb-6">
                             {firm.shortDescription}
                         </p>
-                        <a href={firm.linkedin} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-white">
-                            <Linkedin className="w-4 h-4" /> FalconBridge Partners on LinkedIn
-                        </a>
+                        <div className="space-y-2">
+                            <a href={firm.linkedin} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-white">
+                                <Linkedin className="w-4 h-4" /> FalconBridge Partners on LinkedIn
+                            </a>
+                            <a href={firm.phone.href} className="flex items-center gap-2 text-sm text-white/60 hover:text-white">
+                                <Phone className="w-4 h-4" /> {firm.phone.display} <span className="text-white/35">· {firm.phone.label}</span>
+                            </a>
+                        </div>
                     </div>
 
                     <div className="lg:col-span-3">

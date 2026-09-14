@@ -1,4 +1,4 @@
-# falconbp.com revamp — branch `revamp/dss` (prototype v2, 14 September 2026)
+# falconbp.com revamp — branch `revamp/dss` (prototype v3, 14 September 2026)
 
 Built from the September 2026 partner-review documents. All copy lives in `src/content/site.ts`;
 change it there and every page updates. Lines marked `[DRAFT]` in that file were written where the
@@ -45,3 +45,13 @@ Carried forward because it is consistent with the foundation and was lost only b
 - "Research is written to be read by decision-makers, not analysts." (Research).
 - ™ applied to FalconBridge Decision Support System™ at first mention per page, in the nav and footer; trademark line in the footer.
 - Pricing stays off the site (partner decision).
+
+## v3 — original-site elements restored, Keystatic content layer, launch plumbing (14 Sept 2026)
+- Keystatic scaffold (PR #3) folded in and re-pointed: collections `scans` (Weekly Scan) and `studies` (Public studies) under `content/`; editor at `/keystatic`; GitHub-mode env vars per `.env.example`. Scan entries carry an internal `reviewed` checkbox (never rendered) and a `sample` flag. `/insights*` redirects to Research.
+- Weekly Scan, scan entries, Studies and the study page now read from `content/` (`src/lib/content.ts`); territory filter on the index; RSS at `/research/weekly-scan/rss.xml`.
+- "Request the full report" on each study page, wired to the existing `/api/submit-research` route; per-element downloads appear as URLs are added in Keystatic.
+- UAE phone restored in footer and contact. Engagement-environment line on Home and Situations; "clarity they can trust" quote on Research.
+- Falcon mark (cropped from the logo) as a faint element in the hero and the invitation tile. No stock photography.
+- `sitemap.xml` (all routes + scans + studies) and `robots.txt` (disallows /keystatic and /api).
+- Vercel env needed: `NEXT_PUBLIC_SITE_URL`; Keystatic GitHub App vars for production editing; `NEXT_PUBLIC_TURNSTILE_SITE_KEY` on Preview for forms.
+- Still to do: Terms of Engagement full rewrite (separate draft); Wayne's portrait; real scan entries; study files.

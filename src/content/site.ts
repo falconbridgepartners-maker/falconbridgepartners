@@ -44,6 +44,9 @@ export const firm = {
     'Not every conversation results in an engagement. Where the decision does not warrant external support, or where the decision-maker is not prepared to retain ownership, we will say so. That protects trust and focus on both sides.',
   professionalExchange: 'A professional exchange, not a sales discussion.',
   firstQuestion: 'What decision are you actually being asked to make?',
+  phone: { display: '+971 52 706 8408', href: 'tel:+971527068408', label: 'UAE' },
+  environmentLine: 'We are usually engaged when the decision is consequential, the timeline is compressed and the signal is noisy.',
+  clarityQuote: 'Our clients are not looking for opinions. They are looking for clarity they can trust.',
   emails: { quincy: 'quincy@falconbp.com', joel: 'joel@falconbp.com', wayne: 'wayne@falconbp.com' },
 };
 
@@ -716,6 +719,7 @@ export const research = {
   },
 };
 
+// Superseded by content/studies/*.mdx (Keystatic).
 export const featuredStudy = {
   slug: 'can-south-africa-break-3-percent-growth',
   title: 'Can South Africa Break 3% Growth?',
@@ -736,7 +740,7 @@ export const featuredStudy = {
   package: ['User guide', 'Executive deck', 'Full research report', 'Executive summary', 'Executive visual', 'Reference and link audit'],
 };
 
-// Sample scan entries — PROTOTYPE PLACEHOLDERS. Illustrative structure only; replaced by real scans before launch.
+// Superseded by content/scans/*.mdx (Keystatic). Kept for type reference only.
 export interface ScanEntry {
   slug: string;
   territory: string;

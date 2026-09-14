@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @theme {
   /* Approved visual language — FBP Visual Identity Working Guide v1.0 */

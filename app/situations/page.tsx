@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import PageHero from '@/components/dss/PageHero';
 import Invitation from '@/components/dss/Invitation';
 import { Section, Band } from '@/components/dss/Tiles';
-import { situations, workingWith } from '@/content/site';
+import { firm, situations, workingWith } from '@/content/site';
 
 export const metadata: Metadata = {
   title: 'Who we serve — FalconBridge Partners',
@@ -16,6 +16,7 @@ export default function SituationsPage() {
     <>
       <PageHero eyebrow="Who we serve" title="The situation defines the starting point" intro="We work with people putting forward, evaluating or acting on a consequential proposition. Sector, geography and business maturity refine the context. They do not, by themselves, determine fit." />
       <Section>
+        <p className="governing text-xl md:text-2xl mb-10 max-w-4xl">{firm.environmentLine}</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {situations.map((s) => (
             <Link key={s.slug} href={`/situations/${s.slug}`} className="group tile p-8 hover:border-brand-gold/60 transition-colors">

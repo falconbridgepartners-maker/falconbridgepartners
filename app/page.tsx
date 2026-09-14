@@ -6,16 +6,21 @@ import Compass from '@/components/dss/Compass';
 import Invitation from '@/components/dss/Invitation';
 import PartnerCard from '@/components/dss/PartnerCard';
 import { Section, Tile, NextLink } from '@/components/dss/Tiles';
-import { firm, forces, situations, humanAuthority, featuredStudy, origins, partners, serviceByKey } from '@/content/site';
+import Image from 'next/image';
+import falconMark from '@/assets/images/falcon-mark.png';
+import { firm, forces, situations, humanAuthority, origins, partners, serviceByKey } from '@/content/site';
+import { getAllStudies, territoryName } from '@/lib/content';
 
-export default function Home() {
+export default async function Home() {
+  const [featuredStudy] = await getAllStudies();
   return (
     <>
       {/* Hero — the approved client promise */}
       <section className="relative min-h-[88vh] flex items-center pt-40 pb-24 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-brand-navy-dark via-brand-navy to-brand-navy pointer-events-none" />
-        <div className="absolute -right-40 top-24 w-[42rem] h-[42rem] rounded-full border border-brand-gold/10 pointer-events-none hidden lg:block" />
-        <div className="absolute -right-24 top-40 w-[34rem] h-[34rem] rounded-full border border-brand-gold/10 pointer-events-none hidden lg:block" />
+        <div className="absolute right-[-4rem] top-28 w-[34rem] pointer-events-none hidden lg:block select-none" aria-hidden="true">
+          <Image src={falconMark} alt="" className="w-full h-auto opacity-[0.07]" priority />
+        </div>
         <div className="container-editorial relative z-10">
           <div className="max-w-4xl animate-fade-in-up">
             <p className="label-tech mb-6">FalconBridge Partners</p>
@@ -46,6 +51,7 @@ export default function Home() {
 
       {/* Who we serve — four situations */}
       <Section eyebrow="Who we serve" title="The situation defines the starting point" intro="We work with people putting forward, evaluating or acting on a consequential proposition.">
+        <p className="governing text-xl md:text-2xl mb-8 max-w-4xl">{firm.environmentLine}</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {situations.map((s) => (
             <Link key={s.slug} href={`/situations/${s.slug}`} className="group tile p-7 md:p-8 hover:border-brand-gold/60 transition-colors">
@@ -99,8 +105,8 @@ export default function Home() {
       {/* Research in practice */}
       <Section eyebrow="Research in practice" title="Depth that the reader can examine" intro="We also fund studies into questions we consider worth investigating and make selected full reports available to readers.">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-7 tile p-8 md:p-10">
-            <p className="label-tech mb-3">{featuredStudy.territory} · FBP-commissioned study</p>
+          {featuredStudy && <div className="lg:col-span-7 tile p-8 md:p-10">
+            <p className="label-tech mb-3">{territoryName[featuredStudy.territory] ?? featuredStudy.territory} · FBP-commissioned study</p>
             <h3 className="text-2xl md:text-3xl mb-3">{featuredStudy.title}</h3>
             <p className="text-white/70 mb-8">{featuredStudy.subtitle}</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -112,7 +118,7 @@ export default function Home() {
               ))}
             </div>
             <Link href={`/research/studies/${featuredStudy.slug}`} className="inline-flex items-center gap-2 text-brand-gold-pale mt-8 text-sm">Examine the study <ArrowRight className="w-4 h-4" /></Link>
-          </div>
+          </div>}
           <div className="lg:col-span-5 grid grid-cols-1 gap-5">
             <Tile ivory>
               <p className="governing text-3xl mb-1" style={{ color: '#262626' }}>{origins.milestones[2].figure}</p>

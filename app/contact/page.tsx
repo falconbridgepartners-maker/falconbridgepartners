@@ -83,6 +83,7 @@ const ContactPage: React.FC = () => {
                                     <li><a href={`mailto:${firm.emails.quincy}`} className="text-white/75 hover:text-white">{firm.emails.quincy}</a> <span className="text-white/40">· Research Partner</span></li>
                                     <li><a href={`mailto:${firm.emails.joel}`} className="text-white/75 hover:text-white">{firm.emails.joel}</a> <span className="text-white/40">· Managing Partner, UAE</span></li>
                                     <li><a href={`mailto:${firm.emails.wayne}`} className="text-white/75 hover:text-white">{firm.emails.wayne}</a> <span className="text-white/40">· Partner — North America</span></li>
+                                    <li className="pt-2"><a href={firm.phone.href} className="text-white/75 hover:text-white">{firm.phone.display}</a> <span className="text-white/40">· {firm.phone.label}</span></li>
                                 </ul>
                             </div>
                         </div>

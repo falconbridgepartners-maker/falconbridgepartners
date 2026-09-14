@@ -9,7 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@keystatic/core": "^0.5.0",
+    "@keystatic/next": "^5.0.0",
     "@tailwindcss/postcss": "^4.1.18",
+    "@tailwindcss/typography": "^0.5.15",
     "@types/node": "^25.0.9",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
@@ -17,9 +20,11 @@
     "@upstash/redis": "^1.36.2",
     "autoprefixer": "^10.4.23",
     "clsx": "^2.1.1",
+    "gray-matter": "^4.0.3",
     "isomorphic-dompurify": "^3.0.0-rc.2",
     "lucide-react": "^0.562.0",
     "next": "^14.0.0",
+    "next-mdx-remote": "^5.0.0",
     "postcss": "^8.5.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

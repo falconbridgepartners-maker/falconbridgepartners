@@ -5,15 +5,17 @@ import PageHero from '@/components/dss/PageHero';
 import Invitation from '@/components/dss/Invitation';
 import TerritoryMap from '@/components/dss/TerritoryMap';
 import { Section, Tile, ThreeColumns, Band, NextLink } from '@/components/dss/Tiles';
-import { research, featuredStudy, serviceByKey } from '@/content/site';
+import { research, serviceByKey, firm } from '@/content/site';
+import { getAllStudies, territoryName } from '@/lib/content';
 
 export const metadata: Metadata = {
   title: 'Research — FalconBridge Partners',
   description: 'Research that readers can examine: a substantive investigation delivered with the means to navigate, discuss and challenge its findings.',
 };
 
-export default function ResearchPage() {
+export default async function ResearchPage() {
   const raas = serviceByKey('raas');
+  const [featuredStudy] = await getAllStudies();
   return (
     <>
       <PageHero eyebrow="Research" title={research.heading} intro={research.intro} />
@@ -41,8 +43,9 @@ export default function ResearchPage() {
       </Section>
 
       <Section eyebrow="Research in practice" title="Depth that the reader can examine">
-        <div className="tile p-8 md:p-10">
-          <p className="label-tech mb-3">{featuredStudy.territory} · FBP-commissioned study</p>
+        <p className="governing text-xl md:text-2xl mb-8">{firm.clarityQuote}</p>
+        {featuredStudy && <div className="tile p-8 md:p-10">
+          <p className="label-tech mb-3">{territoryName[featuredStudy.territory] ?? featuredStudy.territory} · FBP-commissioned study</p>
           <h3 className="text-2xl md:text-3xl mb-2">{featuredStudy.title}</h3>
           <p className="text-white/70 mb-8">{featuredStudy.subtitle}</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -54,7 +57,7 @@ export default function ResearchPage() {
             ))}
           </div>
           <Link href={`/research/studies/${featuredStudy.slug}`} className="inline-flex items-center gap-2 text-brand-gold-pale mt-8 text-sm">Examine the study <ArrowRight className="w-4 h-4" /></Link>
-        </div>
+        </div>}
       </Section>
 
       <Section eyebrow="A complete bespoke research package" title={raas.outputs.title} intro={raas.outputs.body}>
