@@ -592,6 +592,7 @@ export const partners: Partner[] = [
     emphasis: 'Corporate finance, strategy and private capital experience informing research and decision analysis.',
     email: firm.emails.quincy,
     linkedin: 'https://www.linkedin.com/in/quincy-jc-beukes/',
+    qualification: 'MBA (Cum Laude) · ELP · AMP · ChBP (SA)',
     image: 'quincy',
     initials: 'QB',
     sections: [
@@ -617,6 +618,7 @@ export const partners: Partner[] = [
     emphasis: 'Human capital and leadership experience informing confidential coaching and strategic advisory.',
     email: firm.emails.joel,
     linkedin: 'https://www.linkedin.com/in/joelarcus/',
+    qualification: 'ICF ACC · CPQC (Positive Intelligence)',
     image: 'joel',
     initials: 'JA',
     sections: [
