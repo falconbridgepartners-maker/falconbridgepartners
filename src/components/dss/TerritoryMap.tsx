@@ -1,5 +1,6 @@
 import React from 'react';
 import { research, partners } from '@/content/site';
+import { WORLD_OUTLINE } from './worldOutline';
 
 /** Where we work — scan territories and partner bases on a restrained equirectangular map. */
 const points: { key: string; name: string; lon: number; lat: number; kind: 'scan' | 'planned'; partner?: string }[] = [
@@ -18,6 +19,11 @@ const project = (lon: number, lat: number) => ({ x: ((lon + 120) / 300) * (W - 1
 const TerritoryMap: React.FC = () => (
     <div className="tile p-4 md:p-6">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Territories covered by FalconBridge's weekly scans and where its partners are based">
+            <defs>
+                <clipPath id="tmClip"><rect x="0" y="0" width={W} height={H} /></clipPath>
+            </defs>
+            {/* land outlines — no labels */}
+            <path d={WORLD_OUTLINE} clipPath="url(#tmClip)" fill="none" stroke="#c8a86a" strokeOpacity="0.35" strokeWidth="0.9" strokeLinejoin="round" />
             {/* graticule */}
             {Array.from({ length: 11 }).map((_, i) => (
                 <line key={`v${i}`} x1={(i * W) / 10} y1={0} x2={(i * W) / 10} y2={H} stroke="#c8a86a" strokeOpacity="0.08" />
