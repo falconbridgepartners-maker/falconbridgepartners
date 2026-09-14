@@ -12,6 +12,8 @@ import { nav } from '@/content/site';
 const Navbar: React.FC = () => {
     const [scrolled, setScrolled] = useState(false);   // > 20px: pill condenses (existing behaviour)
     const [elevated, setElevated] = useState(false);   // > 8px: subtle shadow on the floating bar
+    const [hidden, setHidden] = useState(false);       // hides on scroll down, returns on scroll up (as stwtq.com)
+    const lastY = useRef(0);
     const [menuOpen, setMenuOpen] = useState(false);
     const [openDropdown, setOpenDropdown] = useState<string | null>(null);
     const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -23,6 +25,11 @@ const Navbar: React.FC = () => {
             const y = window.scrollY;
             setScrolled(y > 20);
             setElevated(y > 8);
+            const delta = y - lastY.current;
+            if (y <= 80) setHidden(false);                 // always visible near the top
+            else if (delta > 4) { setHidden(true); setOpenDropdown(null); }   // scrolling down
+            else if (delta < -4) setHidden(false);         // scrolling up
+            lastY.current = y;
         };
         handleScroll();
         window.addEventListener('scroll', handleScroll, { passive: true });
@@ -58,7 +65,8 @@ const Navbar: React.FC = () => {
             className={cn(
                 "sticky top-0 z-50 w-full transition-all duration-500 bg-brand-navy/80 backdrop-blur-md border-b border-brand-gold/15",
                 scrolled ? "py-3" : "py-6",
-                elevated && "shadow-sm shadow-black/40"
+                elevated && "shadow-sm shadow-black/40",
+                hidden && !menuOpen && "-translate-y-full shadow-none"
             )}
         >
             <div className={cn(
