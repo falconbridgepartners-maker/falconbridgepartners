@@ -577,7 +577,8 @@ export interface Partner {
   emphasis: string;
   email: string;
   linkedin?: string;
-  image?: 'joel' | 'quincy';
+  qualification?: string;
+  image?: 'joel' | 'quincy' | 'wayne';
   initials: string;
   sections: { title: string; body: string }[];
 }
@@ -638,21 +639,24 @@ export const partners: Partner[] = [
     name: 'Wayne Loraine-Grews',
     title: 'Partner — North America',
     location: 'Based in North Carolina, USA',
-    emphasis: 'Operating and transformation experience across retail, supply chains and franchise businesses.',
+    emphasis: 'Global CEO and operations executive with experience across North America, Africa and Asia.',
     email: firm.emails.wayne,
+    linkedin: 'https://www.linkedin.com/in/wayne-loraine-grews/',
+    qualification: 'BSc Marketing, Quincy University (USA)',
+    image: 'wayne',
     initials: 'WL',
     sections: [
       {
-        title: 'Experience brought to the work',
-        body: 'Wayne’s professional background includes multi-site operations, supply chains, franchise networks and business transformation. These settings bring practical questions of capacity, dependencies and organisational execution into view.',
+        title: 'Global executive leadership',
+        body: 'Wayne’s career spans more than thirty years in international business, including global CEO and operations executive roles. He has led enterprise transformation and delivered investor returns across North America, Africa and Asia.',
       },
       {
-        title: 'An operating perspective',
-        body: 'A strategic direction must work through people, resources, processes and changing conditions. Wayne brings this practical perspective to conversations about the assumptions behind a plan and the requirements for making it workable.',
+        title: 'Private equity and end-to-end transactions',
+        body: 'His private equity experience spans the full value creation cycle, including strategic repositioning, operational transformation, post-acquisition integration and PE exit. He brings end-to-end transaction experience and deep expertise in supply chain, multi-site retail and franchise networks.',
       },
       {
-        title: 'The North American partnership',
-        body: 'Wayne is FBP’s Partner — North America, based in North Carolina. He joins founding partners Quincy and Joel in connecting client situations with the support available through FalconBridge’s five-service DSS and separate bespoke capability.',
+        title: 'Board governance and operational execution',
+        body: 'Wayne combines board-level governance with hands-on operational execution. He has served on shareholder, audit, executive and operating boards across listed companies, private equity-backed platforms and nonprofit organisations.',
       },
     ],
   },

@@ -3,9 +3,10 @@ import Image from 'next/image';
 import { Linkedin, Mail } from 'lucide-react';
 import joelImage from '@/assets/images/joel-arcus.png';
 import quincyImage from '@/assets/images/quincy-beukes.png';
+import wayneImage from '@/assets/images/wayne-loraine-grews.png';
 import type { Partner } from '@/content/site';
 
-const images = { joel: joelImage, quincy: quincyImage } as const;
+const images = { joel: joelImage, quincy: quincyImage, wayne: wayneImage } as const;
 
 export const Portrait: React.FC<{ partner: Partner; className?: string }> = ({ partner, className }) => (
     <div className={`relative aspect-[4/5] overflow-hidden rounded-xl bg-brand-navy-dark border border-brand-gold/30 ${className ?? ''}`}>
@@ -31,6 +32,7 @@ const PartnerCard: React.FC<{ partner: Partner; full?: boolean }> = ({ partner, 
                 <h3 className="text-lg md:text-xl leading-tight">{partner.name}</h3>
                 <p className="text-brand-gold-pale text-sm mt-1">{partner.title}</p>
                 <p className="text-white/50 text-sm">{partner.location}</p>
+                {partner.qualification && <p className="text-white/40 text-xs mt-1">{partner.qualification}</p>}
             </div>
         </div>
         <p className="text-white/75 mt-5 text-[0.95rem]">{partner.emphasis}</p>
