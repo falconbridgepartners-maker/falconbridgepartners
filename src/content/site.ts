@@ -45,6 +45,7 @@ export const firm = {
   professionalExchange: 'A professional exchange, not a sales discussion.',
   firstQuestion: 'What decision are you actually being asked to make?',
   phone: { display: '+971 52 706 8408', href: 'tel:+971527068408', label: 'UAE' },
+  phoneUS: { display: '+1 919 537 5026', href: 'tel:+19195375026', label: 'North Carolina' },
   environmentLine: 'We are usually engaged when the decision is consequential, the timeline is compressed and the signal is noisy.',
   clarityQuote: 'Our clients are not looking for opinions. They are looking for clarity they can trust.',
   emails: { quincy: 'quincy@falconbp.com', joel: 'joel@falconbp.com', wayne: 'wayne@falconbp.com' },
@@ -644,7 +645,7 @@ export const partners: Partner[] = [
     emphasis: 'Global CEO and operations executive with experience across North America, Africa and Asia.',
     email: firm.emails.wayne,
     linkedin: 'https://www.linkedin.com/in/wayne-loraine-grews/',
-    qualification: 'BSc Marketing, Quincy University (USA)',
+    qualification: 'BS Marketing (Cum Laude), Quincy University (USA)',
     image: 'wayne',
     initials: 'WL',
     sections: [

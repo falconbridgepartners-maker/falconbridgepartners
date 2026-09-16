@@ -27,6 +27,9 @@ const Footer: React.FC = () => {
                             <a href={firm.phone.href} className="flex items-center gap-2 text-sm text-white/60 hover:text-white">
                                 <Phone className="w-4 h-4" /> {firm.phone.display} <span className="text-white/35">· {firm.phone.label}</span>
                             </a>
+                            <a href={firm.phoneUS.href} className="flex items-center gap-2 text-sm text-white/60 hover:text-white">
+                                <Phone className="w-4 h-4" /> {firm.phoneUS.display} <span className="text-white/35">· {firm.phoneUS.label}</span>
+                            </a>
                         </div>
                     </div>
 
