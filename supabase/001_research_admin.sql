@@ -24,7 +24,7 @@ alter table public.admin_users enable row level security;
 revoke all on public.admin_users from anon, authenticated;
 
 insert into public.admin_users (email, display_name)
-values ('researchteam@falconbp.com', 'Research Team')
+values ('researchteam@falconbp.com', 'Research Team'), ('joel@falconbp.com', 'Joel'), ('quincy@falconbp.com', 'Quincy')
 on conflict (email) do nothing;
 
 -- ─────────────────────────────────────────────────────────────────────────────

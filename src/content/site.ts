@@ -588,7 +588,7 @@ export const partners: Partner[] = [
   {
     slug: 'quincy-jc-beukes',
     name: 'Quincy JC Beukes',
-    title: 'Co-Founder & Research Partner',
+    title: 'Co-Founder & Managing Partner (Global)',
     location: 'Remote',
     emphasis: 'Corporate finance, strategy and private capital experience informing research and decision analysis.',
     email: firm.emails.quincy,
@@ -614,7 +614,7 @@ export const partners: Partner[] = [
   {
     slug: 'joel-arcus',
     name: 'Joel Arcus',
-    title: 'Co-Founder & Managing Partner',
+    title: 'Co-Founder & Managing Partner (AMEA)',
     location: 'UAE',
     emphasis: 'Human capital and leadership experience informing confidential coaching and strategic advisory.',
     email: firm.emails.joel,
@@ -640,7 +640,7 @@ export const partners: Partner[] = [
   {
     slug: 'wayne-loraine-grews',
     name: 'Wayne Loraine-Grews',
-    title: 'Partner — North America',
+    title: 'Managing Partner (North America)',
     location: 'Based in North Carolina, USA',
     emphasis: 'Global CEO and operations executive with experience across North America, Africa and Asia.',
     email: firm.emails.wayne,
