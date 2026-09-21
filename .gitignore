@@ -14,3 +14,9 @@ dist-ssr
 *.local
 dev_server.log
 dev_server.err.log
+
+# Environment files — these hold live secrets (SUPABASE_SERVICE_ROLE_KEY,
+# RESEND_API_KEY, TURNSTILE_SECRET_KEY). .env.example is the tracked template.
+.env
+.env.*
+!.env.example
