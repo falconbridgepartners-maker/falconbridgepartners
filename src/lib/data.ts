@@ -18,6 +18,7 @@ export type PartnerRow = {
   sections: { title: string; body: string }[]; portrait_path: string | null; territories: string[]; founder: boolean; sort_order: number; active: boolean;
 };
 
+export type TeamMember = { id: string; slug: string; name: string; role: string; location: string | null; email: string | null; linkedin: string | null; bio: string | null; portrait_path: string | null; sort_order: number; active: boolean };
 export const PUBLIC_MEDIA = 'public-media';
 export const RESEARCH_FILES = 'research-files';
 
@@ -127,5 +128,16 @@ export async function getPartners({ includeInactive = false } = {}): Promise<Par
     const { data, error } = await q;
     if (error) throw error;
     return (data ?? []) as PartnerRow[];
+  }, []);
+}
+
+export async function getTeam({ includeInactive = false } = {}): Promise<TeamMember[]> {
+  return safe(async () => {
+    const db = createAdminClient();
+    let q = db.from('team_members').select('*').order('sort_order');
+    if (!includeInactive) q = q.eq('active', true);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []) as TeamMember[];
   }, []);
 }

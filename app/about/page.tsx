@@ -6,6 +6,8 @@ import TerritoryMap from '@/components/dss/TerritoryMap';
 import { Section, Tile, Band, NextLink } from '@/components/dss/Tiles';
 import { firm, origins, humanAuthority, trustAndUse, trustLine, territoryPartners } from '@/content/site';
 import { getSitePartners } from '@/lib/partners';
+import { getTeam } from '@/lib/data';
+import TeamCard from '@/components/dss/TeamCard';
 
 export const metadata: Metadata = {
   title: 'About — FalconBridge Partners',
@@ -15,7 +17,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function AboutPage() {
-  const partners = await getSitePartners();
+  const [partners, team] = await Promise.all([getSitePartners(), getTeam()]);
   const founders = partners.filter((p) => p.founder);
   const others = partners.filter((p) => !p.founder);
   return (
@@ -41,6 +43,14 @@ export default async function AboutPage() {
           {partners.map((p) => <PartnerCard key={p.slug} partner={p} full />)}
         </div>
       </Section>
+
+      {team.length > 0 && (
+        <Section eyebrow="Our team" title="The people alongside the partners">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {team.map((m) => <TeamCard key={m.id} member={m} />)}
+          </div>
+        </Section>
+      )}
 
       <Section eyebrow="Where we work" title="Territories and partners" intro="Our weekly scans cover five territories: UAE/GCC, South Africa, New Zealand, Mauritius and North Carolina. Singapore is building. Partners are based in the UAE, remotely, and in North Carolina.">
         <TerritoryMap partners={partners} />

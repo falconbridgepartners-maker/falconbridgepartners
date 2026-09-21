@@ -162,6 +162,35 @@ export async function deletePartner(fd: FormData) {
   redirect('/admin/partners?deleted=1');
 }
 
+// ── Team ─────────────────────────────────────────────────────────────────────
+export async function saveTeamMember(fd: FormData) {
+  await requireAdmin();
+  const db = createAdminClient();
+  const id = str(fd, 'id') || null;
+  const name = str(fd, 'name');
+  if (!name) throw new Error('Name is required');
+  const row = {
+    slug: str(fd, 'slug') ? slugify(str(fd, 'slug')) : slugify(name),
+    name, role: str(fd, 'role') || 'Team', location: str(fd, 'location') || null, email: str(fd, 'email') || null,
+    linkedin: str(fd, 'linkedin') || null, bio: str(fd, 'bio') || null, portrait_path: str(fd, 'portrait_path') || null,
+    sort_order: str(fd, 'sort_order') ? Number(str(fd, 'sort_order')) : 0, active: bool(fd, 'active'),
+  };
+  const { error } = id ? await db.from('team_members').update(row).eq('id', id) : await db.from('team_members').insert(row);
+  if (error) throw new Error(error.message);
+  revalidatePath('/about');
+  redirect('/admin/team?saved=1');
+}
+
+export async function deleteTeamMember(fd: FormData) {
+  await requireAdmin();
+  const id = str(fd, 'id');
+  if (!id) return;
+  const db = createAdminClient();
+  await db.from('team_members').delete().eq('id', id);
+  revalidatePath('/about');
+  redirect('/admin/team?deleted=1');
+}
+
 // ── Settings ─────────────────────────────────────────────────────────────────
 export async function saveSettings(fd: FormData) {
   await requireAdmin();

@@ -78,3 +78,8 @@ Carried forward because it is consistent with the foundation and was lost only b
 - Nav: Home · About (dropdown: About, Working with FalconBridge, Territory partners) · Decision Support System™ · Research.
 - New page /territory-partners: the territory-partner proposition with its own enquiry form (routes through the contact API, tagged).
 - Founder portraits cropped tighter to match Wayne's framing; partners without an uploaded portrait fall back to the built-in image.
+
+## v5.4 — titles, team section (21 Sept 2026)
+- Partner titles: Co-Founder & Managing Partner (Global) · Co-Founder & Managing Partner (AMEA) · Managing Partner (North America). Short labels (footer, contact, map) are derived from the title (strip "Co-Founder & ") — the short_title column is no longer used for display.
+- joel@ and quincy@ added as admins in the seed so each partner signs in under their own address (avoids one session overwriting another's edits).
+- "Our Team" on About: `team_members` table (`supabase/003_team.sql`), admin Team section (name, role, location, email, LinkedIn, bio, portrait, order, shown/hidden). Section renders only when at least one member exists.

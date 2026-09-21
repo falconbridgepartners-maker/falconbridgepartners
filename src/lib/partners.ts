@@ -24,7 +24,7 @@ export async function getSitePartners(): Promise<PartnerView[]> {
   const [rows, settings] = await Promise.all([getPartners(), getSiteSettings()]);
   if (rows.length > 0) {
     return rows.map((r: PartnerRow) => ({
-      slug: r.slug, name: r.name, title: r.title, shortTitle: r.short_title ?? r.title, location: r.location ?? '', locationShort: r.location_short ?? r.location ?? '',
+      slug: r.slug, name: r.name, title: r.title, shortTitle: r.title.replace(/^Co-Founder & /i, ''), location: r.location ?? '', locationShort: r.location_short ?? r.location ?? '',
       email: r.email, phone: r.phone, phoneLabel: r.phone_label, linkedin: r.linkedin, qualification: r.qualification, emphasis: r.emphasis ?? '',
       sections: r.sections ?? [], portrait: publicMediaUrl(r.portrait_path) ?? builtInBySlug[r.slug] ?? null, initials: initialsOf(r.name), territories: r.territories ?? [], founder: r.founder,
     }));
