@@ -8,8 +8,7 @@ import { requireAdmin } from '@/lib/admin/auth';
 import { PUBLIC_MEDIA, RESEARCH_FILES } from '@/lib/data';
 
 export async function signOut() {
-  const supabase = createClient();
-  await supabase.auth.signOut();
+  try { const supabase = createClient(); await supabase.auth.signOut(); } catch { /* no session under preview bypass */ }
   redirect('/admin/login');
 }
 
