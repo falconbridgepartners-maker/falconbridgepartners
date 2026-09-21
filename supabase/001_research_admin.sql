@@ -4,6 +4,12 @@
 create extension if not exists citext;
 create extension if not exists pgcrypto;
 
+-- The server (service-role) client must be able to read and write these tables even when
+-- "Automatically expose new tables" is off for the project.
+grant usage on schema public to service_role;
+alter default privileges in schema public grant all on tables to service_role;
+alter default privileges in schema public grant all on sequences to service_role;
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Admin users: who may sign in to /admin (magic link). RLS deny-by-default;
 -- only the service-role client reads this table.
@@ -174,3 +180,7 @@ values
   'Sample interpretation. FBP’s reading of what the finding may mean for a decision-maker appears here, kept visibly separate from the finding itself.',
   '["Sample open question one.","Sample open question two.","Sample open question three."]'::jsonb, true, true)
 on conflict (slug) do nothing;
+
+-- Grants for tables created above (idempotent).
+grant all privileges on all tables in schema public to service_role;
+grant all privileges on all sequences in schema public to service_role;
