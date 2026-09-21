@@ -14,8 +14,11 @@ const WHY: Record<string, string> = {
   error: 'The admin check failed on the server.',
 };
 
-export default async function LoginPage({ searchParams }: { searchParams?: { error?: string; sent?: string; why?: string; as?: string; detail?: string } }) {
+export default async function LoginPage({ searchParams }: { searchParams?: { error?: string; sent?: string; why?: string; as?: string } }) {
   if (await getAdminUser()) redirect('/admin');
+  // Only render copy we own. An unrecognised `why` shows nothing, so the URL cannot
+  // put attacker-chosen text into an official-looking error box on our own domain.
+  const why = searchParams?.why && searchParams.why !== 'ok' ? WHY[searchParams.why] : undefined;
   return (
     <div className="min-h-screen bg-brand-navy flex items-center justify-center px-6">
       <div className="tile p-8 md:p-10 w-full max-w-md">
@@ -24,11 +27,10 @@ export default async function LoginPage({ searchParams }: { searchParams?: { err
         <h1 className="text-2xl md:text-3xl mb-2">Sign in</h1>
         <p className="text-white/60 text-sm mb-6">Enter the admin address. A one-time sign-in link is sent to that inbox.</p>
         {searchParams?.error && <p className="text-red-200 text-sm bg-red-900/20 border border-red-500/30 rounded-lg p-3 mb-4">That link has expired or already been used. Request a new one.</p>}
-        {searchParams?.why && searchParams.why !== 'ok' && (
+        {why && (
           <p className="text-red-200 text-sm bg-red-900/20 border border-red-500/30 rounded-lg p-3 mb-4">
-            {WHY[searchParams.why] ?? searchParams.why}
-            {searchParams.as && <span className="block text-white/60 mt-1">Signed in as {searchParams.as}</span>}
-            {searchParams.detail && <span className="block text-white/60 mt-1 break-words">{searchParams.detail}</span>}
+            {why}
+            {searchParams?.as && <span className="block text-white/60 mt-1">Signed in as {searchParams.as}</span>}
           </p>
         )}
         {searchParams?.sent ? (

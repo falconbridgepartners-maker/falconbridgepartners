@@ -42,9 +42,12 @@ export async function getAdminUser(): Promise<AdminUser | null> {
 export async function requireAdmin(): Promise<AdminUser> {
   const c = await checkAdmin();
   if (!c.admin) {
+    // The underlying error stays server-side (Vercel logs). It is not put in the URL:
+    // it can carry Supabase/Postgres internals, and query params leak into browser
+    // history, referrers and access logs.
+    if (c.detail) console.error(`[admin] access refused (${c.reason})${c.email ? ` for ${c.email}` : ''}: ${c.detail}`);
     const p = new URLSearchParams({ why: c.reason });
     if (c.email) p.set('as', c.email);
-    if (c.detail) p.set('detail', c.detail.slice(0, 160));
     redirect(`/admin/login?${p.toString()}`);
   }
   return c.admin;
