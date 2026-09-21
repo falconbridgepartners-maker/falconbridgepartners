@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+import SiteChrome from '@/components/layout/SiteChrome';
 import '@/index.css';
 
 const title = 'FalconBridge Partners — Sharper thinking when the decision stays with you';
@@ -27,9 +28,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-brand-navy text-brand-grey font-primary antialiased overflow-x-clip">
         <div className="app-wrapper">
           <div className="grain-overlay"></div>
-          <Navbar />
+          <SiteChrome><Navbar /></SiteChrome>
           <main>{children}</main>
-          <Footer />
+          <SiteChrome><Footer /></SiteChrome>
         </div>
       </body>
     </html>
