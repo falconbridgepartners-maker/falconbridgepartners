@@ -5,13 +5,17 @@ import PartnerCard from '@/components/dss/PartnerCard';
 import TerritoryMap from '@/components/dss/TerritoryMap';
 import { Section, Tile, Band } from '@/components/dss/Tiles';
 import { firm, origins, partners, humanAuthority, trustAndUse, trustLine } from '@/content/site';
+import { getSiteSettings, publicMediaUrl } from '@/lib/data';
 
 export const metadata: Metadata = {
   title: 'About — FalconBridge Partners',
   description: firm.shortDescription,
 };
 
-export default function AboutPage() {
+export const dynamic = 'force-dynamic';
+
+export default async function AboutPage() {
+  const settings = await getSiteSettings();
   return (
     <>
       <PageHero eyebrow="About FalconBridge" title="Experience with personal accountability" governing={firm.clarityLine} intro={firm.standardIntroduction} />
@@ -32,7 +36,7 @@ export default function AboutPage() {
 
       <Section eyebrow="The partners" title="Quincy and Joel are the founding partners. Wayne extends the partnership into North America.">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {partners.map((p) => <PartnerCard key={p.slug} partner={p} full />)}
+          {partners.map((p) => <PartnerCard key={p.slug} partner={p} full portrait={publicMediaUrl(settings.portraits[p.image ?? ''])} />)}
         </div>
       </Section>
 

@@ -1,4 +1,4 @@
-# falconbp.com revamp — branch `revamp/dss` (prototype v3, 14 September 2026)
+# falconbp.com revamp — branch `revamp/dss` (prototype v4, 21 September 2026)
 
 Built from the September 2026 partner-review documents. All copy lives in `src/content/site.ts`;
 change it there and every page updates. Lines marked `[DRAFT]` in that file were written where the
@@ -55,3 +55,11 @@ Carried forward because it is consistent with the foundation and was lost only b
 - `sitemap.xml` (all routes + scans + studies) and `robots.txt` (disallows /keystatic and /api).
 - Vercel env needed: `NEXT_PUBLIC_SITE_URL`; Keystatic GitHub App vars for production editing; `NEXT_PUBLIC_TURNSTILE_SITE_KEY` on Preview for forms.
 - Still to do: Terms of Engagement full rewrite (separate draft); Wayne's portrait; real scan entries; study files.
+
+## v4 — research admin on Supabase (21 Sept 2026)
+- Keystatic and `content/` removed. Reports, package files, Weekly Scan entries and site settings live in Supabase Postgres; covers/extracts/portraits in the public `public-media` bucket; PDFs in the private `research-files` bucket, served by signed URL.
+- `/admin` (FBP skin): dashboard, Reports (list, add/edit, cover + extract + six package files with open/on-request per file, featured, published), Weekly Scan (list, add/edit, reviewed gate before publish), Site settings (featured report, partner portraits). Sign-in by magic link; access = active row in `admin_users` (seeded: researchteam@falconbp.com). Pattern mirrors the SWTQ admin: server actions, `requireAdmin()` in the layout and re-checked in every action, no middleware gate.
+- Uploads go browser → Storage via signed upload URLs (`createUploadTarget`), so large PDFs never pass through Vercel.
+- Public: `/research/library` cover grid with territory/type filters; study pages, Weekly Scan, RSS, sitemap and the featured card on Home/Research read from the database. `/research/files/[id]` redirects to a signed URL for open files of published reports.
+- Wayne's portrait composited onto a studio charcoal backdrop to match the other two.
+- Setup: run `supabase/001_research_admin.sql` in the Supabase SQL editor; add `/auth/callback` on falconbp.com and the preview origin to Supabase Auth redirect URLs; env vars per `.env.example`.

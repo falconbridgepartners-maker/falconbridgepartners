@@ -9,10 +9,12 @@ import { Section, Tile, NextLink } from '@/components/dss/Tiles';
 import Image from 'next/image';
 import falconMark from '@/assets/images/falcon-mark.png';
 import { firm, forces, situations, humanAuthority, origins, partners, serviceByKey } from '@/content/site';
-import { getAllStudies, territoryName } from '@/lib/content';
+import { getFeaturedReport, getSiteSettings, publicMediaUrl, territoryName } from '@/lib/data';
+
+export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const [featuredStudy] = await getAllStudies();
+  const [featuredStudy, settings] = await Promise.all([getFeaturedReport(), getSiteSettings()]);
   return (
     <>
       {/* Hero — the approved client promise */}
@@ -126,7 +128,7 @@ export default async function Home() {
               <p className="text-sm">{origins.milestones[2].body}</p>
             </Tile>
             <NextLink href="/research/weekly-scan" label="Weekly Scan" sub="Territorial signals turned into decision-relevant questions." />
-            <NextLink href="/research" label="Research capability" sub="The six-element package and how evidence is handled." />
+            <NextLink href="/research/library" label="Research library" sub="Public studies, samples and papers available to readers." />
           </div>
         </div>
       </Section>
@@ -134,7 +136,7 @@ export default async function Home() {
       {/* Partners */}
       <Section eyebrow="The partners" title="Experience with personal accountability" intro="Quincy and Joel are the founding partners. Wayne extends the partnership into North America.">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {partners.map((p) => <PartnerCard key={p.slug} partner={p} />)}
+          {partners.map((p) => <PartnerCard key={p.slug} partner={p} portrait={publicMediaUrl(settings.portraits[p.image ?? ''])} />)}
         </div>
         <div className="mt-8">
           <Link href="/about" className="inline-flex items-center gap-2 text-brand-gold-pale text-sm">About FalconBridge — origins, philosophy and where we work <ArrowRight className="w-4 h-4" /></Link>

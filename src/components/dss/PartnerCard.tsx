@@ -8,9 +8,12 @@ import type { Partner } from '@/content/site';
 
 const images = { joel: joelImage, quincy: quincyImage, wayne: wayneImage } as const;
 
-export const Portrait: React.FC<{ partner: Partner; className?: string }> = ({ partner, className }) => (
+export const Portrait: React.FC<{ partner: Partner; className?: string; override?: string | null }> = ({ partner, className, override }) => (
     <div className={`relative aspect-[4/5] overflow-hidden rounded-xl bg-brand-navy-dark border border-brand-gold/30 ${className ?? ''}`}>
-        {partner.image ? (
+        {override ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={override} alt={partner.name} className="w-full h-full object-cover object-top" />
+        ) : partner.image ? (
             <Image src={images[partner.image]} alt={partner.name} className="w-full h-full object-cover object-top" />
         ) : (
             // Placeholder until the supplied portrait arrives — prototype only
@@ -24,10 +27,10 @@ export const Portrait: React.FC<{ partner: Partner; className?: string }> = ({ p
     </div>
 );
 
-const PartnerCard: React.FC<{ partner: Partner; full?: boolean }> = ({ partner, full }) => (
+const PartnerCard: React.FC<{ partner: Partner; full?: boolean; portrait?: string | null }> = ({ partner, full, portrait }) => (
     <article className="tile p-6 md:p-7 flex flex-col">
         <div className="flex gap-5 items-start">
-            <Portrait partner={partner} className="w-24 md:w-28 shrink-0" />
+            <Portrait partner={partner} className="w-24 md:w-28 shrink-0" override={portrait} />
             <div className="min-w-0">
                 <h3 className="text-lg md:text-xl leading-tight">{partner.name}</h3>
                 <p className="text-brand-gold-pale text-sm mt-1">{partner.title}</p>

@@ -3,14 +3,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    // Content collections (Keystatic-managed MDX) must be traced into the serverless bundle.
-    outputFileTracingIncludes: {
-      '/research/**': ['./content/**/*'],
-      '/research/weekly-scan/rss.xml': ['./content/**/*'],
-      '/sitemap.xml': ['./content/**/*'],
-    },
-  },
   async redirects() {
     return [
       // Retired "How We Work" pages → the Decision Support System (Revamp, Sept 2026)

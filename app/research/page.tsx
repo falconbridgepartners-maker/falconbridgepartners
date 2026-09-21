@@ -6,16 +6,18 @@ import Invitation from '@/components/dss/Invitation';
 import TerritoryMap from '@/components/dss/TerritoryMap';
 import { Section, Tile, ThreeColumns, Band, NextLink } from '@/components/dss/Tiles';
 import { research, serviceByKey, firm } from '@/content/site';
-import { getAllStudies, territoryName } from '@/lib/content';
+import { getFeaturedReport, territoryName } from '@/lib/data';
 
 export const metadata: Metadata = {
   title: 'Research — FalconBridge Partners',
   description: 'Research that readers can examine: a substantive investigation delivered with the means to navigate, discuss and challenge its findings.',
 };
 
+export const dynamic = 'force-dynamic';
+
 export default async function ResearchPage() {
   const raas = serviceByKey('raas');
-  const [featuredStudy] = await getAllStudies();
+  const featuredStudy = await getFeaturedReport();
   return (
     <>
       <PageHero eyebrow="Research" title={research.heading} intro={research.intro} />
@@ -38,7 +40,7 @@ export default async function ResearchPage() {
         <TerritoryMap />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-8">
           <NextLink href="/research/weekly-scan" label="Weekly Scan" sub="Signals from each territory, turned into decision-relevant questions." />
-          <NextLink href="/research/studies" label="Public studies" sub="Selected FBP-funded GDRS investigations, available to readers." />
+          <NextLink href="/research/library" label="Research library" sub="Public studies, commissioned samples and papers, available to readers." />
         </div>
       </Section>
 

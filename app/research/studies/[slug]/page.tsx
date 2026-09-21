@@ -5,42 +5,41 @@ import PageHero from '@/components/dss/PageHero';
 import Invitation from '@/components/dss/Invitation';
 import RequestReport from '@/components/dss/RequestReport';
 import { Section, Band } from '@/components/dss/Tiles';
-import { getAllStudies, getStudyBySlug, territoryName } from '@/lib/content';
+import { getReportBySlug, publicMediaUrl, territoryName } from '@/lib/data';
 
-export async function generateStaticParams() {
-  const all = await getAllStudies({ includeDrafts: true });
-  return all.map((s) => ({ slug: s.slug }));
-}
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const s = await getStudyBySlug(params.slug);
+  const s = await getReportBySlug(params.slug);
   if (!s) return {};
-  return { title: `${s.title} — FalconBridge Partners`, description: s.subtitle };
+  return { title: `${s.title} — FalconBridge Partners`, description: s.subtitle ?? undefined, openGraph: s.cover_path ? { images: [publicMediaUrl(s.cover_path)!] } : undefined };
 }
 
 export default async function StudyPage({ params }: { params: { slug: string } }) {
-  const s = await getStudyBySlug(params.slug);
-  if (!s || s.draft) notFound();
-  const hasFiles = s.files.some((f) => f.url);
+  const s = await getReportBySlug(params.slug);
+  if (!s) notFound();
+  const extract = publicMediaUrl(s.extract_path);
+  const files = s.files ?? [];
+  const hasOpen = files.some((f) => f.storage_path && f.access === 'open');
+  const hasRequest = files.some((f) => f.access === 'request' || !f.storage_path);
   return (
     <>
-      <PageHero eyebrow={`Public study · ${territoryName[s.territory] ?? s.territory}`} title={s.title} governing={s.subtitle} />
+      <PageHero eyebrow={`${s.kind === 'study' ? 'Public study' : s.kind === 'sample' ? 'Commissioned sample' : 'White paper'} · ${territoryName[s.territory] ?? s.territory}${s.year ? ` · ${s.year}` : ''}`} title={s.title} governing={s.subtitle ?? undefined} />
       <Section>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-7">
             <div className="tile p-8 md:p-10 aspect-[4/3] flex items-center justify-center text-center overflow-hidden">
-              {s.extractImage ? (
+              {extract ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={s.extractImage} alt={`${s.title} — extract`} className="w-full h-full object-contain" />
+                <img src={extract} alt={`${s.title} — extract`} className="w-full h-full object-contain" />
               ) : (
                 <div>
                   <p className="governing text-2xl mb-3">Report extract</p>
-                  <p className="text-white/55 text-sm max-w-md">{s.extractNote}</p>
-                  <p className="text-[0.68rem] text-brand-gold-pale mt-6">Extract image to be placed here — prototype</p>
+                  <p className="text-white/55 text-sm max-w-md">{s.extract_note}</p>
                 </div>
               )}
             </div>
-            {s.body.trim() && <p className="text-white/70 mt-6">{s.body.trim()}</p>}
+            {s.body && <p className="text-white/70 mt-6 whitespace-pre-line">{s.body}</p>}
           </div>
           <div className="lg:col-span-5 space-y-4">
             {s.facts.map((f) => (
@@ -54,23 +53,23 @@ export default async function StudyPage({ params }: { params: { slug: string } }
       </Section>
       <Section eyebrow="The complete package" title="Six elements, tailored to the question and to how readers will use the work">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-          {s.files.map((f) => (
-            f.url ? (
-              <a key={f.label} href={f.url} className="tile p-5 flex items-center justify-between gap-3 hover:border-brand-gold/60 transition-colors">
+          {files.map((f) => (
+            f.storage_path && f.access === 'open' ? (
+              <a key={f.id} href={`/research/files/${f.id}`} className="tile p-5 flex items-center justify-between gap-3 hover:border-brand-gold/60 transition-colors">
                 <span className="text-white text-sm font-bold">{f.label}</span>
                 <Download className="w-4 h-4 text-brand-gold" />
               </a>
             ) : (
-              <div key={f.label} className="tile p-5 flex items-center justify-between gap-3">
+              <div key={f.id} className="tile p-5 flex items-center justify-between gap-3">
                 <span className="text-white text-sm font-bold">{f.label}</span>
                 <span className="text-[0.7rem] text-white/40">on request</span>
               </div>
             )
           ))}
         </div>
-        <RequestReport studyTitle={s.title} />
-        {!hasFiles && <p className="text-sm text-white/45 mt-4">Direct downloads are added as each element is released.</p>}
-        <div className="mt-10"><Band title="The sample demonstrates the work" body={s.qualifier} /></div>
+        {hasRequest && <RequestReport studyTitle={s.title} />}
+        {!hasOpen && hasRequest && <p className="text-sm text-white/45 mt-4">Direct downloads are added as each element is released.</p>}
+        {s.qualifier && <div className="mt-10"><Band title="The sample demonstrates the work" body={s.qualifier} /></div>}
       </Section>
       <Invitation compact />
     </>

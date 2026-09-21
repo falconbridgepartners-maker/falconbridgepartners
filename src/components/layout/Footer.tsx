@@ -52,7 +52,7 @@ const Footer: React.FC = () => {
                         <ul className="space-y-3">
                             <li><Link href="/research" className={col}>Research capability</Link></li>
                             <li><Link href="/research/weekly-scan" className={col}>Weekly Scan</Link></li>
-                            <li><Link href="/research/studies" className={col}>Public studies</Link></li>
+                            <li><Link href="/research/library" className={col}>Research library</Link></li>
                         </ul>
                     </div>
 
