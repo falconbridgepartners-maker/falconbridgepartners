@@ -1,6 +1,7 @@
 import React from 'react';
 import { research } from '@/content/site';
 import type { PartnerView } from '@/lib/partners';
+// `partners` is accepted for future use (e.g. hover detail) but nothing personal is drawn on the map.
 import { WORLD_OUTLINE } from './worldOutline';
 
 /** Where we work — scan territories and partner bases on a restrained equirectangular map. */
@@ -17,7 +18,7 @@ const W = 1000, H = 440;
 // Equirectangular, longitude −120…180 and latitude −60…70, so the five points sit comfortably on the canvas.
 const project = (lon: number, lat: number) => ({ x: ((lon + 120) / 300) * (W - 120) + 60, y: ((70 - lat) / 130) * (H - 80) + 40 });
 
-const TerritoryMap: React.FC<{ partners: PartnerView[] }> = ({ partners }) => (
+const TerritoryMap: React.FC<{ partners?: PartnerView[] }> = () => (
     <div className="tile p-4 md:p-6">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Territories covered by FalconBridge's weekly scans and where its partners are based">
             <defs>
@@ -36,8 +37,7 @@ const TerritoryMap: React.FC<{ partners: PartnerView[] }> = ({ partners }) => (
             {points.map((p) => {
                 const { x, y } = project(p.lon, p.lat);
                 const planned = p.kind === 'planned';
-                const who = partners.filter((x) => x.territories.includes(p.key)).map((x) => `${x.name} · ${x.shortTitle}`).join('  ·  ');
-                const partnerLabel = who || undefined;
+                const partnerLabel: string | undefined = undefined; // partner names are not shown on the map
                 const flip = p.labelLeft || p.lon > 120; // label to the left near the right edge or where labels would collide
                 const tx = flip ? x - 16 : x + 16;
                 const anchor = flip ? 'end' : 'start';
@@ -56,9 +56,6 @@ const TerritoryMap: React.FC<{ partners: PartnerView[] }> = ({ partners }) => (
             <span className="inline-flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full border border-dashed border-brand-gold-pale inline-block" /> Building</span>
             <span className="ml-auto">{research.curiosity.territoryNote}</span>
         </div>
-        <p className="text-sm text-white/45 mt-3">
-            Partners: {partners.map((p) => `${p.name} (${p.locationShort}) · ${p.title}`).join('  ·  ')}.
-        </p>
     </div>
 );
 
