@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { LayoutDashboard, BookOpen, Radar, Settings, Globe, LogOut } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Radar, Users, Settings, Globe, LogOut } from 'lucide-react';
 import logo from '@/assets/logos/logo.png';
 import type { AdminUser } from '@/lib/admin/auth';
 import { signOut } from '@/lib/admin/actions';
@@ -9,6 +9,7 @@ const nav = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/reports', label: 'Reports', icon: BookOpen },
   { href: '/admin/scans', label: 'Weekly Scan', icon: Radar },
+  { href: '/admin/partners', label: 'Partners', icon: Users },
   { href: '/admin/settings', label: 'Site settings', icon: Settings },
 ];
 

@@ -8,13 +8,17 @@ import PartnerCard from '@/components/dss/PartnerCard';
 import { Section, Tile, NextLink } from '@/components/dss/Tiles';
 import Image from 'next/image';
 import falconMark from '@/assets/images/falcon-mark.png';
-import { firm, forces, situations, humanAuthority, origins, partners, serviceByKey } from '@/content/site';
-import { getFeaturedReport, getSiteSettings, publicMediaUrl, territoryName } from '@/lib/data';
+import { firm, forces, situations, humanAuthority, origins, serviceByKey } from '@/content/site';
+import { getFeaturedReport, publicMediaUrl, territoryName } from '@/lib/data';
+import { getSitePartners } from '@/lib/partners';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const [featuredStudy, settings] = await Promise.all([getFeaturedReport(), getSiteSettings()]);
+  const [featuredStudy, partners] = await Promise.all([getFeaturedReport(), getSitePartners()]);
+  const founders = partners.filter((p) => p.founder);
+  const others = partners.filter((p) => !p.founder);
+  const cover = publicMediaUrl(featuredStudy?.cover_path);
   return (
     <>
       {/* Hero — the approved client promise */}
@@ -107,7 +111,9 @@ export default async function Home() {
       {/* Research in practice */}
       <Section eyebrow="Research in practice" title="Depth that the reader can examine" intro="We also fund studies into questions we consider worth investigating and make selected full reports available to readers.">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {featuredStudy && <div className="lg:col-span-7 tile p-8 md:p-10">
+          {featuredStudy && <div className="lg:col-span-7 tile p-8 md:p-10 flex gap-8">
+            {cover && <div className="hidden md:block w-40 shrink-0 self-start rounded-lg overflow-hidden border border-brand-gold/25">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={cover} alt={featuredStudy.title} className="w-full h-auto" /></div>}
+            <div className="min-w-0 flex-1">
             <p className="label-tech mb-3">{territoryName[featuredStudy.territory] ?? featuredStudy.territory} · FBP-commissioned study</p>
             <h3 className="text-2xl md:text-3xl mb-3">{featuredStudy.title}</h3>
             <p className="text-white/70 mb-8">{featuredStudy.subtitle}</p>
@@ -120,6 +126,7 @@ export default async function Home() {
               ))}
             </div>
             <Link href={`/research/studies/${featuredStudy.slug}`} className="inline-flex items-center gap-2 text-brand-gold-pale mt-8 text-sm">Examine the study <ArrowRight className="w-4 h-4" /></Link>
+            </div>
           </div>}
           <div className="lg:col-span-5 grid grid-cols-1 gap-5">
             <Tile ivory>
@@ -134,9 +141,9 @@ export default async function Home() {
       </Section>
 
       {/* Partners */}
-      <Section eyebrow="The partners" title="Experience with personal accountability" intro="Quincy and Joel are the founding partners. Wayne extends the partnership into North America.">
+      <Section eyebrow="The partners" title="Experience with personal accountability" intro={`${founders.map((p) => p.name.split(' ')[0]).join(' and ')} ${founders.length > 1 ? 'are the founding partners' : 'is the founding partner'}.${others.length ? ` ${others.map((p) => p.name.split(' ')[0]).join(', ')} ${others.length > 1 ? 'extend' : 'extends'} the partnership into ${others.map((p) => p.locationShort).join(', ')}.` : ''}`}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {partners.map((p) => <PartnerCard key={p.slug} partner={p} portrait={publicMediaUrl(settings.portraits[p.image ?? ''])} />)}
+          {partners.map((p) => <PartnerCard key={p.slug} partner={p} />)}
         </div>
         <div className="mt-8">
           <Link href="/about" className="inline-flex items-center gap-2 text-brand-gold-pale text-sm">About FalconBridge — origins, philosophy and where we work <ArrowRight className="w-4 h-4" /></Link>

@@ -19,7 +19,7 @@ const Invitation: React.FC<{ compact?: boolean }> = ({ compact }) => (
                 <p className="text-white/75 max-w-2xl mb-10">{firm.invitation.body}</p>
                 <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
                     <Button href="/contact" variant="primary" size="md" icon={ArrowRight}>{firm.invitation.cta}</Button>
-                    <span className="text-sm text-white/45">falconbp.com · {firm.emails.quincy} · {firm.emails.joel} · {firm.emails.wayne}</span>
+                    <span className="text-sm text-white/45">falconbp.com</span>
                 </div>
             </div>
         </div>

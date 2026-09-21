@@ -127,6 +127,41 @@ export async function deleteScan(fd: FormData) {
   redirect('/admin/scans?deleted=1');
 }
 
+// ── Partners ─────────────────────────────────────────────────────────────────
+export async function savePartner(fd: FormData) {
+  await requireAdmin();
+  const db = createAdminClient();
+  const id = str(fd, 'id') || null;
+  const name = str(fd, 'name');
+  if (!name) throw new Error('Name is required');
+  const sections: { title: string; body: string }[] = [];
+  for (let i = 0; i < 3; i++) { const t = str(fd, `section_title_${i}`), b = str(fd, `section_body_${i}`); if (t || b) sections.push({ title: t, body: b }); }
+  const territories = fd.getAll('territories').map(String).filter(Boolean);
+  const row = {
+    slug: str(fd, 'slug') ? slugify(str(fd, 'slug')) : slugify(name),
+    name, title: str(fd, 'title') || 'Partner', short_title: str(fd, 'short_title') || null,
+    location: str(fd, 'location') || null, location_short: str(fd, 'location_short') || null,
+    email: str(fd, 'email') || null, phone: str(fd, 'phone') || null, phone_label: str(fd, 'phone_label') || null,
+    linkedin: str(fd, 'linkedin') || null, qualification: str(fd, 'qualification') || null, emphasis: str(fd, 'emphasis') || null,
+    sections, portrait_path: str(fd, 'portrait_path') || null, territories,
+    founder: bool(fd, 'founder'), sort_order: str(fd, 'sort_order') ? Number(str(fd, 'sort_order')) : 0, active: bool(fd, 'active'),
+  };
+  const { error } = id ? await db.from('partners').update(row).eq('id', id) : await db.from('partners').insert(row);
+  if (error) throw new Error(error.message);
+  for (const p of ['/', '/about', '/contact', '/research']) revalidatePath(p);
+  redirect('/admin/partners?saved=1');
+}
+
+export async function deletePartner(fd: FormData) {
+  await requireAdmin();
+  const id = str(fd, 'id');
+  if (!id) return;
+  const db = createAdminClient();
+  await db.from('partners').delete().eq('id', id);
+  for (const p of ['/', '/about', '/contact', '/research']) revalidatePath(p);
+  redirect('/admin/partners?deleted=1');
+}
+
 // ── Settings ─────────────────────────────────────────────────────────────────
 export async function saveSettings(fd: FormData) {
   await requireAdmin();

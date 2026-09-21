@@ -1,4 +1,4 @@
-# falconbp.com revamp — branch `revamp/dss` (prototype v4, 21 September 2026)
+# falconbp.com revamp — branch `revamp/dss` (prototype v5, 21 September 2026)
 
 Built from the September 2026 partner-review documents. All copy lives in `src/content/site.ts`;
 change it there and every page updates. Lines marked `[DRAFT]` in that file were written where the
@@ -63,3 +63,10 @@ Carried forward because it is consistent with the foundation and was lost only b
 - Public: `/research/library` cover grid with territory/type filters; study pages, Weekly Scan, RSS, sitemap and the featured card on Home/Research read from the database. `/research/files/[id]` redirects to a signed URL for open files of published reports.
 - Wayne's portrait composited onto a studio charcoal backdrop to match the other two.
 - Setup: run `supabase/001_research_admin.sql` in the Supabase SQL editor; add `/auth/callback` on falconbp.com and the preview origin to Supabase Auth redirect URLs; env vars per `.env.example`.
+
+## v5 — partners managed in the admin; Research dropdown; cover on the featured card (21 Sept 2026)
+- `partners` table (`supabase/002_partners.sql`, seeded with the three current partners) and an admin section: name, titles, locations, email, phone, LinkedIn, qualifications, emphasis, three profile paragraphs, portrait, territories covered, founder flag, order, shown/hidden.
+- About cards, Home founder cards, the territory map labels, the footer partner list and phones, and the contact "write directly" block all read from it. Until the table exists the site falls back to the built-in three.
+- Nav: Research is a dropdown — Capability · Weekly Scan · Library.
+- Featured report card on Home and Research shows the report cover when one is uploaded.
+- Contact page split into a server page + client form so it can read partners.

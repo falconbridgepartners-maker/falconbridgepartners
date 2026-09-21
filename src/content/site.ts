@@ -901,7 +901,15 @@ export const nav = {
         { label: 'Bespoke Managed Services', href: '/bespoke-managed-services' },
       ],
     },
-    { label: 'Research', href: '/research' },
+    {
+      label: 'Research',
+      href: '/research',
+      children: [
+        { label: 'Research capability', href: '/research' },
+        { label: 'Weekly Scan', href: '/research/weekly-scan' },
+        { label: 'Library', href: '/research/library' },
+      ],
+    },
     { label: 'About', href: '/about' },
   ],
   cta: { label: firm.invitation.cta, href: '/contact' },

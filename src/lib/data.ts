@@ -12,6 +12,11 @@ export type Scan = {
   finding: string | null; interpretation: string | null; open_questions: string[]; reviewed: boolean; sample: boolean; published: boolean;
 };
 export type SiteSettings = { featured_report_id: string | null; portraits: Record<string, string> };
+export type PartnerRow = {
+  id: string; slug: string; name: string; title: string; short_title: string | null; location: string | null; location_short: string | null;
+  email: string | null; phone: string | null; phone_label: string | null; linkedin: string | null; qualification: string | null; emphasis: string | null;
+  sections: { title: string; body: string }[]; portrait_path: string | null; territories: string[]; founder: boolean; sort_order: number; active: boolean;
+};
 
 export const PUBLIC_MEDIA = 'public-media';
 export const RESEARCH_FILES = 'research-files';
@@ -111,4 +116,16 @@ export async function signedFileUrl(path: string): Promise<string | null> {
     if (error) throw error;
     return data.signedUrl;
   }, null);
+}
+
+/** Active partners in display order. Empty when the partners table has not been created yet — callers fall back to the built-in list. */
+export async function getPartners({ includeInactive = false } = {}): Promise<PartnerRow[]> {
+  return safe(async () => {
+    const db = createAdminClient();
+    let q = db.from('partners').select('*').order('sort_order');
+    if (!includeInactive) q = q.eq('active', true);
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []) as PartnerRow[];
+  }, []);
 }

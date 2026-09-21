@@ -4,8 +4,8 @@ import Invitation from '@/components/dss/Invitation';
 import PartnerCard from '@/components/dss/PartnerCard';
 import TerritoryMap from '@/components/dss/TerritoryMap';
 import { Section, Tile, Band } from '@/components/dss/Tiles';
-import { firm, origins, partners, humanAuthority, trustAndUse, trustLine } from '@/content/site';
-import { getSiteSettings, publicMediaUrl } from '@/lib/data';
+import { firm, origins, humanAuthority, trustAndUse, trustLine } from '@/content/site';
+import { getSitePartners } from '@/lib/partners';
 
 export const metadata: Metadata = {
   title: 'About — FalconBridge Partners',
@@ -15,7 +15,9 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function AboutPage() {
-  const settings = await getSiteSettings();
+  const partners = await getSitePartners();
+  const founders = partners.filter((p) => p.founder);
+  const others = partners.filter((p) => !p.founder);
   return (
     <>
       <PageHero eyebrow="About FalconBridge" title="Experience with personal accountability" governing={firm.clarityLine} intro={firm.standardIntroduction} />
@@ -34,14 +36,14 @@ export default async function AboutPage() {
         <p className="text-white/45 text-sm mt-4 max-w-4xl">{origins.qualifier}</p>
       </Section>
 
-      <Section eyebrow="The partners" title="Quincy and Joel are the founding partners. Wayne extends the partnership into North America.">
+      <Section eyebrow="The partners" title={`${founders.map((p) => p.name.split(' ')[0]).join(' and ')} ${founders.length > 1 ? 'are the founding partners' : 'is the founding partner'}.${others.length ? ` ${others.map((p) => p.name.split(' ')[0]).join(', ')} ${others.length > 1 ? 'extend' : 'extends'} the partnership into ${others.map((p) => p.locationShort).join(', ')}.` : ''}`}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {partners.map((p) => <PartnerCard key={p.slug} partner={p} full portrait={publicMediaUrl(settings.portraits[p.image ?? ''])} />)}
+          {partners.map((p) => <PartnerCard key={p.slug} partner={p} full />)}
         </div>
       </Section>
 
       <Section eyebrow="Where we work" title="Territories and partners" intro="Our weekly scans cover five territories: UAE/GCC, South Africa, New Zealand, Mauritius and North Carolina. Singapore is building. Partners are based in the UAE, remotely, and in North Carolina.">
-        <TerritoryMap />
+        <TerritoryMap partners={partners} />
       </Section>
 
       <Section eyebrow="Our philosophy" title="Human authority in AI-assisted work">

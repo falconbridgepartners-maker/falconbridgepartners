@@ -4,11 +4,14 @@ import Image from 'next/image';
 import { Linkedin, Phone } from 'lucide-react';
 import logo from '@/assets/logos/logo.png';
 import { firm, services, situations } from '@/content/site';
+import { getSitePartners } from '@/lib/partners';
 
 const col = "text-white/55 hover:text-white transition-colors text-sm";
 
-const Footer: React.FC = () => {
+const Footer = async () => {
     const year = new Date().getFullYear();
+    const partners = await getSitePartners();
+    const phones = partners.filter((p) => p.phone);
     return (
         <footer className="relative bg-brand-navy pt-24 pb-10 overflow-hidden border-t border-brand-gold/15">
             <div className="max-w-300 mx-auto px-6 relative z-10">
@@ -24,12 +27,11 @@ const Footer: React.FC = () => {
                             <a href={firm.linkedin} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-white/60 hover:text-white">
                                 <Linkedin className="w-4 h-4" /> FalconBridge Partners on LinkedIn
                             </a>
-                            <a href={firm.phone.href} className="flex items-center gap-2 text-sm text-white/60 hover:text-white">
-                                <Phone className="w-4 h-4" /> {firm.phone.display} <span className="text-white/35">· {firm.phone.label}</span>
-                            </a>
-                            <a href={firm.phoneUS.href} className="flex items-center gap-2 text-sm text-white/60 hover:text-white">
-                                <Phone className="w-4 h-4" /> {firm.phoneUS.display} <span className="text-white/35">· {firm.phoneUS.label}</span>
-                            </a>
+                            {(phones.length ? phones.map((p) => ({ display: p.phone!, href: `tel:${p.phone!.replace(/[^+\d]/g, '')}`, label: p.phoneLabel ?? p.locationShort })) : [firm.phone, firm.phoneUS]).map((ph) => (
+                                <a key={ph.display} href={ph.href} className="flex items-center gap-2 text-sm text-white/60 hover:text-white">
+                                    <Phone className="w-4 h-4" /> {ph.display} <span className="text-white/35">· {ph.label}</span>
+                                </a>
+                            ))}
                         </div>
                     </div>
 
@@ -70,9 +72,9 @@ const Footer: React.FC = () => {
                         </ul>
                         <h4 className="label-tech mt-8 mb-6">Partners</h4>
                         <ul className="space-y-3 text-sm">
-                            <li><a href={`mailto:${firm.emails.quincy}`} className={col}>{firm.emails.quincy}</a></li>
-                            <li><a href={`mailto:${firm.emails.joel}`} className={col}>{firm.emails.joel}</a></li>
-                            <li><a href={`mailto:${firm.emails.wayne}`} className={col}>{firm.emails.wayne}</a></li>
+                            {partners.filter((p) => p.email).map((p) => (
+                                <li key={p.slug}><a href={`mailto:${p.email}`} className={col}>{p.name}</a><span className="block text-xs text-white/35">{p.shortTitle} · {p.locationShort}</span></li>
+                            ))}
                         </ul>
                     </div>
                 </div>

@@ -1,24 +1,23 @@
 import React from 'react';
-import { research, partners } from '@/content/site';
+import { research } from '@/content/site';
+import type { PartnerView } from '@/lib/partners';
 import { WORLD_OUTLINE } from './worldOutline';
 
 /** Where we work — scan territories and partner bases on a restrained equirectangular map. */
-// Quincy covers South Africa, Mauritius, New Zealand and Singapore remotely until partners are found in those regions.
-const QUINCY = 'Quincy JC Beukes · Research Partner';
-const points: { key: string; name: string; lon: number; lat: number; kind: 'scan' | 'planned'; partner?: string; labelLeft?: boolean }[] = [
-    { key: 'uae-gcc', name: 'UAE / GCC', lon: 55.3, lat: 25.2, kind: 'scan', partner: 'Joel Arcus · Managing Partner' },
-    { key: 'south-africa', name: 'South Africa', lon: 28.0, lat: -26.2, kind: 'scan', partner: QUINCY, labelLeft: true },
-    { key: 'new-zealand', name: 'New Zealand', lon: 174.8, lat: -41.3, kind: 'scan', partner: QUINCY },
-    { key: 'mauritius', name: 'Mauritius', lon: 57.5, lat: -20.2, kind: 'scan', partner: QUINCY },
-    { key: 'north-carolina', name: 'North Carolina', lon: -79.0, lat: 35.6, kind: 'scan', partner: 'Wayne Loraine-Grews · Partner' },
-    { key: 'singapore', name: 'Singapore', lon: 103.8, lat: 1.35, kind: 'planned', partner: QUINCY },
+const points: { key: string; name: string; lon: number; lat: number; kind: 'scan' | 'planned'; labelLeft?: boolean }[] = [
+    { key: 'uae-gcc', name: 'UAE / GCC', lon: 55.3, lat: 25.2, kind: 'scan' },
+    { key: 'south-africa', name: 'South Africa', lon: 28.0, lat: -26.2, kind: 'scan', labelLeft: true },
+    { key: 'new-zealand', name: 'New Zealand', lon: 174.8, lat: -41.3, kind: 'scan' },
+    { key: 'mauritius', name: 'Mauritius', lon: 57.5, lat: -20.2, kind: 'scan' },
+    { key: 'north-carolina', name: 'North Carolina', lon: -79.0, lat: 35.6, kind: 'scan' },
+    { key: 'singapore', name: 'Singapore', lon: 103.8, lat: 1.35, kind: 'planned' },
 ];
 
 const W = 1000, H = 440;
 // Equirectangular, longitude −120…180 and latitude −60…70, so the five points sit comfortably on the canvas.
 const project = (lon: number, lat: number) => ({ x: ((lon + 120) / 300) * (W - 120) + 60, y: ((70 - lat) / 130) * (H - 80) + 40 });
 
-const TerritoryMap: React.FC = () => (
+const TerritoryMap: React.FC<{ partners: PartnerView[] }> = ({ partners }) => (
     <div className="tile p-4 md:p-6">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Territories covered by FalconBridge's weekly scans and where its partners are based">
             <defs>
@@ -37,6 +36,8 @@ const TerritoryMap: React.FC = () => (
             {points.map((p) => {
                 const { x, y } = project(p.lon, p.lat);
                 const planned = p.kind === 'planned';
+                const who = partners.filter((x) => x.territories.includes(p.key)).map((x) => `${x.name} · ${x.shortTitle}`).join('  ·  ');
+                const partnerLabel = who || undefined;
                 const flip = p.labelLeft || p.lon > 120; // label to the left near the right edge or where labels would collide
                 const tx = flip ? x - 16 : x + 16;
                 const anchor = flip ? 'end' : 'start';
@@ -45,7 +46,7 @@ const TerritoryMap: React.FC = () => (
                         <circle cx={x} cy={y} r={planned ? 7 : 8} fill={planned ? 'none' : '#c8a86a'} stroke="#e3ce98" strokeWidth={planned ? 1.5 : 1} strokeDasharray={planned ? '3 3' : undefined} />
                         <circle cx={x} cy={y} r="18" fill="#c8a86a" fillOpacity="0.12" />
                         <text x={tx} y={y + 5} textAnchor={anchor} fontFamily="Arial, Helvetica, sans-serif" fontSize="15" fontWeight="700" fill="#f4f2ec">{p.name}</text>
-                        {p.partner && <text x={tx} y={y + 24} textAnchor={anchor} fontFamily="Arial, Helvetica, sans-serif" fontSize="12" fill="#b8bdc8">{p.partner}</text>}
+                        {partnerLabel && <text x={tx} y={y + 24} textAnchor={anchor} fontFamily="Arial, Helvetica, sans-serif" fontSize="12" fill="#b8bdc8">{partnerLabel}</text>}
                     </g>
                 );
             })}
@@ -56,7 +57,7 @@ const TerritoryMap: React.FC = () => (
             <span className="ml-auto">{research.curiosity.territoryNote}</span>
         </div>
         <p className="text-sm text-white/45 mt-3">
-            Partners: {partners.map((p) => `${p.name} (${p.location.replace('Based in ', '').replace(', USA', '')}) · ${p.title}`).join('  ·  ')}.
+            Partners: {partners.map((p) => `${p.name} (${p.locationShort}) · ${p.title}`).join('  ·  ')}.
         </p>
     </div>
 );

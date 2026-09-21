@@ -116,11 +116,6 @@ const Navbar: React.FC = () => {
                                                 onMouseLeave={scheduleClose}
                                             >
                                                 <ul className="tile p-2 list-none shadow-2xl">
-                                                    <li>
-                                                        <Link href={item.href} className="block px-4 py-2.5 rounded-lg text-[0.8rem] font-bold text-white hover:bg-white/5">
-                                                            The five services
-                                                        </Link>
-                                                    </li>
                                                     {item.children.map((child) => (
                                                         <li key={child.href}>
                                                             <Link href={child.href} className="block px-4 py-2.5 rounded-lg text-[0.8rem] text-white/75 hover:text-white hover:bg-white/5">
