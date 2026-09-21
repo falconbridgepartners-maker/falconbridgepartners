@@ -48,7 +48,7 @@ export const firm = {
   phoneUS: { display: '+1 919 537 5026', href: 'tel:+19195375026', label: 'North Carolina' },
   environmentLine: 'We are usually engaged when the decision is consequential, the timeline is compressed and the signal is noisy.',
   clarityQuote: 'Our clients are not looking for opinions. They are looking for clarity they can trust.',
-  emails: { quincy: 'quincy@falconbp.com', joel: 'joel@falconbp.com', wayne: 'wayne@falconbp.com' },
+  emails: { general: 'info@falconbp.com', quincy: 'quincy@falconbp.com', joel: 'joel@falconbp.com', wayne: 'wayne@falconbp.com' },
 };
 
 export const forces = [
@@ -893,6 +893,11 @@ export const workingWith = {
 export const nav = {
   primary: [
     { label: 'Home', href: '/' },
+    { label: 'About', href: '/about', children: [
+      { label: 'About FalconBridge', href: '/about' },
+      { label: 'Working with FalconBridge', href: '/working-with-falconbridge' },
+      { label: 'Territory partners', href: '/territory-partners' },
+    ] },
     {
       label: 'Decision Support System™',
       href: '/decision-support-system',
@@ -910,7 +915,33 @@ export const nav = {
         { label: 'Library', href: '/research/library' },
       ],
     },
-    { label: 'About', href: '/about' },
   ],
   cta: { label: firm.invitation.cta, href: '/contact' },
+};
+
+export const territoryPartners = {
+  eyebrow: 'Territory partners',
+  heading: 'Carry FalconBridge into your territory',
+  intro:
+    'FalconBridge is extending the partnership into new territories. A territory partner brings senior experience and a standing network; FalconBridge brings the Decision Support System™, the research capability and the brand, on an agency basis. The partner works with clients in their territory under the FalconBridge name and method.',
+  who: {
+    title: 'Who this suits',
+    body: 'Experienced executives, advisers and operators with a consequential-decision background — often with five to ten years of professional life ahead of them — who want a proven method and research engine behind their own network rather than building either from scratch.',
+  },
+  what: {
+    title: 'What a territory partner receives',
+    items: [
+      'The five-service Decision Support System™ and its delivery method, with partner training.',
+      'The Global Discovery Research System (GDRS) behind every research engagement.',
+      'The FalconBridge brand, collateral and the public research library.',
+      'A defined territory, and a place on the partner map.',
+    ],
+  },
+  how: {
+    title: 'How it works',
+    body: 'Each territory operates under a written agreement with FalconBridge Partners FZC LLC that sets out the territory, the use of the systems and brand, the agency terms and the standards that apply to every engagement. Terms are agreed individually and are not published.',
+  },
+  territories: 'Current territories: UAE/GCC, South Africa, New Zealand, Mauritius and North Carolina, with Singapore building. Enquiries for other territories are welcome.',
+  formIntro: 'Tell us about your territory, your background and the network you would bring. A partner will reply to arrange a conversation.',
+  boundary: 'This page describes an arrangement between businesses. It is not an offer of employment, and nothing here creates an agreement.',
 };

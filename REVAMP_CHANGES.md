@@ -70,3 +70,11 @@ Carried forward because it is consistent with the foundation and was lost only b
 - Nav: Research is a dropdown — Capability · Weekly Scan · Library.
 - Featured report card on Home and Research shows the report cover when one is uploaded.
 - Contact page split into a server page + client form so it can read partners.
+
+## v5.1–5.2 — Quincy's review (21 Sept 2026)
+- Map: territories only; no partner names on or under the map.
+- Footer: "Contact" list — info@falconbp.com first, then partners with Quincy last.
+- Contact page: "Or write directly" removed; the form is the route.
+- Nav: Home · About (dropdown: About, Working with FalconBridge, Territory partners) · Decision Support System™ · Research.
+- New page /territory-partners: the territory-partner proposition with its own enquiry form (routes through the contact API, tagged).
+- Founder portraits cropped tighter to match Wayne's framing; partners without an uploaded portrait fall back to the built-in image.

@@ -3,8 +3,8 @@ import PageHero from '@/components/dss/PageHero';
 import Invitation from '@/components/dss/Invitation';
 import PartnerCard from '@/components/dss/PartnerCard';
 import TerritoryMap from '@/components/dss/TerritoryMap';
-import { Section, Tile, Band } from '@/components/dss/Tiles';
-import { firm, origins, humanAuthority, trustAndUse, trustLine } from '@/content/site';
+import { Section, Tile, Band, NextLink } from '@/components/dss/Tiles';
+import { firm, origins, humanAuthority, trustAndUse, trustLine, territoryPartners } from '@/content/site';
 import { getSitePartners } from '@/lib/partners';
 
 export const metadata: Metadata = {
@@ -44,6 +44,7 @@ export default async function AboutPage() {
 
       <Section eyebrow="Where we work" title="Territories and partners" intro="Our weekly scans cover five territories: UAE/GCC, South Africa, New Zealand, Mauritius and North Carolina. Singapore is building. Partners are based in the UAE, remotely, and in North Carolina.">
         <TerritoryMap partners={partners} />
+        <div className="mt-6"><NextLink href="/territory-partners" label={territoryPartners.heading} sub="FalconBridge is extending the partnership into new territories. Enquiries via the form." /></div>
       </Section>
 
       <Section eyebrow="Our philosophy" title="Human authority in AI-assisted work">

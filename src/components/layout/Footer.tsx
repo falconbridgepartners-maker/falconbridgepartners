@@ -66,13 +66,15 @@ const Footer = async () => {
                         <ul className="space-y-3">
                             <li><Link href="/about" className={col}>About</Link></li>
                             <li><Link href="/working-with-falconbridge" className={col}>Working with FalconBridge</Link></li>
+                            <li><Link href="/territory-partners" className={col}>Territory partners</Link></li>
                             <li><Link href="/contact" className={col}>Start a conversation</Link></li>
                             <li><Link href="/terms-of-engagement" className={col}>Terms of Engagement</Link></li>
                             <li><Link href="/privacy-policy" className={col}>Privacy Policy</Link></li>
                         </ul>
-                        <h4 className="label-tech mt-8 mb-6">Partners</h4>
+                        <h4 className="label-tech mt-8 mb-6">Contact</h4>
                         <ul className="space-y-3 text-sm">
-                            {partners.filter((p) => p.email).map((p) => (
+                            <li><a href={`mailto:${firm.emails.general}`} className={col}>{firm.emails.general}</a><span className="block text-xs text-white/35">General enquiries</span></li>
+                            {[...partners].filter((p) => p.email).reverse().map((p) => (
                                 <li key={p.slug}><a href={`mailto:${p.email}`} className={col}>{p.name}</a><span className="block text-xs text-white/35">{p.shortTitle} · {p.locationShort}</span></li>
                             ))}
                         </ul>

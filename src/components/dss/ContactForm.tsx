@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import TurnstileWidget from '@/components/ui/TurnstileWidget';
 import PageHero from '@/components/dss/PageHero';
 import { Tile } from '@/components/dss/Tiles';
-import { firm, workingWith } from '@/content/site';
+import { firm, workingWith, territoryPartners } from '@/content/site';
 import type { PartnerView } from '@/lib/partners';
 
 const inputClass = "w-full rounded-lg bg-white/3 border border-brand-gold/25 px-3.5 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-brand-gold/70 transition-colors";
@@ -14,7 +14,7 @@ const labelClass = "text-xs font-bold text-white/70 block";
 
 const regions = ['Middle East and Africa', 'Americas', 'Asia-Pacific', 'Europe', 'Other'];
 
-const ContactForm: React.FC<{ partners: PartnerView[] }> = ({ partners }) => {
+const ContactForm: React.FC<{ partners?: PartnerView[]; variant?: 'contact' | 'territory' }> = ({ variant = 'contact' }) => {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -40,7 +40,7 @@ const ContactForm: React.FC<{ partners: PartnerView[] }> = ({ partners }) => {
             const response = await fetch('/api/submit-contact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...formData, turnstileToken }),
+                body: JSON.stringify({ ...formData, decisionContext: variant === 'territory' ? `[Territory partner enquiry] ${formData.decisionContext}` : formData.decisionContext, turnstileToken }),
             });
             if (response.ok) {
                 setIsSubmitted(true);
@@ -64,31 +64,35 @@ const ContactForm: React.FC<{ partners: PartnerView[] }> = ({ partners }) => {
 
     return (
         <>
-            <PageHero eyebrow="A conversation about your decision" title="What needs to be understood" governing="before your next decision?" intro={firm.invitation.body}>
-                <p className="mt-6 text-sm text-brand-gold-pale">{firm.professionalExchange}</p>
-            </PageHero>
+            {variant === 'contact' ? (
+                <PageHero eyebrow="A conversation about your decision" title="What needs to be understood" governing="before your next decision?" intro={firm.invitation.body}>
+                    <p className="mt-6 text-sm text-brand-gold-pale">{firm.professionalExchange}</p>
+                </PageHero>
+            ) : (
+                <PageHero eyebrow={territoryPartners.eyebrow} title={territoryPartners.heading} intro={territoryPartners.intro} />
+            )}
 
             <section className="pb-24">
                 <div className="container-editorial">
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
                         <div className="lg:col-span-5 space-y-5">
+                            {variant === 'territory' && (<>
+                                <Tile title={territoryPartners.who.title} body={territoryPartners.who.body} />
+                                <Tile title={territoryPartners.what.title}>
+                                    <ul className="list-disc pl-5 space-y-1.5 text-[0.95rem]">{territoryPartners.what.items.map((i) => <li key={i}>{i}</li>)}</ul>
+                                </Tile>
+                                <Tile title={territoryPartners.how.title} body={territoryPartners.how.body} />
+                                <p className="text-sm text-white/50">{territoryPartners.territories}</p>
+                                <p className="text-xs text-white/40">{territoryPartners.boundary}</p>
+                            </>)}
+                            {variant === 'contact' && (<>
                             <Tile title="What the first conversation does">
                                 <p className="governing text-xl mb-3">{firm.firstQuestion}</p>
                                 <p className="text-[0.95rem]">It establishes what you need to establish, decide or make workable, and what research, challenge or support would be useful in your circumstances. Sector, geography and business maturity refine the context; they do not, by themselves, determine fit.</p>
                                 <p className="text-[0.95rem] mt-3 text-white/60">{firm.honestFit}</p>
                             </Tile>
                             <Tile title={workingWith.fit.title} body={workingWith.fit.body} />
-                            <div className="tile p-6">
-                                <h3 className="text-base mb-3">Or write directly</h3>
-                                <ul className="space-y-1.5 text-sm">
-                                    {partners.filter((p) => p.email).map((p) => (
-                                        <li key={p.slug}><a href={`mailto:${p.email}`} className="text-white/75 hover:text-white">{p.email}</a> <span className="text-white/40">· {p.name} · {p.shortTitle}, {p.locationShort}</span></li>
-                                    ))}
-                                    {partners.filter((p) => p.phone).map((p) => (
-                                        <li key={`${p.slug}-tel`} className="first-of-type:pt-2"><a href={`tel:${p.phone!.replace(/[^+\d]/g, '')}`} className="text-white/75 hover:text-white">{p.phone}</a> <span className="text-white/40">· {p.phoneLabel ?? p.locationShort}</span></li>
-                                    ))}
-                                </ul>
-                            </div>
+                            </>)}
                         </div>
 
                         <div className="lg:col-span-7">
@@ -126,8 +130,8 @@ const ContactForm: React.FC<{ partners: PartnerView[] }> = ({ partners }) => {
                                             </div>
                                         </div>
                                         <div className="space-y-2 pt-1">
-                                            <label htmlFor="decisionContext" className={labelClass}>The proposition, question or direction</label>
-                                            <textarea id="decisionContext" name="decisionContext" value={formData.decisionContext} onChange={handleChange} rows={5} required className={`${inputClass} resize-none`} placeholder="What are you working on, and what would need to be understood before you decide? Keep this high-level; share only what is necessary at this stage." />
+                                            <label htmlFor="decisionContext" className={labelClass}>{variant === 'territory' ? 'Your territory, background and network' : 'The proposition, question or direction'}</label>
+                                            <textarea id="decisionContext" name="decisionContext" value={formData.decisionContext} onChange={handleChange} rows={5} required className={`${inputClass} resize-none`} placeholder={variant === 'territory' ? territoryPartners.formIntro : "What are you working on, and what would need to be understood before you decide? Keep this high-level; share only what is necessary at this stage."} />
                                         </div>
                                         <div className="pt-1"><TurnstileWidget onTokenChange={setTurnstileToken} /></div>
                                         <div className="pt-2 border-t border-brand-gold/15 flex flex-col sm:flex-row sm:items-center gap-4">

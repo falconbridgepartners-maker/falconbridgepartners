@@ -1,7 +1,7 @@
 import 'server-only';
 import type { StaticImageData } from 'next/image';
-import joelImage from '@/assets/images/joel-arcus.png';
-import quincyImage from '@/assets/images/quincy-beukes.png';
+import joelImage from '@/assets/images/joel-arcus-card.png';
+import quincyImage from '@/assets/images/quincy-beukes-card.png';
 import wayneImage from '@/assets/images/wayne-loraine-grews.png';
 import { partners as builtIn } from '@/content/site';
 import { getPartners, getSiteSettings, publicMediaUrl, type PartnerRow } from '@/lib/data';
@@ -14,6 +14,7 @@ export type PartnerView = {
 };
 
 const builtInImages: Record<string, string | StaticImageData> = { joel: joelImage, quincy: quincyImage, wayne: wayneImage };
+const builtInBySlug: Record<string, string | StaticImageData> = { 'joel-arcus': joelImage, 'quincy-jc-beukes': quincyImage, 'wayne-loraine-grews': wayneImage };
 const builtInTerritories: Record<string, string[]> = {
   'quincy-jc-beukes': ['south-africa', 'mauritius', 'new-zealand', 'singapore'], 'joel-arcus': ['uae-gcc'], 'wayne-loraine-grews': ['north-carolina'],
 };
@@ -25,7 +26,7 @@ export async function getSitePartners(): Promise<PartnerView[]> {
     return rows.map((r: PartnerRow) => ({
       slug: r.slug, name: r.name, title: r.title, shortTitle: r.short_title ?? r.title, location: r.location ?? '', locationShort: r.location_short ?? r.location ?? '',
       email: r.email, phone: r.phone, phoneLabel: r.phone_label, linkedin: r.linkedin, qualification: r.qualification, emphasis: r.emphasis ?? '',
-      sections: r.sections ?? [], portrait: publicMediaUrl(r.portrait_path), initials: initialsOf(r.name), territories: r.territories ?? [], founder: r.founder,
+      sections: r.sections ?? [], portrait: publicMediaUrl(r.portrait_path) ?? builtInBySlug[r.slug] ?? null, initials: initialsOf(r.name), territories: r.territories ?? [], founder: r.founder,
     }));
   }
   return builtIn.map((p) => ({
