@@ -4,6 +4,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { territoryName, type Scan } from '@/lib/data';
 import { PageHead, Notice } from '@/components/admin/ui';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function ScansList({ searchParams }: { searchParams?: { saved?: string; deleted?: string } }) {
   const db = createAdminClient();
   const { data } = await db.from('scans').select('*').order('week_of', { ascending: false });

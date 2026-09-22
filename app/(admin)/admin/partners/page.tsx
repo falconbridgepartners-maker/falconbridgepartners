@@ -3,6 +3,9 @@ import { Pencil } from 'lucide-react';
 import { getPartners, publicMediaUrl, territoryName } from '@/lib/data';
 import { PageHead, Notice } from '@/components/admin/ui';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function PartnersList({ searchParams }: { searchParams?: { saved?: string; deleted?: string } }) {
   const partners = await getPartners({ includeInactive: true });
   return (
