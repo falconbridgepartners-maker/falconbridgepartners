@@ -17,10 +17,7 @@ const Invitation: React.FC<{ compact?: boolean }> = ({ compact }) => (
                 <h2 className="mb-2">What needs to be understood</h2>
                 <p className="governing text-3xl md:text-[2.6rem] leading-tight mb-8">before your next decision?</p>
                 <p className="text-white/75 max-w-2xl mb-10">{firm.invitation.body}</p>
-                <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
-                    <Button href="/contact" variant="primary" size="md" icon={ArrowRight}>{firm.invitation.cta}</Button>
-                    <span className="text-sm text-white/45">falconbp.com</span>
-                </div>
+                <Button href="/contact" variant="primary" size="md" icon={ArrowRight}>{firm.invitation.cta}</Button>
             </div>
         </div>
     </section>
