@@ -22,6 +22,7 @@ export const firm = {
     cta: 'Start a conversation',
   },
   linkedin: 'https://www.linkedin.com/company/falconbps',
+  swtq: { label: 'Stay With The Question', href: 'https://stwtq.com', note: 'Coaching practice, powered by FalconBridge' },
   systemName: 'FalconBridge Decision Support System™',
   trademarkLine: 'FalconBridge Decision Support System™ is a trademark of FalconBridge Partners FZC LLC.',
   clarityLine: 'When the decision is yours, clarity cannot be outsourced. Borrowed certainty often introduces more risk than uncertainty itself.',

@@ -9,12 +9,16 @@ import { PUBLIC_MEDIA, RESEARCH_FILES } from '@/lib/data';
 
 export async function signOut() {
   try { const supabase = createClient(); await supabase.auth.signOut(); } catch { /* no session under preview bypass */ }
+  revalidateAdmin();
   redirect('/admin/login');
 }
 
 const slugify = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-').replace(/-+/g, '-').slice(0, 80);
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? '').trim();
 const bool = (fd: FormData, k: string) => fd.get(k) === 'on' || fd.get(k) === 'true';
+
+/** Purge the admin tree from Next's client Router Cache so edit pages reload fresh rows after a save/delete. */
+function revalidateAdmin() { revalidatePath('/admin', 'layout'); }
 
 function revalidateResearch() {
   for (const p of ['/', '/research', '/research/library', '/research/weekly-scan', '/sitemap.xml']) revalidatePath(p);
@@ -73,6 +77,7 @@ export async function saveReport(fd: FormData) {
   if (row.featured) await db.from('site_settings').update({ featured_report_id: reportId }).eq('id', 1);
   revalidateResearch();
   revalidatePath(`/research/studies/${row.slug}`);
+  revalidateAdmin();
   redirect('/admin/reports?saved=1');
 }
 
@@ -83,6 +88,7 @@ export async function deleteReport(fd: FormData) {
   const db = createAdminClient();
   await db.from('reports').delete().eq('id', id);
   revalidateResearch();
+  revalidateAdmin();
   redirect('/admin/reports?deleted=1');
 }
 
@@ -114,6 +120,7 @@ export async function saveScan(fd: FormData) {
   if (error) throw new Error(error.message);
   revalidateResearch();
   revalidatePath(`/research/weekly-scan/${row.slug}`);
+  revalidateAdmin();
   redirect('/admin/scans?saved=1');
 }
 
@@ -124,6 +131,7 @@ export async function deleteScan(fd: FormData) {
   const db = createAdminClient();
   await db.from('scans').delete().eq('id', id);
   revalidateResearch();
+  revalidateAdmin();
   redirect('/admin/scans?deleted=1');
 }
 
@@ -149,6 +157,7 @@ export async function savePartner(fd: FormData) {
   const { error } = id ? await db.from('partners').update(row).eq('id', id) : await db.from('partners').insert(row);
   if (error) throw new Error(error.message);
   for (const p of ['/', '/about', '/contact', '/research']) revalidatePath(p);
+  revalidateAdmin();
   redirect('/admin/partners?saved=1');
 }
 
@@ -159,6 +168,7 @@ export async function deletePartner(fd: FormData) {
   const db = createAdminClient();
   await db.from('partners').delete().eq('id', id);
   for (const p of ['/', '/about', '/contact', '/research']) revalidatePath(p);
+  revalidateAdmin();
   redirect('/admin/partners?deleted=1');
 }
 
@@ -178,6 +188,7 @@ export async function saveTeamMember(fd: FormData) {
   const { error } = id ? await db.from('team_members').update(row).eq('id', id) : await db.from('team_members').insert(row);
   if (error) throw new Error(error.message);
   revalidatePath('/about');
+  revalidateAdmin();
   redirect('/admin/team?saved=1');
 }
 
@@ -188,6 +199,7 @@ export async function deleteTeamMember(fd: FormData) {
   const db = createAdminClient();
   await db.from('team_members').delete().eq('id', id);
   revalidatePath('/about');
+  revalidateAdmin();
   redirect('/admin/team?deleted=1');
 }
 
@@ -200,6 +212,7 @@ export async function saveSettings(fd: FormData) {
   const { error } = await db.from('site_settings').update({ featured_report_id: str(fd, 'featured_report_id') || null, portraits }).eq('id', 1);
   if (error) throw new Error(error.message);
   revalidatePath('/'); revalidatePath('/about'); revalidatePath('/research');
+  revalidateAdmin();
   redirect('/admin/settings?saved=1');
 }
 
