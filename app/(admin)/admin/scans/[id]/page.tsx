@@ -4,6 +4,9 @@ import ScanForm from '@/components/admin/ScanForm';
 import { PageHead } from '@/components/admin/ui';
 import type { Scan } from '@/lib/data';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function EditScan({ params }: { params: { id: string } }) {
   const db = createAdminClient();
   const { data } = await db.from('scans').select('*').eq('id', params.id).maybeSingle();

@@ -4,6 +4,9 @@ import { saveSettings } from '@/lib/admin/actions';
 import { PageHead, Notice, Field, input, btn } from '@/components/admin/ui';
 import UploadField from '@/components/admin/UploadField';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function SettingsPage({ searchParams }: { searchParams?: { saved?: string } }) {
   const db = createAdminClient();
   const [settings, { data: reports }] = await Promise.all([getSiteSettings(), db.from('reports').select('id, title, published').order('title')]);

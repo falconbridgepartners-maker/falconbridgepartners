@@ -4,6 +4,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdminUser } from '@/lib/admin/auth';
 import { PageHead } from '@/components/admin/ui';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function Dashboard() {
   const admin = await getAdminUser();
   const db = createAdminClient();

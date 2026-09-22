@@ -4,6 +4,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { publicMediaUrl, territoryName, type Report } from '@/lib/data';
 import { PageHead, Notice } from '@/components/admin/ui';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function ReportsList({ searchParams }: { searchParams?: { saved?: string; deleted?: string } }) {
   const db = createAdminClient();
   const { data } = await db.from('reports').select('*').order('updated_at', { ascending: false });

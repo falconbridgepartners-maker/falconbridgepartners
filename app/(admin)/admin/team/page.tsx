@@ -3,6 +3,9 @@ import { Pencil } from 'lucide-react';
 import { getTeam, publicMediaUrl } from '@/lib/data';
 import { PageHead, Notice } from '@/components/admin/ui';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function TeamList({ searchParams }: { searchParams?: { saved?: string; deleted?: string } }) {
   const team = await getTeam({ includeInactive: true });
   return (
