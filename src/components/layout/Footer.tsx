@@ -70,6 +70,7 @@ const Footer = async () => {
                             <li><Link href="/contact" className={col}>Start a conversation</Link></li>
                             <li><Link href="/terms-of-engagement" className={col}>Terms of Engagement</Link></li>
                             <li><Link href="/privacy-policy" className={col}>Privacy Policy</Link></li>
+                            <li><a href={firm.swtq.href} target="_blank" rel="noopener noreferrer" className={col}>{firm.swtq.label} ↗</a><span className="block text-xs text-white/35">{firm.swtq.note}</span></li>
                         </ul>
                         <h4 className="label-tech mt-8 mb-6">Contact</h4>
                         <ul className="space-y-3 text-sm">
