@@ -1,0 +1,81 @@
+From afd8eab2791c2d8430cf8a5b471fc6df8f6c887d Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 6 Oct 2026 12:41:59 +0000
+Subject: [PATCH] Global category for studies that belong to no single
+ territory; clearer import summaries
+
+- 'global' added to the territory list (library filter, admin forms) and to the manifest's allowed territories
+- Import screen: says 'updated' when entries that were already live are re-imported, and counts entries rather than territories
+---
+ docs/WEEKLY_PIPELINE.md               | 2 +-
+ src/components/admin/WeeklyImport.tsx | 6 ++++--
+ src/lib/data.ts                       | 2 ++
+ src/lib/weekly/manifest.ts            | 2 +-
+ 4 files changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/docs/WEEKLY_PIPELINE.md b/docs/WEEKLY_PIPELINE.md
+index 4846eb1..ae83bd9 100644
+--- a/docs/WEEKLY_PIPELINE.md
++++ b/docs/WEEKLY_PIPELINE.md
+@@ -93,7 +93,7 @@ One JSON file per week. Whoever writes it — a person, Claude or HT+ — the im
+ }
+ ```
+ 
+-- `territory`: `uae-gcc`, `south-africa`, `new-zealand`, `mauritius`, `north-carolina`, `singapore`.
++- `territory`: `uae-gcc`, `south-africa`, `new-zealand`, `mauritius`, `north-carolina`, `singapore`, or `global` for a study that belongs to no single territory.
+ - `week_label` uses FalconBridge's week number; `week_of` is the Monday the review period starts.
+ - An entry may carry a scan, a report, or both. `files` need a report.
+ - Slots and their default access: 1 User guide (pack), 2 Executive deck (pack), 3 Full research report (pack), 4 Executive summary (open), 5 Executive visual (open), 6 Reference and link audit (internal). `label` and `access` override the defaults. A slot left out is created empty and internal.
+diff --git a/src/components/admin/WeeklyImport.tsx b/src/components/admin/WeeklyImport.tsx
+index 7cb337e..ee4b308 100644
+--- a/src/components/admin/WeeklyImport.tsx
++++ b/src/components/admin/WeeklyImport.tsx
+@@ -101,7 +101,9 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
+             <p className={`text-sm p-3 rounded-lg ${problems.length ? 'bg-red-900/20 border border-red-500/30 text-red-100' : 'tile-ivory'}`} role="status">
+               {problems.length
+                 ? `${problems.length} of ${m.entries.length} territories need attention. Run the import again to retry; files already copied are not copied twice.`
+-                : run.mode === 'publish' ? `Week ${m.weekLabel ?? ''} is published: ${m.entries.length} territories.` : `Week ${m.weekLabel ?? ''} is saved as drafts. Review, then publish from here or from each entry.`}
++                : run.mode === 'publish' ? `Week ${m.weekLabel ?? ''} is published: ${m.entries.length} ${m.entries.length === 1 ? 'entry' : 'entries'}.`
++                : done.every((r) => r.report?.published || r.scan?.published) ? `Week ${m.weekLabel ?? ''} is updated. The entries were already live and stay live.`
++                : `Week ${m.weekLabel ?? ''} is saved as drafts. Review, then publish from here or from each entry.`}
+             </p>
+           )}
+ 
+@@ -116,7 +118,7 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
+             <button type="button" className={btnGhost} disabled={run.busy} onClick={() => start(false)}>{run.busy && run.mode === 'draft' ? 'Importing…' : 'Import as drafts'}</button>
+             {confirmPublish ? (
+               <>
+-                <button type="button" className={btn} disabled={run.busy} onClick={() => start(true)}>Confirm: publish {m.entries.length} territories</button>
++                <button type="button" className={btn} disabled={run.busy} onClick={() => start(true)}>Confirm: publish {m.entries.length} {m.entries.length === 1 ? 'entry' : 'entries'}</button>
+                 <button type="button" className="text-sm text-white/50 hover:text-white" onClick={() => setConfirmPublish(false)}>Cancel</button>
+               </>
+             ) : (
+diff --git a/src/lib/data.ts b/src/lib/data.ts
+index 6b625d6..e4ef3da 100644
+--- a/src/lib/data.ts
++++ b/src/lib/data.ts
+@@ -40,6 +40,8 @@ export const RESEARCH_FILES = 'research-files';
+ 
+ export const territoryName: Record<string, string> = {
+   'uae-gcc': 'UAE / GCC', 'south-africa': 'South Africa', 'new-zealand': 'New Zealand', mauritius: 'Mauritius', 'north-carolina': 'North Carolina', singapore: 'Singapore',
++  // Studies that belong to no single territory. It is a category for the library, not a place on the map.
++  global: 'Global',
+ };
+ export const TERRITORIES = Object.entries(territoryName).map(([value, label]) => ({ value, label }));
+ export const SERVICES = [
+diff --git a/src/lib/weekly/manifest.ts b/src/lib/weekly/manifest.ts
+index dc903a5..449594d 100644
+--- a/src/lib/weekly/manifest.ts
++++ b/src/lib/weekly/manifest.ts
+@@ -11,7 +11,7 @@
+ 
+ export const MANIFEST_VERSION = 1;
+ 
+-export const TERRITORY_KEYS = ['uae-gcc', 'south-africa', 'new-zealand', 'mauritius', 'north-carolina', 'singapore'] as const;
++export const TERRITORY_KEYS = ['uae-gcc', 'south-africa', 'new-zealand', 'mauritius', 'north-carolina', 'singapore', 'global'] as const;
+ export const SERVICE_KEYS = ['ceaas', 'raas', 'caas', 'emaas', 'aaas', 'none'] as const;
+ export const ACCESS_KEYS = ['open', 'request', 'internal'] as const;
+ 
+-- 
+2.43.0
+
