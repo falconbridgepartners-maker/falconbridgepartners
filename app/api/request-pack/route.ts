@@ -11,7 +11,11 @@ export const dynamic = 'force-dynamic';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://falconbp.com').replace(/\/+$/, '');
 const LEADS_TO = () => process.env.RESEND_LEADS_EMAIL || 'info@falconbp.com';
-const FROM = () => process.env.RESEND_FROM || 'noreply@notifications.falconbp.com';
+const FROM = () => {
+  const raw = process.env.RESEND_FROM || 'noreply@notifications.falconbp.com';
+  const address = (/<([^>]+)>/.exec(raw)?.[1] ?? raw).trim();
+  return `FB Research <${address}>`;
+};
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 
 /**
