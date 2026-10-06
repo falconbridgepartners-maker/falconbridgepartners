@@ -1,0 +1,429 @@
+From b89d660d10fb9a483bf6ff9781b47c9fa1c0a6ef Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 6 Oct 2026 08:37:41 +0000
+Subject: [PATCH] Weekly Signal shown as issued: scans.content carries the
+ signal in its own structure and the scan page shows it as written
+
+- supabase/005_scan_signal.sql adds scans.content (jsonb)
+- Manifest: scan.content (weekly-signal-v1) with validation; the importer stores it and never drops it on re-import
+- Scan page: when content is present, shows the themes, lead topic, one to watch and article audit log as issued, each FalconBridge Lens set apart; older entries render as before
+- Scan list shows the lead headline for as-issued entries; study page link names the Weekly Signal by territory and week
+- Admin scan form notes when an entry carries the signal as issued; docs record the rule
+---
+ app/research/studies/[slug]/page.tsx     |  4 +-
+ app/research/weekly-scan/[slug]/page.tsx | 47 ++++++++++++++++---
+ app/research/weekly-scan/page.tsx        | 19 ++++++--
+ docs/WEEKLY_PIPELINE.md                  |  7 ++-
+ src/components/admin/ScanForm.tsx        |  5 ++
+ src/components/dss/SignalAsIssued.tsx    | 58 ++++++++++++++++++++++++
+ src/lib/data.ts                          | 15 ++++--
+ src/lib/weekly/import.ts                 |  2 +
+ src/lib/weekly/manifest.ts               | 46 +++++++++++++++++++
+ supabase/005_scan_signal.sql             |  7 +++
+ 10 files changed, 192 insertions(+), 18 deletions(-)
+ create mode 100644 src/components/dss/SignalAsIssued.tsx
+ create mode 100644 supabase/005_scan_signal.sql
+
+diff --git a/app/research/studies/[slug]/page.tsx b/app/research/studies/[slug]/page.tsx
+index af52d7a..0a6781b 100644
+--- a/app/research/studies/[slug]/page.tsx
++++ b/app/research/studies/[slug]/page.tsx
+@@ -5,7 +5,7 @@ import PageHero from '@/components/dss/PageHero';
+ import Invitation from '@/components/dss/Invitation';
+ import RequestReport from '@/components/dss/RequestReport';
+ import { Section, Band, NextLink } from '@/components/dss/Tiles';
+-import { getReportBySlug, getScanForStudy, hasGatedPack, publicMediaUrl, readerFiles, territoryName } from '@/lib/data';
++import { getReportBySlug, getScanForStudy, hasGatedPack, publicMediaUrl, readerFiles, territoryName, weekText } from '@/lib/data';
+ 
+ export const dynamic = 'force-dynamic';
+ 
+@@ -61,7 +61,7 @@ export default async function StudyPage({ params }: { params: { slug: string } }
+                 <p className="text-sm">{f.body}</p>
+               </div>
+             ))}
+-            {scan && <NextLink href={`/research/weekly-scan/${scan.slug}`} label="The signal behind this study" sub={scan.question} />}
++            {scan && <NextLink href={`/research/weekly-scan/${scan.slug}`} label="The Weekly Signal behind this study" sub={[territoryName[scan.territory] ?? scan.territory, weekText(scan.week_label) ?? `week of ${scan.week_of}`].join(' · ')} />}
+           </div>
+         </div>
+       </Section>
+diff --git a/app/research/weekly-scan/[slug]/page.tsx b/app/research/weekly-scan/[slug]/page.tsx
+index 64b5983..a3b13af 100644
+--- a/app/research/weekly-scan/[slug]/page.tsx
++++ b/app/research/weekly-scan/[slug]/page.tsx
+@@ -3,16 +3,21 @@ import { notFound } from 'next/navigation';
+ import Link from 'next/link';
+ import PageHero from '@/components/dss/PageHero';
+ import Invitation from '@/components/dss/Invitation';
++import SignalAsIssued from '@/components/dss/SignalAsIssued';
+ import { Section, Tile, Band, NextLink } from '@/components/dss/Tiles';
+-import { getScanBySlug, getStudyForScan, territoryName } from '@/lib/data';
++import { getScanBySlug, getStudyForScan, territoryName, weekText } from '@/lib/data';
+ import { services } from '@/content/site';
+ 
+ export const dynamic = 'force-dynamic';
+ 
++const SCAN_BOUNDARY = 'The scan frames an investigation; subsequent research must establish the evidence supporting its findings. A weekly scan entry is AI-assisted and human-reviewed. It is not a study, and it does not oblige anyone to commission one.';
++
+ export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+   const e = await getScanBySlug(params.slug);
+   if (!e) return {};
+-  return { title: `${territoryName[e.territory] ?? e.territory} · Week of ${e.week_of} — Weekly Scan — FalconBridge Partners`, description: e.question };
++  const place = territoryName[e.territory] ?? e.territory;
++  if (e.content) return { title: `${e.content.heading} · ${weekText(e.week_label) ?? `week of ${e.week_of}`} — FalconBridge Partners`, description: e.content.lead?.title ?? e.question };
++  return { title: `${place} · Week of ${e.week_of} — Weekly Scan — FalconBridge Partners`, description: e.question };
+ }
+ 
+ export default async function ScanEntryPage({ params }: { params: { slug: string } }) {
+@@ -20,9 +25,39 @@ export default async function ScanEntryPage({ params }: { params: { slug: string
+   if (!e) notFound();
+   const svc = services.find((s) => s.key === e.service);
+   const study = await getStudyForScan(e);
++  const place = territoryName[e.territory] ?? e.territory;
++  const after = (
++    <>
++      {study && <div className="mt-8"><NextLink href={`/research/studies/${study.slug}`} label={`The study this signal led to: ${study.title}`} sub={study.subtitle ?? 'Read the summary and get the research pack.'} /></div>}
++      {svc && <div className="mt-8"><NextLink href={`/decision-support-system/${svc.slug}`} label={`${svc.acronym} · ${svc.name}`} sub="The service closest to this question." /></div>}
++      <p className="text-sm text-white/45 mt-8"><Link href="/research/weekly-scan" className="text-brand-gold-pale underline underline-offset-4">All scan entries</Link></p>
++    </>
++  );
++
++  // A Weekly Signal carried as issued: shown in its own structure, as written.
++  if (e.content) {
++    const c = e.content;
++    return (
++      <>
++        <PageHero
++          eyebrow={['Weekly Signal', place, weekText(e.week_label) ?? `Week of ${e.week_of}`].join(' · ')}
++          title={c.heading}
++          governing={c.review_period ? `Review period: ${c.review_period}` : undefined}
++          intro={c.briefing ?? undefined}
++        />
++        <Section>
++          <SignalAsIssued content={c} />
++          <div className="mt-14"><Band title="A scan frames an investigation" body={SCAN_BOUNDARY} /></div>
++          {after}
++        </Section>
++        <Invitation compact />
++      </>
++    );
++  }
++
+   return (
+     <>
+-      <PageHero eyebrow={`Weekly Scan · ${territoryName[e.territory] ?? e.territory} · Week of ${e.week_of}`} title="A signal, and the question it raises" governing={e.question} intro={e.signal}>
++      <PageHero eyebrow={`Weekly Scan · ${place} · Week of ${e.week_of}`} title="A signal, and the question it raises" governing={e.question} intro={e.signal}>
+         {e.sample && <p className="mt-6 inline-block text-[0.7rem] text-brand-gold-pale border border-brand-gold/40 rounded-full px-3 py-1">Sample — prototype placeholder</p>}
+       </PageHero>
+       <Section>
+@@ -36,10 +71,8 @@ export default async function ScanEntryPage({ params }: { params: { slug: string
+             <ul className="list-disc pl-5 space-y-1.5 text-white/70 text-[0.95rem]">{e.open_questions.map((q) => <li key={q}>{q}</li>)}</ul>
+           </div>
+         )}
+-        <div className="mt-10"><Band title="Findings and interpretation are kept apart" body="The scan frames an investigation; subsequent research must establish the evidence supporting its findings. A weekly scan entry is AI-assisted and human-reviewed. It is not a study, and it does not oblige anyone to commission one." /></div>
+-        {study && <div className="mt-8"><NextLink href={`/research/studies/${study.slug}`} label={`The study this signal led to: ${study.title}`} sub={study.subtitle ?? 'Read the summary and get the research pack.'} /></div>}
+-        {svc && <div className="mt-8"><NextLink href={`/decision-support-system/${svc.slug}`} label={`${svc.acronym} · ${svc.name}`} sub="The service closest to this question." /></div>}
+-        <p className="text-sm text-white/45 mt-8"><Link href="/research/weekly-scan" className="text-brand-gold-pale underline underline-offset-4">All scan entries</Link></p>
++        <div className="mt-10"><Band title="Findings and interpretation are kept apart" body={SCAN_BOUNDARY} /></div>
++        {after}
+       </Section>
+       <Invitation compact />
+     </>
+diff --git a/app/research/weekly-scan/page.tsx b/app/research/weekly-scan/page.tsx
+index d4eace4..f00e057 100644
+--- a/app/research/weekly-scan/page.tsx
++++ b/app/research/weekly-scan/page.tsx
+@@ -5,7 +5,7 @@ import PageHero from '@/components/dss/PageHero';
+ import Invitation from '@/components/dss/Invitation';
+ import { Section, Band } from '@/components/dss/Tiles';
+ import { research } from '@/content/site';
+-import { getPublishedScans, territoryName } from '@/lib/data';
++import { getPublishedScans, territoryName, weekText } from '@/lib/data';
+ 
+ export const dynamic = 'force-dynamic';
+ export const metadata: Metadata = {
+@@ -41,12 +41,21 @@ export default async function WeeklyScanPage({ searchParams }: { searchParams?:
+             <Link key={e.slug} href={`/research/weekly-scan/${e.slug}`} className="group tile p-7 hover:border-brand-gold/60 transition-colors">
+               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-3">
+                 <span className="label-tech">{territoryName[e.territory] ?? e.territory}</span>
+-                <span className="text-white/45 text-sm">Week of {e.week_of}</span>
++                <span className="text-white/45 text-sm">{weekText(e.week_label) ?? `Week of ${e.week_of}`}</span>
+                 {e.sample && <span className="text-[0.68rem] text-brand-gold-pale border border-brand-gold/40 rounded-full px-2 py-0.5">Sample — prototype</span>}
+               </div>
+-              <p className="text-white/70 mb-3">{e.signal}</p>
+-              <p className="governing text-lg leading-snug">{e.question}</p>
+-              <span className="inline-flex items-center gap-2 text-sm text-brand-gold-pale mt-4">Read the scan <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
++              {e.content ? (
++                <>
++                  <p className="governing text-xl leading-snug mb-3">{e.content.lead?.title ?? e.question}</p>
++                  <p className="text-white/70 line-clamp-3">{e.content.lead?.body ?? e.signal}</p>
++                </>
++              ) : (
++                <>
++                  <p className="text-white/70 mb-3">{e.signal}</p>
++                  <p className="governing text-lg leading-snug">{e.question}</p>
++                </>
++              )}
++              <span className="inline-flex items-center gap-2 text-sm text-brand-gold-pale mt-4">{e.content ? 'Read the signal' : 'Read the scan'} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
+             </Link>
+           ))}
+         </div>
+diff --git a/docs/WEEKLY_PIPELINE.md b/docs/WEEKLY_PIPELINE.md
+index 24d2136..4846eb1 100644
+--- a/docs/WEEKLY_PIPELINE.md
++++ b/docs/WEEKLY_PIPELINE.md
+@@ -2,6 +2,10 @@
+ 
+ How a week's research gets from Dropbox to falconbp.com. Built October 2026.
+ 
++## The rule
++
++Signals and reports go up as they are. The Weekly Signal is shown exactly as issued, in its own structure. The study page carries the Executive Summary as issued, and the pack files are the files from the Client Pack. The only things removed from a signal are its email wrapper: sender and recipient lines, the internal-use footer, the credit lines and phone numbers.
++
+ ## What goes where
+ 
+ | Layer | What | How a reader gets it |
+@@ -24,7 +28,7 @@ Running an import again is safe. Entries are matched by slug and files by slot;
+ 
+ ## One-time setup
+ 
+-1. **Database.** Run `supabase/004_weekly_pipeline.sql` in the Supabase SQL editor.
++1. **Database.** Run `supabase/004_weekly_pipeline.sql`, then `supabase/005_scan_signal.sql`, in the Supabase SQL editor.
+ 2. **Dropbox app.** At dropbox.com/developers/apps create an app: *Scoped access*, *Full Dropbox*. Under Permissions tick `files.metadata.read` and `files.content.read`. Under Settings add the redirect URI `https://falconbp.com/api/dropbox/callback` (and the `www.` host if the admin is used there).
+ 3. **Vercel.** Add `DROPBOX_APP_KEY` and `DROPBOX_APP_SECRET` (Production), then redeploy.
+ 4. **Connect.** In `/admin/import` choose **Connect Dropbox** and allow access. The site reads from Dropbox; it never writes.
+@@ -94,6 +98,7 @@ One JSON file per week. Whoever writes it — a person, Claude or HT+ — the im
+ - An entry may carry a scan, a report, or both. `files` need a report.
+ - Slots and their default access: 1 User guide (pack), 2 Executive deck (pack), 3 Full research report (pack), 4 Executive summary (open), 5 Executive visual (open), 6 Reference and link audit (internal). `label` and `access` override the defaults. A slot left out is created empty and internal.
+ - `extract_image` is the Executive Visual as PNG, JPEG or WebP; it is shown on the study page. `cover_image` (3:4) is optional.
++- `scan.content` carries the Weekly Signal exactly as issued, and the scan page then shows it as written: `{ "format": "weekly-signal-v1", "heading", "issue", "review_period", "briefing", "themes": [{ "title", "body", "lens", "sources" }], "lead": { … }, "watch", "audit_log": ["…"] }`. `signal` and `question` stay required (lists, the feed and search use them): give the lead topic's text and headline. Needs `supabase/005_scan_signal.sql`.
+ - Pack files may be PDF, PPTX, DOCX or ZIP.
+ 
+ The validator is `src/lib/weekly/manifest.ts`; the import screen lists every problem before anything is written.
+diff --git a/src/components/admin/ScanForm.tsx b/src/components/admin/ScanForm.tsx
+index fa2fa99..0a52916 100644
+--- a/src/components/admin/ScanForm.tsx
++++ b/src/components/admin/ScanForm.tsx
+@@ -6,6 +6,11 @@ export default function ScanForm({ scan, reports = [] }: { scan?: Scan; reports?
+   return (
+     <form action={saveScan} className="space-y-8">
+       {scan && <input type="hidden" name="id" value={scan.id} />}
++      {scan?.content && (
++        <p className="tile-ivory p-4 text-sm">
++          This entry carries the Weekly Signal as issued, and its page shows the signal as written. The signal and question fields below feed the list, the feed and search only. To change the signal itself, import a corrected manifest.
++        </p>
++      )}
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+         <Field id="title" title="Title (internal; becomes the URL)"><input id="title" name="title" required defaultValue={scan?.title} className={input} /></Field>
+         <Field id="slug" title="URL slug" hint="Leave blank to generate from the title."><input id="slug" name="slug" defaultValue={scan?.slug} className={input} /></Field>
+diff --git a/src/components/dss/SignalAsIssued.tsx b/src/components/dss/SignalAsIssued.tsx
+new file mode 100644
+index 0000000..bc92019
+--- /dev/null
++++ b/src/components/dss/SignalAsIssued.tsx
+@@ -0,0 +1,58 @@
++import React from 'react';
++import type { SignalContent, SignalItem } from '@/lib/weekly/manifest';
++
++/** One item of the signal: the report, then the FalconBridge Lens set apart from it, then its sources. */
++function Item({ item, lead, n }: { item: SignalItem; lead?: boolean; n?: number }) {
++  return (
++    <article className="tile p-7 md:p-9">
++      <h3 className={lead ? 'text-2xl md:text-3xl mb-4' : 'text-xl md:text-2xl mb-4'}>
++        {n ? <span className="governing mr-3" aria-hidden="true">{n}.</span> : null}{item.title}
++      </h3>
++      <p className="text-white/75 whitespace-pre-line max-w-4xl">{item.body}</p>
++      {item.lens && (
++        <div className="tile-ivory p-5 md:p-6 mt-6 max-w-4xl">
++          <h4 className="governing text-lg mb-2" style={{ color: '#262626' }}>FalconBridge Lens</h4>
++          <p className="text-[0.95rem] whitespace-pre-line">{item.lens}</p>
++        </div>
++      )}
++      {item.sources && <p className="text-white/45 text-sm mt-5">{item.sources}</p>}
++    </article>
++  );
++}
++
++/**
++ * A Weekly Signal shown as issued, in its own order: the themes, the lead topic, one to watch,
++ * and the log of articles considered. Nothing here is rewritten by the site.
++ */
++export default function SignalAsIssued({ content }: { content: SignalContent }) {
++  const themes = content.themes ?? [];
++  const log = content.audit_log ?? [];
++  return (
++    <div className="space-y-14">
++      {themes.length > 0 && (
++        <section aria-labelledby="signal-themes">
++          <h2 id="signal-themes" className="mb-6">Top {themes.length} theme{themes.length === 1 ? '' : 's'}</h2>
++          <div className="space-y-5">{themes.map((t, i) => <Item key={t.title} item={t} n={i + 1} />)}</div>
++        </section>
++      )}
++      {content.lead && (
++        <section aria-labelledby="signal-lead">
++          <h2 id="signal-lead" className="mb-6">Lead topic</h2>
++          <Item item={content.lead} lead />
++        </section>
++      )}
++      {content.watch && (
++        <section aria-labelledby="signal-watch">
++          <h2 id="signal-watch" className="mb-6">One to watch</h2>
++          <div className="border-l-2 border-brand-gold pl-6 md:pl-8 py-1"><p className="text-white/75 whitespace-pre-line max-w-4xl">{content.watch}</p></div>
++        </section>
++      )}
++      {log.length > 0 && (
++        <section aria-labelledby="signal-log">
++          <h2 id="signal-log" className="text-xl md:text-2xl mb-4">Article audit log: sources considered this scan</h2>
++          <ol className="list-decimal pl-5 space-y-1.5 text-white/60 text-sm max-w-4xl">{log.map((a) => <li key={a}>{a}</li>)}</ol>
++        </section>
++      )}
++    </div>
++  );
++}
+diff --git a/src/lib/data.ts b/src/lib/data.ts
+index 2552760..18fc94f 100644
+--- a/src/lib/data.ts
++++ b/src/lib/data.ts
+@@ -1,5 +1,6 @@
+ import 'server-only';
+ import { createAdminClient, supabaseConfigured } from '@/lib/supabase/admin';
++import type { SignalContent } from '@/lib/weekly/manifest';
+ 
+ /** open = anyone may download · request = in the pack, behind the email form · internal = never shown or served. */
+ export type FileAccess = 'open' | 'request' | 'internal';
+@@ -19,6 +20,8 @@ export type Scan = {
+   id: string; slug: string; title: string; territory: string; service: string; week_of: string; signal: string; question: string;
+   finding: string | null; interpretation: string | null; open_questions: string[]; reviewed: boolean; sample: boolean; published: boolean;
+   week_label?: string | null; report_id?: string | null;
++  /** The Weekly Signal as issued (see src/lib/weekly/manifest.ts). When present, the scan page shows it as written. */
++  content?: SignalContent | null;
+ };
+ export type AccessRequest = {
+   id: string; report_id: string; full_name: string; email: string; organisation: string; role: string | null; intended_use: string | null;
+@@ -148,15 +151,21 @@ export async function getStudyForScan(scan: Scan): Promise<Pick<Report, 'slug' |
+ }
+ 
+ /** The published scan entry behind a study (or null). */
+-export async function getScanForStudy(reportId: string): Promise<Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory'> | null> {
++export async function getScanForStudy(reportId: string): Promise<Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'> | null> {
+   return safe(async () => {
+     const db = createAdminClient();
+-    const { data, error } = await db.from('scans').select('slug, question, week_of, territory').eq('report_id', reportId).eq('published', true).order('week_of', { ascending: false }).limit(1).maybeSingle();
++    const { data, error } = await db.from('scans').select('slug, question, week_of, territory, week_label').eq('report_id', reportId).eq('published', true).order('week_of', { ascending: false }).limit(1).maybeSingle();
+     if (error) return null;
+-    return (data as Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory'>) ?? null;
++    return (data as Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'>) ?? null;
+   }, null);
+ }
+ 
++/** "2026-W41" → "Week 41, 2026". */
++export const weekText = (label: string | null | undefined) => {
++  const m = /^(\d{4})-W(\d{2})$/.exec(label ?? '');
++  return m ? `Week ${Number(m[2])}, ${m[1]}` : null;
++};
++
+ /** Active partners in display order. Empty when the partners table has not been created yet — callers fall back to the built-in list. */
+ export async function getPartners({ includeInactive = false } = {}): Promise<PartnerRow[]> {
+   return safe(async () => {
+diff --git a/src/lib/weekly/import.ts b/src/lib/weekly/import.ts
+index 37965c2..02282fb 100644
+--- a/src/lib/weekly/import.ts
++++ b/src/lib/weekly/import.ts
+@@ -159,6 +159,8 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
+         open_questions: s.open_questions ?? [], week_label: manifest.week_label, sample: false,
+       };
+       if (reportId) row.report_id = reportId;
++      // The Weekly Signal as issued. Left untouched on re-import when the manifest carries none.
++      if (s.content) row.content = s.content;
+       let scanPublished = Boolean(exScan?.published);
+       if (mayPublish) { row.reviewed = true; row.published = true; scanPublished = true; }
+       let scanId = exScan?.id as string | undefined;
+diff --git a/src/lib/weekly/manifest.ts b/src/lib/weekly/manifest.ts
+index 8541208..dc903a5 100644
+--- a/src/lib/weekly/manifest.ts
++++ b/src/lib/weekly/manifest.ts
+@@ -27,9 +27,28 @@ export const SLOTS = [
+ 
+ export type ManifestAccess = (typeof ACCESS_KEYS)[number];
+ export type ManifestFile = { slot: number; label?: string; access?: ManifestAccess; dropbox: string; name?: string };
++/** One item of a Weekly Signal, as issued: its headline, text, the FalconBridge Lens and the sources line. */
++export type SignalItem = { title: string; body: string; lens?: string; sources?: string };
++/**
++ * A Weekly Signal carried exactly as issued. When a scan has this, the site shows the signal in its own
++ * structure and does not use the finding / interpretation / open-question fields.
++ */
++export type SignalContent = {
++  format: 'weekly-signal-v1';
++  heading: string;            // e.g. "Mauritius — Weekly Signal"
++  issue?: string;             // e.g. "WEEK#41 / 2026"
++  review_period?: string;     // e.g. "28 September – 4 October 2026"
++  briefing?: string;          // the opening line: week ending, sources scanned
++  themes: SignalItem[];       // "Top 3 themes"
++  lead?: SignalItem;          // "Lead topic"
++  watch?: string;             // "One to watch"
++  audit_log?: string[];       // "Article audit log — sources considered this scan"
++};
+ export type ManifestScan = {
+   slug: string; title: string; service?: string; week_of: string; signal: string; question: string;
+   finding?: string; interpretation?: string; open_questions?: string[];
++  /** The Weekly Signal as issued. `signal` and `question` are still required: lists, feeds and search use them. */
++  content?: SignalContent;
+ };
+ export type ManifestReport = {
+   slug: string; title: string; subtitle?: string; kind?: 'study' | 'sample' | 'paper'; year?: number; published_at?: string;
+@@ -50,6 +69,32 @@ const WEEK = /^\d{4}-W\d{2}$/;
+ const DBX_REF = /^(id:[A-Za-z0-9_-]+|\/.+)$/;
+ 
+ const isStr = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
++const optStr = (v: unknown) => v === undefined || v === null || typeof v === 'string';
++
++function validateSignalItem(it: unknown, at: string, errs: string[]) {
++  const x = it as Partial<SignalItem> | null;
++  if (!x || typeof x !== 'object') { errs.push(`${at}: not an object.`); return; }
++  if (!isStr(x.title)) errs.push(`${at}.title is required.`);
++  if (!isStr(x.body)) errs.push(`${at}.body is required.`);
++  if (!optStr(x.lens)) errs.push(`${at}.lens must be text.`);
++  if (!optStr(x.sources)) errs.push(`${at}.sources must be text.`);
++}
++
++function validateSignalContent(c: unknown, at: string, errs: string[]) {
++  const x = c as Partial<SignalContent> | null;
++  if (!x || typeof x !== 'object') { errs.push(`${at}: not an object.`); return; }
++  if (x.format !== 'weekly-signal-v1') errs.push(`${at}.format must be "weekly-signal-v1".`);
++  if (!isStr(x.heading)) errs.push(`${at}.heading is required.`);
++  for (const k of ['issue', 'review_period', 'briefing', 'watch'] as const) if (!optStr(x[k])) errs.push(`${at}.${k} must be text.`);
++  if (!Array.isArray(x.themes)) errs.push(`${at}.themes must be a list.`);
++  else {
++    if (x.themes.length > 12) errs.push(`${at}.themes: at most 12.`);
++    x.themes.forEach((t, i) => validateSignalItem(t, `${at}.themes[${i}]`, errs));
++  }
++  if (x.lead !== undefined && x.lead !== null) validateSignalItem(x.lead, `${at}.lead`, errs);
++  if (Array.isArray(x.themes) && x.themes.length === 0 && !x.lead) errs.push(`${at}: needs at least one theme or a lead topic.`);
++  if (x.audit_log !== undefined && x.audit_log !== null && (!Array.isArray(x.audit_log) || x.audit_log.some((a) => !isStr(a)))) errs.push(`${at}.audit_log must be a list of lines.`);
++}
+ 
+ /** Returns the list of problems; empty means the manifest can be imported. */
+ export function validateManifest(input: unknown): string[] {
+@@ -79,6 +124,7 @@ export function validateManifest(input: unknown): string[] {
+       if (!isStr(s.question)) errs.push(`${at}.scan.question is required.`);
+       if (s.service && !(SERVICE_KEYS as readonly string[]).includes(s.service)) errs.push(`${at}.scan.service must be one of ${SERVICE_KEYS.join(', ')}.`);
+       if (s.open_questions && (!Array.isArray(s.open_questions) || s.open_questions.some((q) => !isStr(q)))) errs.push(`${at}.scan.open_questions must be a list of sentences.`);
++      if (s.content !== undefined && s.content !== null) validateSignalContent(s.content, `${at}.scan.content`, errs);
+     }
+ 
+     if (e.report) {
+diff --git a/supabase/005_scan_signal.sql b/supabase/005_scan_signal.sql
+new file mode 100644
+index 0000000..7197f70
+--- /dev/null
++++ b/supabase/005_scan_signal.sql
+@@ -0,0 +1,7 @@
++-- FalconBridge Partners — Weekly Signal carried as issued (October 2026). Run after 004.
++-- Paste into Supabase → SQL Editor → Run. Safe to run more than once.
++--
++-- scans.content holds the Weekly Signal in its own structure (themes, lead topic, one to watch,
++-- article audit log) exactly as issued. When it is present, the scan page shows it as written.
++alter table public.scans add column if not exists content jsonb;
++grant all privileges on all tables in schema public to service_role;
+-- 
+2.43.0
+
