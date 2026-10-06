@@ -6,6 +6,11 @@ export default function ScanForm({ scan, reports = [] }: { scan?: Scan; reports?
   return (
     <form action={saveScan} className="space-y-8">
       {scan && <input type="hidden" name="id" value={scan.id} />}
+      {scan?.content && (
+        <p className="tile-ivory p-4 text-sm">
+          This entry carries the Weekly Signal as issued, and its page shows the signal as written. The signal and question fields below feed the list, the feed and search only. To change the signal itself, import a corrected manifest.
+        </p>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Field id="title" title="Title (internal; becomes the URL)"><input id="title" name="title" required defaultValue={scan?.title} className={input} /></Field>
         <Field id="slug" title="URL slug" hint="Leave blank to generate from the title."><input id="slug" name="slug" defaultValue={scan?.slug} className={input} /></Field>

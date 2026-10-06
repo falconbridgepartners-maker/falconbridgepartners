@@ -27,9 +27,28 @@ export const SLOTS = [
 
 export type ManifestAccess = (typeof ACCESS_KEYS)[number];
 export type ManifestFile = { slot: number; label?: string; access?: ManifestAccess; dropbox: string; name?: string };
+/** One item of a Weekly Signal, as issued: its headline, text, the FalconBridge Lens and the sources line. */
+export type SignalItem = { title: string; body: string; lens?: string; sources?: string };
+/**
+ * A Weekly Signal carried exactly as issued. When a scan has this, the site shows the signal in its own
+ * structure and does not use the finding / interpretation / open-question fields.
+ */
+export type SignalContent = {
+  format: 'weekly-signal-v1';
+  heading: string;            // e.g. "Mauritius — Weekly Signal"
+  issue?: string;             // e.g. "WEEK#41 / 2026"
+  review_period?: string;     // e.g. "28 September – 4 October 2026"
+  briefing?: string;          // the opening line: week ending, sources scanned
+  themes: SignalItem[];       // "Top 3 themes"
+  lead?: SignalItem;          // "Lead topic"
+  watch?: string;             // "One to watch"
+  audit_log?: string[];       // "Article audit log — sources considered this scan"
+};
 export type ManifestScan = {
   slug: string; title: string; service?: string; week_of: string; signal: string; question: string;
   finding?: string; interpretation?: string; open_questions?: string[];
+  /** The Weekly Signal as issued. `signal` and `question` are still required: lists, feeds and search use them. */
+  content?: SignalContent;
 };
 export type ManifestReport = {
   slug: string; title: string; subtitle?: string; kind?: 'study' | 'sample' | 'paper'; year?: number; published_at?: string;
@@ -50,6 +69,32 @@ const WEEK = /^\d{4}-W\d{2}$/;
 const DBX_REF = /^(id:[A-Za-z0-9_-]+|\/.+)$/;
 
 const isStr = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
+const optStr = (v: unknown) => v === undefined || v === null || typeof v === 'string';
+
+function validateSignalItem(it: unknown, at: string, errs: string[]) {
+  const x = it as Partial<SignalItem> | null;
+  if (!x || typeof x !== 'object') { errs.push(`${at}: not an object.`); return; }
+  if (!isStr(x.title)) errs.push(`${at}.title is required.`);
+  if (!isStr(x.body)) errs.push(`${at}.body is required.`);
+  if (!optStr(x.lens)) errs.push(`${at}.lens must be text.`);
+  if (!optStr(x.sources)) errs.push(`${at}.sources must be text.`);
+}
+
+function validateSignalContent(c: unknown, at: string, errs: string[]) {
+  const x = c as Partial<SignalContent> | null;
+  if (!x || typeof x !== 'object') { errs.push(`${at}: not an object.`); return; }
+  if (x.format !== 'weekly-signal-v1') errs.push(`${at}.format must be "weekly-signal-v1".`);
+  if (!isStr(x.heading)) errs.push(`${at}.heading is required.`);
+  for (const k of ['issue', 'review_period', 'briefing', 'watch'] as const) if (!optStr(x[k])) errs.push(`${at}.${k} must be text.`);
+  if (!Array.isArray(x.themes)) errs.push(`${at}.themes must be a list.`);
+  else {
+    if (x.themes.length > 12) errs.push(`${at}.themes: at most 12.`);
+    x.themes.forEach((t, i) => validateSignalItem(t, `${at}.themes[${i}]`, errs));
+  }
+  if (x.lead !== undefined && x.lead !== null) validateSignalItem(x.lead, `${at}.lead`, errs);
+  if (Array.isArray(x.themes) && x.themes.length === 0 && !x.lead) errs.push(`${at}: needs at least one theme or a lead topic.`);
+  if (x.audit_log !== undefined && x.audit_log !== null && (!Array.isArray(x.audit_log) || x.audit_log.some((a) => !isStr(a)))) errs.push(`${at}.audit_log must be a list of lines.`);
+}
 
 /** Returns the list of problems; empty means the manifest can be imported. */
 export function validateManifest(input: unknown): string[] {
@@ -79,6 +124,7 @@ export function validateManifest(input: unknown): string[] {
       if (!isStr(s.question)) errs.push(`${at}.scan.question is required.`);
       if (s.service && !(SERVICE_KEYS as readonly string[]).includes(s.service)) errs.push(`${at}.scan.service must be one of ${SERVICE_KEYS.join(', ')}.`);
       if (s.open_questions && (!Array.isArray(s.open_questions) || s.open_questions.some((q) => !isStr(q)))) errs.push(`${at}.scan.open_questions must be a list of sentences.`);
+      if (s.content !== undefined && s.content !== null) validateSignalContent(s.content, `${at}.scan.content`, errs);
     }
 
     if (e.report) {
