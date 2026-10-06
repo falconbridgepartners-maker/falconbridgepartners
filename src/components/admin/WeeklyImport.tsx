@@ -101,7 +101,9 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
             <p className={`text-sm p-3 rounded-lg ${problems.length ? 'bg-red-900/20 border border-red-500/30 text-red-100' : 'tile-ivory'}`} role="status">
               {problems.length
                 ? `${problems.length} of ${m.entries.length} territories need attention. Run the import again to retry; files already copied are not copied twice.`
-                : run.mode === 'publish' ? `Week ${m.weekLabel ?? ''} is published: ${m.entries.length} territories.` : `Week ${m.weekLabel ?? ''} is saved as drafts. Review, then publish from here or from each entry.`}
+                : run.mode === 'publish' ? `Week ${m.weekLabel ?? ''} is published: ${m.entries.length} ${m.entries.length === 1 ? 'entry' : 'entries'}.`
+                : done.every((r) => r.report?.published || r.scan?.published) ? `Week ${m.weekLabel ?? ''} is updated. The entries were already live and stay live.`
+                : `Week ${m.weekLabel ?? ''} is saved as drafts. Review, then publish from here or from each entry.`}
             </p>
           )}
 
@@ -116,7 +118,7 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
             <button type="button" className={btnGhost} disabled={run.busy} onClick={() => start(false)}>{run.busy && run.mode === 'draft' ? 'Importing…' : 'Import as drafts'}</button>
             {confirmPublish ? (
               <>
-                <button type="button" className={btn} disabled={run.busy} onClick={() => start(true)}>Confirm: publish {m.entries.length} territories</button>
+                <button type="button" className={btn} disabled={run.busy} onClick={() => start(true)}>Confirm: publish {m.entries.length} {m.entries.length === 1 ? 'entry' : 'entries'}</button>
                 <button type="button" className="text-sm text-white/50 hover:text-white" onClick={() => setConfirmPublish(false)}>Cancel</button>
               </>
             ) : (
