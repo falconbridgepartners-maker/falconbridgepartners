@@ -5,7 +5,7 @@ import PageHero from '@/components/dss/PageHero';
 import Invitation from '@/components/dss/Invitation';
 import { Section, Band } from '@/components/dss/Tiles';
 import { research } from '@/content/site';
-import { getPublishedScans, territoryName } from '@/lib/data';
+import { getPublishedScans, territoryName, weekText } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
@@ -41,12 +41,21 @@ export default async function WeeklyScanPage({ searchParams }: { searchParams?: 
             <Link key={e.slug} href={`/research/weekly-scan/${e.slug}`} className="group tile p-7 hover:border-brand-gold/60 transition-colors">
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-3">
                 <span className="label-tech">{territoryName[e.territory] ?? e.territory}</span>
-                <span className="text-white/45 text-sm">Week of {e.week_of}</span>
+                <span className="text-white/45 text-sm">{weekText(e.week_label) ?? `Week of ${e.week_of}`}</span>
                 {e.sample && <span className="text-[0.68rem] text-brand-gold-pale border border-brand-gold/40 rounded-full px-2 py-0.5">Sample — prototype</span>}
               </div>
-              <p className="text-white/70 mb-3">{e.signal}</p>
-              <p className="governing text-lg leading-snug">{e.question}</p>
-              <span className="inline-flex items-center gap-2 text-sm text-brand-gold-pale mt-4">Read the scan <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
+              {e.content ? (
+                <>
+                  <p className="governing text-xl leading-snug mb-3">{e.content.lead?.title ?? e.question}</p>
+                  <p className="text-white/70 line-clamp-3">{e.content.lead?.body ?? e.signal}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-white/70 mb-3">{e.signal}</p>
+                  <p className="governing text-lg leading-snug">{e.question}</p>
+                </>
+              )}
+              <span className="inline-flex items-center gap-2 text-sm text-brand-gold-pale mt-4">{e.content ? 'Read the signal' : 'Read the scan'} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></span>
             </Link>
           ))}
         </div>

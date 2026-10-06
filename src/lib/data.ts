@@ -1,5 +1,6 @@
 import 'server-only';
 import { createAdminClient, supabaseConfigured } from '@/lib/supabase/admin';
+import type { SignalContent } from '@/lib/weekly/manifest';
 
 /** open = anyone may download · request = in the pack, behind the email form · internal = never shown or served. */
 export type FileAccess = 'open' | 'request' | 'internal';
@@ -19,6 +20,8 @@ export type Scan = {
   id: string; slug: string; title: string; territory: string; service: string; week_of: string; signal: string; question: string;
   finding: string | null; interpretation: string | null; open_questions: string[]; reviewed: boolean; sample: boolean; published: boolean;
   week_label?: string | null; report_id?: string | null;
+  /** The Weekly Signal as issued (see src/lib/weekly/manifest.ts). When present, the scan page shows it as written. */
+  content?: SignalContent | null;
 };
 export type AccessRequest = {
   id: string; report_id: string; full_name: string; email: string; organisation: string; role: string | null; intended_use: string | null;
@@ -148,14 +151,20 @@ export async function getStudyForScan(scan: Scan): Promise<Pick<Report, 'slug' |
 }
 
 /** The published scan entry behind a study (or null). */
-export async function getScanForStudy(reportId: string): Promise<Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory'> | null> {
+export async function getScanForStudy(reportId: string): Promise<Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'> | null> {
   return safe(async () => {
     const db = createAdminClient();
-    const { data, error } = await db.from('scans').select('slug, question, week_of, territory').eq('report_id', reportId).eq('published', true).order('week_of', { ascending: false }).limit(1).maybeSingle();
+    const { data, error } = await db.from('scans').select('slug, question, week_of, territory, week_label').eq('report_id', reportId).eq('published', true).order('week_of', { ascending: false }).limit(1).maybeSingle();
     if (error) return null;
-    return (data as Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory'>) ?? null;
+    return (data as Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'>) ?? null;
   }, null);
 }
+
+/** "2026-W41" → "Week 41, 2026". */
+export const weekText = (label: string | null | undefined) => {
+  const m = /^(\d{4})-W(\d{2})$/.exec(label ?? '');
+  return m ? `Week ${Number(m[2])}, ${m[1]}` : null;
+};
 
 /** Active partners in display order. Empty when the partners table has not been created yet — callers fall back to the built-in list. */
 export async function getPartners({ includeInactive = false } = {}): Promise<PartnerRow[]> {

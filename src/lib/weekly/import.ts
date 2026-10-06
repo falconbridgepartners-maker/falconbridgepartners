@@ -159,6 +159,8 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
         open_questions: s.open_questions ?? [], week_label: manifest.week_label, sample: false,
       };
       if (reportId) row.report_id = reportId;
+      // The Weekly Signal as issued. Left untouched on re-import when the manifest carries none.
+      if (s.content) row.content = s.content;
       let scanPublished = Boolean(exScan?.published);
       if (mayPublish) { row.reviewed = true; row.published = true; scanPublished = true; }
       let scanId = exScan?.id as string | undefined;

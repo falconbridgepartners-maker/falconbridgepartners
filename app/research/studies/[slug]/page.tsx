@@ -5,7 +5,7 @@ import PageHero from '@/components/dss/PageHero';
 import Invitation from '@/components/dss/Invitation';
 import RequestReport from '@/components/dss/RequestReport';
 import { Section, Band, NextLink } from '@/components/dss/Tiles';
-import { getReportBySlug, getScanForStudy, hasGatedPack, publicMediaUrl, readerFiles, territoryName } from '@/lib/data';
+import { getReportBySlug, getScanForStudy, hasGatedPack, publicMediaUrl, readerFiles, territoryName, weekText } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,7 +61,7 @@ export default async function StudyPage({ params }: { params: { slug: string } }
                 <p className="text-sm">{f.body}</p>
               </div>
             ))}
-            {scan && <NextLink href={`/research/weekly-scan/${scan.slug}`} label="The signal behind this study" sub={scan.question} />}
+            {scan && <NextLink href={`/research/weekly-scan/${scan.slug}`} label="The Weekly Signal behind this study" sub={[territoryName[scan.territory] ?? scan.territory, weekText(scan.week_label) ?? `week of ${scan.week_of}`].join(' · ')} />}
           </div>
         </div>
       </Section>
