@@ -1,0 +1,968 @@
+From db3ff90905b921cc829a5dbc88fda5b567d676b4 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 6 Oct 2026 09:22:54 +0000
+Subject: [PATCH] Library images, week filter, and a pack link at the top of
+ each study
+
+- Study page: a 'Get the research pack' button under the title jumps to the form and opens it
+- Library cards show the study's Executive Visual; where a study has none, the falcon mark. Territory and week sit above the title
+- The importer makes a web-sized copy of each visual (sharp) so the library does not load full-size images; cards fall back to the full image, then the mark
+- Week filter on the Library and the Weekly Scan list, kept alongside the territory and type filters, with a count of studies shown
+- Sitemap is built on request so new studies and signals appear in it
+---
+ app/research/library/page.tsx        |  18 +-
+ app/research/studies/[slug]/page.tsx |  13 +-
+ app/research/weekly-scan/page.tsx    |  20 +-
+ app/sitemap.ts                       |   3 +
+ package-lock.json                    | 453 ++++++++++++++++++++++++++-
+ package.json                         |   1 +
+ src/components/dss/CardImage.tsx     |  18 ++
+ src/components/dss/ReportCard.tsx    |  43 +--
+ src/components/dss/RequestReport.tsx |  17 +-
+ src/components/dss/Tiles.tsx         |   4 +-
+ src/components/dss/WeekFilter.tsx    |  36 +++
+ src/lib/data.ts                      |   9 +
+ src/lib/weekly/import.ts             |  20 +-
+ 13 files changed, 614 insertions(+), 41 deletions(-)
+ create mode 100644 src/components/dss/CardImage.tsx
+ create mode 100644 src/components/dss/WeekFilter.tsx
+
+diff --git a/app/research/library/page.tsx b/app/research/library/page.tsx
+index d52c0b6..94347ad 100644
+--- a/app/research/library/page.tsx
++++ b/app/research/library/page.tsx
+@@ -5,7 +5,8 @@ import Invitation from '@/components/dss/Invitation';
+ import ReportCard from '@/components/dss/ReportCard';
+ import { Section, Band } from '@/components/dss/Tiles';
+ import { research } from '@/content/site';
+-import { getPublishedReports, REPORT_KINDS, TERRITORIES } from '@/lib/data';
++import WeekFilter from '@/components/dss/WeekFilter';
++import { getPublishedReports, REPORT_KINDS, TERRITORIES, weekOptions } from '@/lib/data';
+ 
+ export const dynamic = 'force-dynamic';
+ export const metadata: Metadata = {
+@@ -13,12 +14,13 @@ export const metadata: Metadata = {
+   description: 'Public studies, commissioned samples and papers, available to readers with the research package.',
+ };
+ 
+-export default async function LibraryPage({ searchParams }: { searchParams?: { territory?: string; kind?: string } }) {
++export default async function LibraryPage({ searchParams }: { searchParams?: { territory?: string; kind?: string; week?: string } }) {
+   const all = await getPublishedReports();
+-  const t = searchParams?.territory, k = searchParams?.kind;
+-  const reports = all.filter((r) => (!t || r.territory === t) && (!k || r.kind === k));
++  const t = searchParams?.territory, k = searchParams?.kind, w = searchParams?.week;
++  const reports = all.filter((r) => (!t || r.territory === t) && (!k || r.kind === k) && (!w || r.week_label === w));
++  const weeks = weekOptions(all);
+   const chip = (active: boolean) => `px-4 py-2 rounded-full text-sm border ${active ? 'border-brand-gold text-white' : 'border-brand-gold/30 text-white/60'}`;
+-  const href = (nt?: string, nk?: string) => { const p = new URLSearchParams(); if (nt) p.set('territory', nt); if (nk) p.set('kind', nk); const s = p.toString(); return `/research/library${s ? `?${s}` : ''}`; };
++  const href = (nt?: string, nk?: string) => { const p = new URLSearchParams(); if (nt) p.set('territory', nt); if (nk) p.set('kind', nk); if (w) p.set('week', w); const s = p.toString(); return `/research/library${s ? `?${s}` : ''}`; };
+   return (
+     <>
+       <PageHero eyebrow="Research · Library" title="Research available to readers" intro={research.publicNote} />
+@@ -27,10 +29,14 @@ export default async function LibraryPage({ searchParams }: { searchParams?: { t
+           <Link href={href(undefined, k)} className={chip(!t)}>All territories</Link>
+           {TERRITORIES.map((x) => <Link key={x.value} href={href(x.value, k)} className={chip(t === x.value)}>{x.label}</Link>)}
+         </div>
+-        <div className="flex flex-wrap gap-2 mb-10">
++        <div className="flex flex-wrap gap-2 mb-4">
+           <Link href={href(t, undefined)} className={chip(!k)}>All types</Link>
+           {REPORT_KINDS.map((x) => <Link key={x.value} href={href(t, x.value)} className={chip(k === x.value)}>{x.label}</Link>)}
+         </div>
++        <div className="flex flex-wrap items-center gap-4 mb-10">
++          <WeekFilter weeks={weeks} current={w} basePath="/research/library" params={{ territory: t, kind: k }} />
++          <p className="text-sm text-white/45">{reports.length} {reports.length === 1 ? 'study' : 'studies'}{w || t || k ? ' in this selection' : ''}</p>
++        </div>
+         {reports.length === 0 ? <p className="text-white/60">Nothing published for this selection yet.</p> : (
+           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">{reports.map((r) => <ReportCard key={r.id} report={r} />)}</div>
+         )}
+diff --git a/app/research/studies/[slug]/page.tsx b/app/research/studies/[slug]/page.tsx
+index 0a6781b..8471380 100644
+--- a/app/research/studies/[slug]/page.tsx
++++ b/app/research/studies/[slug]/page.tsx
+@@ -1,6 +1,7 @@
+ import type { Metadata } from 'next';
+ import { notFound } from 'next/navigation';
+-import { Download } from 'lucide-react';
++import { ArrowDown, Download } from 'lucide-react';
++import { Button } from '@/components/ui/Button';
+ import PageHero from '@/components/dss/PageHero';
+ import Invitation from '@/components/dss/Invitation';
+ import RequestReport from '@/components/dss/RequestReport';
+@@ -32,7 +33,13 @@ export default async function StudyPage({ params }: { params: { slug: string } }
+   const scan = await getScanForStudy(s.id);
+   return (
+     <>
+-      <PageHero eyebrow={`${s.kind === 'study' ? 'Public study' : s.kind === 'sample' ? 'Commissioned sample' : 'White paper'} · ${territoryName[s.territory] ?? s.territory}${s.year ? ` · ${s.year}` : ''}`} title={s.title} governing={s.subtitle ?? undefined} />
++      <PageHero eyebrow={`${s.kind === 'study' ? 'Public study' : s.kind === 'sample' ? 'Commissioned sample' : 'White paper'} · ${territoryName[s.territory] ?? s.territory}${s.year ? ` · ${s.year}` : ''}`} title={s.title} governing={s.subtitle ?? undefined}>
++        {hasRequest && (
++          <div className="mt-2">
++            <Button href="#research-pack" variant="primary" size="sm" icon={ArrowDown}>{auto ? 'Get the research pack' : 'Request the full report'}</Button>
++          </div>
++        )}
++      </PageHero>
+       <Section>
+         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+           <div className="lg:col-span-7">
+@@ -81,7 +88,7 @@ export default async function StudyPage({ params }: { params: { slug: string } }
+             )
+           ))}
+         </div>
+-        {hasRequest && <RequestReport studyTitle={s.title} slug={s.slug} auto={auto} packFiles={auto ? files.map((f) => f.label) : []} />}
++        {hasRequest && <div id="research-pack" className="scroll-mt-32"><RequestReport studyTitle={s.title} slug={s.slug} auto={auto} packFiles={auto ? files.map((f) => f.label) : []} /></div>}
+         {!auto && !hasOpen && hasRequest && <p className="text-sm text-white/45 mt-4">Direct downloads are added as each element is released.</p>}
+         {s.qualifier && <div className="mt-10"><Band title="The sample demonstrates the work" body={s.qualifier} /></div>}
+       </Section>
+diff --git a/app/research/weekly-scan/page.tsx b/app/research/weekly-scan/page.tsx
+index f00e057..afe532f 100644
+--- a/app/research/weekly-scan/page.tsx
++++ b/app/research/weekly-scan/page.tsx
+@@ -5,7 +5,8 @@ import PageHero from '@/components/dss/PageHero';
+ import Invitation from '@/components/dss/Invitation';
+ import { Section, Band } from '@/components/dss/Tiles';
+ import { research } from '@/content/site';
+-import { getPublishedScans, territoryName, weekText } from '@/lib/data';
++import WeekFilter from '@/components/dss/WeekFilter';
++import { getPublishedScans, territoryName, weekOptions, weekText } from '@/lib/data';
+ 
+ export const dynamic = 'force-dynamic';
+ export const metadata: Metadata = {
+@@ -13,29 +14,36 @@ export const metadata: Metadata = {
+   description: 'Systematic territorial scans identify significant developments. The FalconBridge Lens turns selected signals into decision-relevant questions.',
+ };
+ 
+-export default async function WeeklyScanPage({ searchParams }: { searchParams?: { territory?: string } }) {
++export default async function WeeklyScanPage({ searchParams }: { searchParams?: { territory?: string; week?: string } }) {
+   const filter = searchParams?.territory;
+-  const scans = await getPublishedScans(filter);
++  const week = searchParams?.week;
++  const inTerritory = await getPublishedScans(filter);
++  const weeks = weekOptions(inTerritory);
++  const scans = week ? inTerritory.filter((s) => s.week_label === week) : inTerritory;
++  const withWeek = (territory?: string) => { const p = new URLSearchParams(); if (territory) p.set('territory', territory); if (week) p.set('week', week); const q = p.toString(); return `/research/weekly-scan${q ? `?${q}` : ''}`; };
+   const hasSamples = scans.some((s) => s.sample);
+   return (
+     <>
+       <PageHero eyebrow="Research · Weekly Scan" title="Signals worth a question" intro="Systematic territorial scans identify significant developments. Our interpretation turns a development into a question worth testing. Findings and FBP’s interpretation are kept visibly distinct." />
+       <Section>
+         <div className="flex flex-wrap gap-2 mb-8">
+-          <Link href="/research/weekly-scan" className={`px-4 py-2 rounded-full text-sm border ${!filter ? 'border-brand-gold text-white' : 'border-brand-gold/30 text-white/60'}`}>All territories</Link>
++          <Link href={withWeek()} className={`px-4 py-2 rounded-full text-sm border ${!filter ? 'border-brand-gold text-white' : 'border-brand-gold/30 text-white/60'}`}>All territories</Link>
+           {research.curiosity.territories.map((t) => (
+             t.status === 'active' ? (
+-              <Link key={t.key} href={`/research/weekly-scan?territory=${t.key}`} className={`px-4 py-2 rounded-full text-sm border ${filter === t.key ? 'border-brand-gold text-white' : 'border-brand-gold/30 text-white/60'}`}>{t.name}</Link>
++              <Link key={t.key} href={withWeek(t.key)} className={`px-4 py-2 rounded-full text-sm border ${filter === t.key ? 'border-brand-gold text-white' : 'border-brand-gold/30 text-white/60'}`}>{t.name}</Link>
+             ) : (
+               <span key={t.key} className="px-4 py-2 rounded-full text-sm border border-dashed border-brand-gold/40 text-white/45">{t.name}</span>
+             )
+           ))}
+           <a href="/research/weekly-scan/rss.xml" className="ml-auto text-sm text-white/45 hover:text-white self-center">RSS</a>
+         </div>
++        <div className="flex flex-wrap items-center gap-4 mb-8 -mt-3">
++          <WeekFilter weeks={weeks} current={week} basePath="/research/weekly-scan" params={{ territory: filter }} />
++        </div>
+         {hasSamples && (
+           <div className="tile-ivory p-4 mb-8 text-sm"><strong>Prototype note.</strong> Entries marked “sample” are placeholders showing the structure of a scan entry. They are replaced by real scans before launch.</div>
+         )}
+-        {scans.length === 0 && <p className="text-white/60">No scan entries for this territory yet.</p>}
++        {scans.length === 0 && <p className="text-white/60">No scan entries for this selection yet.</p>}
+         <div className="grid grid-cols-1 gap-5">
+           {scans.map((e) => (
+             <Link key={e.slug} href={`/research/weekly-scan/${e.slug}`} className="group tile p-7 hover:border-brand-gold/60 transition-colors">
+diff --git a/app/sitemap.ts b/app/sitemap.ts
+index 83b7c65..4e94798 100644
+--- a/app/sitemap.ts
++++ b/app/sitemap.ts
+@@ -4,6 +4,9 @@ import { services, situations } from '@/content/site';
+ 
+ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://falconbp.com';
+ 
++// Built on request: the list of studies and signals changes every week, and a build-time copy would omit them.
++export const dynamic = 'force-dynamic';
++
+ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+   const now = new Date();
+   const staticRoutes = [
+diff --git a/package-lock.json b/package-lock.json
+index 74d64e2..83e7e10 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -26,6 +26,7 @@
+         "react": "^18.2.0",
+         "react-dom": "^18.2.0",
+         "resend": "^6.9.2",
++        "sharp": "^0.33.5",
+         "tailwind-merge": "^3.4.0",
+         "tailwindcss": "^4.1.18",
+         "tailwindcss-animate": "^1.0.7",
+@@ -381,6 +382,367 @@
+       "dev": true,
+       "license": "BSD-3-Clause"
+     },
++    "node_modules/@img/sharp-darwin-arm64": {
++      "version": "0.33.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-darwin-arm64/-/sharp-darwin-arm64-0.33.5.tgz",
++      "integrity": "sha512-UT4p+iz/2H4twwAoLCqfA9UH5pI6DggwKEGuaPy7nCVQ8ZsiY5PIcrRvD1DzuY3qYL07NtIQcWnBSY/heikIFQ==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-darwin-arm64": "1.0.4"
++      }
++    },
++    "node_modules/@img/sharp-darwin-x64": {
++      "version": "0.33.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-darwin-x64/-/sharp-darwin-x64-0.33.5.tgz",
++      "integrity": "sha512-fyHac4jIc1ANYGRDxtiqelIbdWkIuQaI84Mv45KvGRRxSAa7o7d1ZKAOBaYbnepLC1WqxfpimdeWfvqqSGwR2Q==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-darwin-x64": "1.0.4"
++      }
++    },
++    "node_modules/@img/sharp-libvips-darwin-arm64": {
++      "version": "1.0.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-darwin-arm64/-/sharp-libvips-darwin-arm64-1.0.4.tgz",
++      "integrity": "sha512-XblONe153h0O2zuFfTAbQYAX2JhYmDHeWikp1LM9Hul9gVPjFY427k6dFEcOL72O01QxQsWi761svJ/ev9xEDg==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-darwin-x64": {
++      "version": "1.0.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-darwin-x64/-/sharp-libvips-darwin-x64-1.0.4.tgz",
++      "integrity": "sha512-xnGR8YuZYfJGmWPvmlunFaWJsb9T/AO2ykoP3Fz/0X5XV2aoYBPkX6xqCQvUTKKiLddarLaxpzNe+b1hjeWHAQ==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linux-arm": {
++      "version": "1.0.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-arm/-/sharp-libvips-linux-arm-1.0.5.tgz",
++      "integrity": "sha512-gvcC4ACAOPRNATg/ov8/MnbxFDJqf/pDePbBnuBDcjsI8PssmjoKMAz4LtLaVi+OnSb5FK/yIOamqDwGmXW32g==",
++      "cpu": [
++        "arm"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linux-arm64": {
++      "version": "1.0.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-arm64/-/sharp-libvips-linux-arm64-1.0.4.tgz",
++      "integrity": "sha512-9B+taZ8DlyyqzZQnoeIvDVR/2F4EbMepXMc/NdVbkzsJbzkUjhXv/70GQJ7tdLA4YJgNP25zukcxpX2/SueNrA==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linux-s390x": {
++      "version": "1.0.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-s390x/-/sharp-libvips-linux-s390x-1.0.4.tgz",
++      "integrity": "sha512-u7Wz6ntiSSgGSGcjZ55im6uvTrOxSIS8/dgoVMoiGE9I6JAfU50yH5BoDlYA1tcuGS7g/QNtetJnxA6QEsCVTA==",
++      "cpu": [
++        "s390x"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linux-x64": {
++      "version": "1.0.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-x64/-/sharp-libvips-linux-x64-1.0.4.tgz",
++      "integrity": "sha512-MmWmQ3iPFZr0Iev+BAgVMb3ZyC4KeFc3jFxnNbEPas60e1cIfevbtuyf9nDGIzOaW9PdnDciJm+wFFaTlj5xYw==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linuxmusl-arm64": {
++      "version": "1.0.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linuxmusl-arm64/-/sharp-libvips-linuxmusl-arm64-1.0.4.tgz",
++      "integrity": "sha512-9Ti+BbTYDcsbp4wfYib8Ctm1ilkugkA/uscUn6UXK1ldpC1JjiXbLfFZtRlBhjPZ5o1NCLiDbg8fhUPKStHoTA==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-libvips-linuxmusl-x64": {
++      "version": "1.0.4",
++      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linuxmusl-x64/-/sharp-libvips-linuxmusl-x64-1.0.4.tgz",
++      "integrity": "sha512-viYN1KX9m+/hGkJtvYYp+CCLgnJXwiQB39damAO7WMdKWlIhmYTfHjwSbQeUK/20vY154mwezd9HflVFM1wVSw==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-linux-arm": {
++      "version": "0.33.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linux-arm/-/sharp-linux-arm-0.33.5.tgz",
++      "integrity": "sha512-JTS1eldqZbJxjvKaAkxhZmBqPRGmxgu+qFKSInv8moZ2AmT5Yib3EQ1c6gp493HvrvV8QgdOXdyaIBrhvFhBMQ==",
++      "cpu": [
++        "arm"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linux-arm": "1.0.5"
++      }
++    },
++    "node_modules/@img/sharp-linux-arm64": {
++      "version": "0.33.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linux-arm64/-/sharp-linux-arm64-0.33.5.tgz",
++      "integrity": "sha512-JMVv+AMRyGOHtO1RFBiJy/MBsgz0x4AWrT6QoEVVTyh1E39TrCUpTRI7mx9VksGX4awWASxqCYLCV4wBZHAYxA==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linux-arm64": "1.0.4"
++      }
++    },
++    "node_modules/@img/sharp-linux-s390x": {
++      "version": "0.33.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linux-s390x/-/sharp-linux-s390x-0.33.5.tgz",
++      "integrity": "sha512-y/5PCd+mP4CA/sPDKl2961b+C9d+vPAveS33s6Z3zfASk2j5upL6fXVPZi7ztePZ5CuH+1kW8JtvxgbuXHRa4Q==",
++      "cpu": [
++        "s390x"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linux-s390x": "1.0.4"
++      }
++    },
++    "node_modules/@img/sharp-linux-x64": {
++      "version": "0.33.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linux-x64/-/sharp-linux-x64-0.33.5.tgz",
++      "integrity": "sha512-opC+Ok5pRNAzuvq1AG0ar+1owsu842/Ab+4qvU879ippJBHvyY5n2mxF1izXqkPYlGuP/M556uh53jRLJmzTWA==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linux-x64": "1.0.4"
++      }
++    },
++    "node_modules/@img/sharp-linuxmusl-arm64": {
++      "version": "0.33.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linuxmusl-arm64/-/sharp-linuxmusl-arm64-0.33.5.tgz",
++      "integrity": "sha512-XrHMZwGQGvJg2V/oRSUfSAfjfPxO+4DkiRh6p2AFjLQztWUuY/o8Mq0eMQVIY7HJ1CDQUJlxGGZRw1a5bqmd1g==",
++      "cpu": [
++        "arm64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linuxmusl-arm64": "1.0.4"
++      }
++    },
++    "node_modules/@img/sharp-linuxmusl-x64": {
++      "version": "0.33.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-linuxmusl-x64/-/sharp-linuxmusl-x64-0.33.5.tgz",
++      "integrity": "sha512-WT+d/cgqKkkKySYmqoZ8y3pxx7lx9vVejxW/W4DOFMYVSkErR+w7mf2u8m/y4+xHe7yY9DAXQMWQhpnMuFfScw==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "Apache-2.0",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-libvips-linuxmusl-x64": "1.0.4"
++      }
++    },
++    "node_modules/@img/sharp-wasm32": {
++      "version": "0.33.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-wasm32/-/sharp-wasm32-0.33.5.tgz",
++      "integrity": "sha512-ykUW4LVGaMcU9lu9thv85CbRMAwfeadCJHRsg2GmeRa/cJxsVY9Rbd57JcMxBkKHag5U/x7TSBpScF4U8ElVzg==",
++      "cpu": [
++        "wasm32"
++      ],
++      "license": "Apache-2.0 AND LGPL-3.0-or-later AND MIT",
++      "optional": true,
++      "dependencies": {
++        "@emnapi/runtime": "^1.2.0"
++      },
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-win32-ia32": {
++      "version": "0.33.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-win32-ia32/-/sharp-win32-ia32-0.33.5.tgz",
++      "integrity": "sha512-T36PblLaTwuVJ/zw/LaH0PdZkRz5rd3SmMHX8GSmR7vtNSP5Z6bQkExdSK7xGWyxLw4sUknBuugTelgw2faBbQ==",
++      "cpu": [
++        "ia32"
++      ],
++      "license": "Apache-2.0 AND LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
++    "node_modules/@img/sharp-win32-x64": {
++      "version": "0.33.5",
++      "resolved": "https://registry.npmjs.org/@img/sharp-win32-x64/-/sharp-win32-x64-0.33.5.tgz",
++      "integrity": "sha512-MpY/o8/8kj+EcnxwvrP4aTJSWw/aZ7JIGR4aBeZkZw5B7/Jn+tY9/VNwtcoGmdT7GfggGIU4kygOMSbYnOrAbg==",
++      "cpu": [
++        "x64"
++      ],
++      "license": "Apache-2.0 AND LGPL-3.0-or-later",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      }
++    },
+     "node_modules/@isaacs/cliui": {
+       "version": "8.0.2",
+       "resolved": "https://registry.npmjs.org/@isaacs/cliui/-/cliui-8.0.2.tgz",
+@@ -2369,11 +2731,23 @@
+         "node": ">=6"
+       }
+     },
++    "node_modules/color": {
++      "version": "4.2.3",
++      "resolved": "https://registry.npmjs.org/color/-/color-4.2.3.tgz",
++      "integrity": "sha512-1rXeuUUiGGrykh+CeBdu5Ie7OJwinCgQY0bc7GCRxy5xVHy+moaqkpL/jqQq0MtQOeYcrqEz4abc5f0KtU7W4A==",
++      "license": "MIT",
++      "dependencies": {
++        "color-convert": "^2.0.1",
++        "color-string": "^1.9.0"
++      },
++      "engines": {
++        "node": ">=12.5.0"
++      }
++    },
+     "node_modules/color-convert": {
+       "version": "2.0.1",
+       "resolved": "https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz",
+       "integrity": "sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==",
+-      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "color-name": "~1.1.4"
+@@ -2386,9 +2760,18 @@
+       "version": "1.1.4",
+       "resolved": "https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz",
+       "integrity": "sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==",
+-      "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/color-string": {
++      "version": "1.9.1",
++      "resolved": "https://registry.npmjs.org/color-string/-/color-string-1.9.1.tgz",
++      "integrity": "sha512-shrVawQFojnZv6xM40anx4CkoDP+fZsw/ZerEMsW/pyzsRbElpsL/DBVW7q3ExxwusdNXI3lXpuhEZkzs8p5Eg==",
++      "license": "MIT",
++      "dependencies": {
++        "color-name": "^1.0.0",
++        "simple-swizzle": "^0.2.2"
++      }
++    },
+     "node_modules/concat-map": {
+       "version": "0.0.1",
+       "resolved": "https://registry.npmjs.org/concat-map/-/concat-map-0.0.1.tgz",
+@@ -3997,6 +4380,12 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/is-arrayish": {
++      "version": "0.3.4",
++      "resolved": "https://registry.npmjs.org/is-arrayish/-/is-arrayish-0.3.4.tgz",
++      "integrity": "sha512-m6UrgzFVUYawGBh1dUsWR5M2Clqic9RVXC/9f8ceNlv2IcO9j9J/z8UoCLPqtsPBFNzEpfR3xftohbfqDx8EQA==",
++      "license": "MIT"
++    },
+     "node_modules/is-async-function": {
+       "version": "2.1.1",
+       "resolved": "https://registry.npmjs.org/is-async-function/-/is-async-function-2.1.1.tgz",
+@@ -5903,6 +6292,57 @@
+         "node": ">= 0.4"
+       }
+     },
++    "node_modules/sharp": {
++      "version": "0.33.5",
++      "resolved": "https://registry.npmjs.org/sharp/-/sharp-0.33.5.tgz",
++      "integrity": "sha512-haPVm1EkS9pgvHrQ/F3Xy+hgcuMV0Wm9vfIBSiwZ05k+xgb0PkBQpGsAA/oWdDobNaZTH5ppvHtzCFbnSEwHVw==",
++      "hasInstallScript": true,
++      "license": "Apache-2.0",
++      "dependencies": {
++        "color": "^4.2.3",
++        "detect-libc": "^2.0.3",
++        "semver": "^7.6.3"
++      },
++      "engines": {
++        "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
++      },
++      "funding": {
++        "url": "https://opencollective.com/libvips"
++      },
++      "optionalDependencies": {
++        "@img/sharp-darwin-arm64": "0.33.5",
++        "@img/sharp-darwin-x64": "0.33.5",
++        "@img/sharp-libvips-darwin-arm64": "1.0.4",
++        "@img/sharp-libvips-darwin-x64": "1.0.4",
++        "@img/sharp-libvips-linux-arm": "1.0.5",
++        "@img/sharp-libvips-linux-arm64": "1.0.4",
++        "@img/sharp-libvips-linux-s390x": "1.0.4",
++        "@img/sharp-libvips-linux-x64": "1.0.4",
++        "@img/sharp-libvips-linuxmusl-arm64": "1.0.4",
++        "@img/sharp-libvips-linuxmusl-x64": "1.0.4",
++        "@img/sharp-linux-arm": "0.33.5",
++        "@img/sharp-linux-arm64": "0.33.5",
++        "@img/sharp-linux-s390x": "0.33.5",
++        "@img/sharp-linux-x64": "0.33.5",
++        "@img/sharp-linuxmusl-arm64": "0.33.5",
++        "@img/sharp-linuxmusl-x64": "0.33.5",
++        "@img/sharp-wasm32": "0.33.5",
++        "@img/sharp-win32-ia32": "0.33.5",
++        "@img/sharp-win32-x64": "0.33.5"
++      }
++    },
++    "node_modules/sharp/node_modules/semver": {
++      "version": "7.8.5",
++      "resolved": "https://registry.npmjs.org/semver/-/semver-7.8.5.tgz",
++      "integrity": "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==",
++      "license": "ISC",
++      "bin": {
++        "semver": "bin/semver.js"
++      },
++      "engines": {
++        "node": ">=10"
++      }
++    },
+     "node_modules/shebang-command": {
+       "version": "2.0.0",
+       "resolved": "https://registry.npmjs.org/shebang-command/-/shebang-command-2.0.0.tgz",
+@@ -6015,6 +6455,15 @@
+         "url": "https://github.com/sponsors/isaacs"
+       }
+     },
++    "node_modules/simple-swizzle": {
++      "version": "0.2.4",
++      "resolved": "https://registry.npmjs.org/simple-swizzle/-/simple-swizzle-0.2.4.tgz",
++      "integrity": "sha512-nAu1WFPQSMNr2Zn9PGSZK9AGn4t/y97lEm+MXTtUDwfP0ksAIX4nO+6ruD9Jwut4C49SB1Ws+fbXsm/yScWOHw==",
++      "license": "MIT",
++      "dependencies": {
++        "is-arrayish": "^0.3.1"
++      }
++    },
+     "node_modules/slash": {
+       "version": "3.0.0",
+       "resolved": "https://registry.npmjs.org/slash/-/slash-3.0.0.tgz",
+diff --git a/package.json b/package.json
+index c76b991..2179041 100644
+--- a/package.json
++++ b/package.json
+@@ -27,6 +27,7 @@
+     "react": "^18.2.0",
+     "react-dom": "^18.2.0",
+     "resend": "^6.9.2",
++    "sharp": "^0.33.5",
+     "tailwind-merge": "^3.4.0",
+     "tailwindcss": "^4.1.18",
+     "tailwindcss-animate": "^1.0.7",
+diff --git a/src/components/dss/CardImage.tsx b/src/components/dss/CardImage.tsx
+new file mode 100644
+index 0000000..cd387a6
+--- /dev/null
++++ b/src/components/dss/CardImage.tsx
+@@ -0,0 +1,18 @@
++'use client';
++import { useEffect, useState } from 'react';
++
++/**
++ * Shows the first image in `sources` that loads, trying each in turn, and nothing if none does.
++ * The card behind it carries the falcon mark, so an image that is missing never leaves a blank tile.
++ *
++ * The image is added once the page is interactive, so a failed load is always caught and the next
++ * source tried; a browser's own "loaded" flag is unreliable for images it has deferred.
++ */
++export default function CardImage({ sources, alt, className }: { sources: string[]; alt: string; className?: string }) {
++  const [ready, setReady] = useState(false);
++  const [i, setI] = useState(0);
++  useEffect(() => setReady(true), []);
++  if (!ready || i >= sources.length) return null;
++  // eslint-disable-next-line @next/next/no-img-element
++  return <img key={sources[i]} src={sources[i]} alt={alt} loading="lazy" decoding="async" className={className} onError={() => setI((n) => n + 1)} />;
++}
+diff --git a/src/components/dss/ReportCard.tsx b/src/components/dss/ReportCard.tsx
+index 16ff859..1935798 100644
+--- a/src/components/dss/ReportCard.tsx
++++ b/src/components/dss/ReportCard.tsx
+@@ -1,30 +1,37 @@
+ import Link from 'next/link';
++import Image from 'next/image';
+ import { ArrowRight } from 'lucide-react';
+-import { publicMediaUrl, territoryName, type Report } from '@/lib/data';
++import falconMark from '@/assets/images/falcon-mark.png';
++import CardImage from '@/components/dss/CardImage';
++import { publicMediaUrl, territoryName, thumbPathOf, weekText, type Report } from '@/lib/data';
+ 
+-/** Cover tile for the library grid. Falls back to a typeset cover when no image is uploaded. */
++/**
++ * Tile for the library grid. A study with a cover shows it; otherwise the tile shows the study's
++ * Executive Visual, and where there is no visual, the falcon mark.
++ */
+ export default function ReportCard({ report }: { report: Report }) {
+   const cover = publicMediaUrl(report.cover_path);
++  const visual = report.extract_path ? [publicMediaUrl(thumbPathOf(report.extract_path)), publicMediaUrl(report.extract_path)].filter((u): u is string => Boolean(u)) : [];
++  const place = territoryName[report.territory] ?? report.territory;
++  const when = weekText(report.week_label) ?? (report.year ? String(report.year) : null);
+   return (
+     <Link href={`/research/studies/${report.slug}`} className="group tile overflow-hidden flex flex-col hover:border-brand-gold/60 transition-colors">
+-      <div className="aspect-[3/4] bg-brand-navy-dark relative">
+-        {cover ? (
+-          // eslint-disable-next-line @next/next/no-img-element
+-          <img src={cover} alt={report.title} className="w-full h-full object-cover" />
+-        ) : (
+-          <div className="absolute inset-0 p-6 flex flex-col justify-between border-b border-brand-gold/20">
+-            <p className="label-tech">{territoryName[report.territory] ?? report.territory}</p>
+-            <div>
+-              <p className="text-white font-bold text-lg leading-snug">{report.title}</p>
+-              {report.year && <p className="governing text-sm mt-2">{report.year}</p>}
+-            </div>
+-          </div>
+-        )}
+-      </div>
+-      <div className="p-5">
++      {cover ? (
++        <div className="aspect-[3/4] bg-brand-navy-dark relative">
++          {/* eslint-disable-next-line @next/next/no-img-element */}
++          <img src={cover} alt={report.title} loading="lazy" className="w-full h-full object-cover" />
++        </div>
++      ) : (
++        <div className="aspect-[4/3] bg-brand-navy-dark relative overflow-hidden border-b border-brand-gold/20">
++          <Image src={falconMark} alt="" aria-hidden="true" className="absolute inset-0 m-auto h-[58%] w-auto opacity-40" />
++          {visual.length > 0 && <CardImage sources={visual} alt={`${report.title}: Executive Visual`} className="absolute inset-0 w-full h-full object-cover object-top" />}
++        </div>
++      )}
++      <div className="p-5 flex-1 flex flex-col">
++        <p className="label-tech mb-2">{place}{when ? ` · ${when}` : ''}</p>
+         <p className="text-white font-bold leading-snug">{report.title}</p>
+         {report.subtitle && <p className="text-white/55 text-sm mt-1 line-clamp-2">{report.subtitle}</p>}
+-        <span className="inline-flex items-center gap-2 text-xs text-brand-gold-pale mt-3">Examine <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" /></span>
++        <span className="inline-flex items-center gap-2 text-xs text-brand-gold-pale mt-auto pt-3">Examine <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" /></span>
+       </div>
+     </Link>
+   );
+diff --git a/src/components/dss/RequestReport.tsx b/src/components/dss/RequestReport.tsx
+index 7853a4c..0400a23 100644
+--- a/src/components/dss/RequestReport.tsx
++++ b/src/components/dss/RequestReport.tsx
+@@ -1,6 +1,6 @@
+ "use client";
+ 
+-import React, { useState } from 'react';
++import React, { useEffect, useState } from 'react';
+ import Link from 'next/link';
+ import { ArrowRight } from 'lucide-react';
+ import { Button } from '@/components/ui/Button';
+@@ -29,6 +29,19 @@ const RequestReport: React.FC<Props> = ({ studyTitle, slug, auto = false, packFi
+     const [consent, setConsent] = useState(false);
+     const [form, setForm] = useState({ fullName: '', email: '', organization: '', role: '', decisionContext: '' });
+ 
++    // The link at the top of the study page points at #research-pack: arriving that way opens the form.
++    useEffect(() => {
++        const openFromLink = () => { if (window.location.hash === '#research-pack') setOpen(true); };
++        openFromLink();
++        window.addEventListener('hashchange', openFromLink);
++        return () => window.removeEventListener('hashchange', openFromLink);
++    }, []);
++    const close = () => {
++        setOpen(false);
++        // Clear the hash so the link at the top opens the form again next time.
++        if (window.location.hash === '#research-pack') window.history.replaceState(null, '', window.location.pathname + window.location.search);
++    };
++
+     const change = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+         setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+ 
+@@ -105,7 +118,7 @@ const RequestReport: React.FC<Props> = ({ studyTitle, slug, auto = false, packFi
+             <TurnstileWidget onTokenChange={setToken} />
+             <div className="flex items-center gap-4 pt-2 border-t border-brand-gold/15">
+                 <Button type="submit" variant="primary" size="sm" icon={ArrowRight} disabled={busy}>{busy ? 'Sending…' : auto ? 'Email me the pack' : 'Send request'}</Button>
+-                <button type="button" onClick={() => setOpen(false)} className="text-sm text-white/50 hover:text-white">Cancel</button>
++                <button type="button" onClick={close} className="text-sm text-white/50 hover:text-white">Cancel</button>
+             </div>
+         </form>
+     );
+diff --git a/src/components/dss/Tiles.tsx b/src/components/dss/Tiles.tsx
+index e5fea1e..72b77d3 100644
+--- a/src/components/dss/Tiles.tsx
++++ b/src/components/dss/Tiles.tsx
+@@ -35,8 +35,8 @@ export const NextLink: React.FC<{ href: string; label: string; sub?: string }> =
+     </Link>
+ );
+ 
+-export const Section: React.FC<{ eyebrow?: string; title?: string; intro?: string; className?: string; children?: React.ReactNode; wide?: boolean }> = ({ eyebrow, title, intro, className, children }) => (
+-    <section className={cn("py-16 md:py-24 scroll-mt-28", className)}>
++export const Section: React.FC<{ id?: string; eyebrow?: string; title?: string; intro?: string; className?: string; children?: React.ReactNode; wide?: boolean }> = ({ id, eyebrow, title, intro, className, children }) => (
++    <section id={id} className={cn("py-16 md:py-24 scroll-mt-28", className)}>
+         <div className="container-editorial">
+             {(eyebrow || title || intro) && (
+                 <div className="max-w-3xl mb-10 md:mb-12">
+diff --git a/src/components/dss/WeekFilter.tsx b/src/components/dss/WeekFilter.tsx
+new file mode 100644
+index 0000000..f47e840
+--- /dev/null
++++ b/src/components/dss/WeekFilter.tsx
+@@ -0,0 +1,36 @@
++'use client';
++import { useRouter } from 'next/navigation';
++
++type Props = {
++  weeks: { value: string; label: string }[];
++  current?: string;
++  /** The page this filter sits on, and its other filters, so choosing a week keeps them. */
++  basePath: string;
++  params?: Record<string, string | undefined>;
++};
++
++/** Chooses one week, or all of them. Navigates as soon as a week is picked. */
++export default function WeekFilter({ weeks, current, basePath, params = {} }: Props) {
++  const router = useRouter();
++  if (weeks.length === 0) return null;
++  const go = (week: string) => {
++    const p = new URLSearchParams();
++    for (const [k, v] of Object.entries(params)) if (v) p.set(k, v);
++    if (week) p.set('week', week);
++    const q = p.toString();
++    router.push(`${basePath}${q ? `?${q}` : ''}`);
++  };
++  return (
++    <label className="inline-flex items-center gap-3 text-sm text-white/60">
++      <span>Week</span>
++      <select
++        value={current ?? ''}
++        onChange={(e) => go(e.target.value)}
++        className={`rounded-full border bg-brand-navy px-4 py-2 text-sm focus:outline-none focus:border-brand-gold ${current ? 'border-brand-gold text-white' : 'border-brand-gold/30 text-white/80'}`}
++      >
++        <option value="">All weeks</option>
++        {weeks.map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
++      </select>
++    </label>
++  );
++}
+diff --git a/src/lib/data.ts b/src/lib/data.ts
+index 18fc94f..6b625d6 100644
+--- a/src/lib/data.ts
++++ b/src/lib/data.ts
+@@ -48,6 +48,9 @@ export const SERVICES = [
+ ];
+ export const REPORT_KINDS = [{ value: 'study', label: 'Public study' }, { value: 'sample', label: 'Commissioned sample' }, { value: 'paper', label: 'White paper' }];
+ 
++/** A web-sized copy of an image sits beside it: extracts/abc.png → extracts/abc.thumb.webp. */
++export const thumbPathOf = (path: string) => path.replace(/\.[a-z0-9]+$/i, '.thumb.webp');
++
+ /** Public URL for an object in public-media (or null). */
+ export function publicMediaUrl(path: string | null | undefined): string | null {
+   if (!path || !process.env.NEXT_PUBLIC_SUPABASE_URL) return null;
+@@ -160,6 +163,12 @@ export async function getScanForStudy(reportId: string): Promise<Pick<Scan, 'slu
+   }, null);
+ }
+ 
++/** The weeks present in a set of rows, newest first, as filter options. */
++export function weekOptions(rows: { week_label?: string | null }[]): { value: string; label: string }[] {
++  const seen = Array.from(new Set(rows.map((r) => r.week_label).filter((w): w is string => Boolean(w))));
++  return seen.sort((a, b) => (a < b ? 1 : -1)).map((value) => ({ value, label: weekText(value) ?? value }));
++}
++
+ /** "2026-W41" → "Week 41, 2026". */
+ export const weekText = (label: string | null | undefined) => {
+   const m = /^(\d{4})-W(\d{2})$/.exec(label ?? '');
+diff --git a/src/lib/weekly/import.ts b/src/lib/weekly/import.ts
+index 02282fb..3284031 100644
+--- a/src/lib/weekly/import.ts
++++ b/src/lib/weekly/import.ts
+@@ -1,7 +1,7 @@
+ import 'server-only';
+ import { randomUUID } from 'node:crypto';
+ import { createAdminClient } from '@/lib/supabase/admin';
+-import { PUBLIC_MEDIA, RESEARCH_FILES, territoryName } from '@/lib/data';
++import { PUBLIC_MEDIA, RESEARCH_FILES, territoryName, thumbPathOf } from '@/lib/data';
+ import { download } from '@/lib/dropbox';
+ import { SLOTS, type ManifestEntry, type ManifestFile, type WeeklyManifest } from '@/lib/weekly/manifest';
+ 
+@@ -39,9 +39,25 @@ async function copyImage(db: Db, ref: string, folder: 'extracts' | 'covers'): Pr
+   const path = `${folder}/${randomUUID()}.${ext === 'jpeg' ? 'jpg' : ext}`;
+   const { error } = await db.storage.from(PUBLIC_MEDIA).upload(path, data, { contentType: mime, upsert: true });
+   if (error) throw new Error(error.message);
++  await makeThumb(db, data, path);
+   return path;
+ }
+ 
++/**
++ * A web-sized copy for lists and cards, so a page of studies does not load every full-size visual.
++ * Best effort: if it cannot be made, the cards fall back to the full image.
++ */
++async function makeThumb(db: Db, data: ArrayBuffer, path: string): Promise<void> {
++  try {
++    const sharp = (await import('sharp')).default;
++    const out = await sharp(Buffer.from(data)).resize({ width: 960, withoutEnlargement: true }).webp({ quality: 78 }).toBuffer();
++    const { error } = await db.storage.from(PUBLIC_MEDIA).upload(thumbPathOf(path), out, { contentType: 'image/webp', upsert: true });
++    if (error) throw new Error(error.message);
++  } catch (e) {
++    console.error('[import] thumbnail not made:', e instanceof Error ? e.message : e);
++  }
++}
++
+ type FileRow = { id: string; sort_order: number; storage_path: string | null; source_ref: string | null; access: string };
+ 
+ async function copyPackFile(db: Db, reportId: string, studyTitle: string, f: ManifestFile, existing: FileRow | undefined): Promise<ImportFileResult> {
+@@ -120,7 +136,7 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
+         if (error) throw new Error(`report: ${error.message}`);
+         for (const column of ['extract_path', 'cover_path'] as const) {
+           const old = exReport?.[column];
+-          if (row[column] && old && old !== row[column]) await db.storage.from(PUBLIC_MEDIA).remove([old]).catch(() => undefined);
++          if (row[column] && old && old !== row[column]) await db.storage.from(PUBLIC_MEDIA).remove([old, thumbPathOf(old)]).catch(() => undefined);
+         }
+       } else {
+         const { data, error } = await db.from('reports').insert({ ...row, published: false, featured: false }).select('id').single();
+-- 
+2.43.0
+
