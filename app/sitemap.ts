@@ -4,6 +4,9 @@ import { services, situations } from '@/content/site';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://falconbp.com';
 
+// Built on request: the list of studies and signals changes every week, and a build-time copy would omit them.
+export const dynamic = 'force-dynamic';
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const staticRoutes = [

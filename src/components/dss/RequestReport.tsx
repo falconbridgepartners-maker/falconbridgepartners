@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -28,6 +28,19 @@ const RequestReport: React.FC<Props> = ({ studyTitle, slug, auto = false, packFi
     const [token, setToken] = useState<string | null>(null);
     const [consent, setConsent] = useState(false);
     const [form, setForm] = useState({ fullName: '', email: '', organization: '', role: '', decisionContext: '' });
+
+    // The link at the top of the study page points at #research-pack: arriving that way opens the form.
+    useEffect(() => {
+        const openFromLink = () => { if (window.location.hash === '#research-pack') setOpen(true); };
+        openFromLink();
+        window.addEventListener('hashchange', openFromLink);
+        return () => window.removeEventListener('hashchange', openFromLink);
+    }, []);
+    const close = () => {
+        setOpen(false);
+        // Clear the hash so the link at the top opens the form again next time.
+        if (window.location.hash === '#research-pack') window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    };
 
     const change = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
         setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
@@ -105,7 +118,7 @@ const RequestReport: React.FC<Props> = ({ studyTitle, slug, auto = false, packFi
             <TurnstileWidget onTokenChange={setToken} />
             <div className="flex items-center gap-4 pt-2 border-t border-brand-gold/15">
                 <Button type="submit" variant="primary" size="sm" icon={ArrowRight} disabled={busy}>{busy ? 'Sending…' : auto ? 'Email me the pack' : 'Send request'}</Button>
-                <button type="button" onClick={() => setOpen(false)} className="text-sm text-white/50 hover:text-white">Cancel</button>
+                <button type="button" onClick={close} className="text-sm text-white/50 hover:text-white">Cancel</button>
             </div>
         </form>
     );
