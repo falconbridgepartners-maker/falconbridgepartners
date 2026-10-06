@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BookOpen, Radar, Settings } from 'lucide-react';
+import { BookOpen, Radar, Settings, DownloadCloud, Inbox } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdminUser } from '@/lib/admin/auth';
 import { PageHead } from '@/components/admin/ui';
@@ -10,12 +10,14 @@ export const revalidate = 0;
 export default async function Dashboard() {
   const admin = await getAdminUser();
   const db = createAdminClient();
-  const [{ count: published }, { count: drafts }, { count: scans }, { count: scanDrafts }, { data: featured }] = await Promise.all([
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const [{ count: published }, { count: drafts }, { count: scans }, { count: scanDrafts }, { data: featured }, { count: requests }] = await Promise.all([
     db.from('reports').select('*', { count: 'exact', head: true }).eq('published', true),
     db.from('reports').select('*', { count: 'exact', head: true }).eq('published', false),
     db.from('scans').select('*', { count: 'exact', head: true }).eq('published', true),
     db.from('scans').select('*', { count: 'exact', head: true }).eq('published', false),
     db.from('site_settings').select('featured:reports(title)').eq('id', 1).maybeSingle(),
+    db.from('access_requests').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo),
   ]);
   const featuredTitle = (featured as unknown as { featured: { title: string } | null } | null)?.featured?.title;
   const stat = (n: number | null, l: string) => (
@@ -31,6 +33,8 @@ export default async function Dashboard() {
         {[
           { href: '/admin/reports', icon: BookOpen, title: 'Manage reports', body: 'Add, edit or remove studies, samples and papers; upload covers and package files.' },
           { href: '/admin/scans', icon: Radar, title: 'Manage Weekly Scan', body: 'Write and publish scan entries by territory.' },
+          { href: '/admin/import', icon: DownloadCloud, title: 'Weekly import', body: 'Bring a week’s scans, studies and pack files in from Dropbox.' },
+          { href: '/admin/requests', icon: Inbox, title: 'Pack requests', body: `${requests ?? 0} in the last seven days. See who asked for which study and whether they opened it.` },
           { href: '/admin/settings', icon: Settings, title: 'Site settings', body: `Featured report${featuredTitle ? `: ${featuredTitle}` : ''}; partner portraits.` },
         ].map(({ href, icon: Icon, title, body }) => (
           <Link key={href} href={href} className="tile p-6 hover:border-brand-gold/60 transition-colors">

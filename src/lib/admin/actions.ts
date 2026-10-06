@@ -16,6 +16,7 @@ export async function signOut() {
 const slugify = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-').replace(/-+/g, '-').slice(0, 80);
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? '').trim();
 const bool = (fd: FormData, k: string) => fd.get(k) === 'on' || fd.get(k) === 'true';
+const accessOf = (v: string) => (v === 'open' || v === 'internal' ? v : 'request');
 
 /** Purge the admin tree from Next's client Router Cache so edit pages reload fresh rows after a save/delete. */
 function revalidateAdmin() { revalidatePath('/admin', 'layout'); }
@@ -52,6 +53,7 @@ export async function saveReport(fd: FormData) {
     facts,
     featured: bool(fd, 'featured'),
     published: bool(fd, 'published'),
+    week_label: str(fd, 'week_label') || null,
   };
   let reportId = id;
   if (id) {
@@ -68,7 +70,7 @@ export async function saveReport(fd: FormData) {
     const fileId = str(fd, `file_id_${i}`);
     const payload = {
       report_id: reportId!, label: str(fd, `file_label_${i}`) || labels[i], sort_order: i + 1,
-      storage_path: str(fd, `file_path_${i}`) || null, access: str(fd, `file_access_${i}`) === 'open' ? 'open' : 'request',
+      storage_path: str(fd, `file_path_${i}`) || null, access: accessOf(str(fd, `file_access_${i}`)),
       size_bytes: str(fd, `file_size_${i}`) ? Number(str(fd, `file_size_${i}`)) : null,
     };
     if (fileId) await db.from('report_files').update(payload).eq('id', fileId);
@@ -114,12 +116,15 @@ export async function saveScan(fd: FormData) {
     reviewed: bool(fd, 'reviewed'),
     sample: bool(fd, 'sample'),
     published: bool(fd, 'published'),
+    week_label: str(fd, 'week_label') || null,
+    report_id: str(fd, 'report_id') || null,
   };
   if (row.published && !row.reviewed) throw new Error('A scan must be marked reviewed before it is published.');
   const { error } = id ? await db.from('scans').update(row).eq('id', id) : await db.from('scans').insert(row);
   if (error) throw new Error(error.message);
   revalidateResearch();
   revalidatePath(`/research/weekly-scan/${row.slug}`);
+  revalidatePath('/research/studies/[slug]', 'page');
   revalidateAdmin();
   redirect('/admin/scans?saved=1');
 }

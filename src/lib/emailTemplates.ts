@@ -97,3 +97,42 @@ export function buildBrandedEmail({
   </div>
   `;
 }
+
+// ── Research pack link (sent to the reader) ──────────────────────────────────
+const PACK = { charcoal: '#262626', tile: '#2e2e2e', ivory: '#F4F2EC', gold: '#C8A86A', goldPale: '#E3CE98', grey: '#B8BDC8' };
+
+/** The email a reader receives after completing the pack form: one button, the file list, the expiry date. */
+export function buildPackEmail({ name, studyTitle, link, expires, files, replyTo }: {
+  name: string; studyTitle: string; link: string; expires: string; files: string[]; replyTo: string;
+}) {
+  const items = files.map((f) => `<tr><td style="padding:7px 0;color:${PACK.ivory};font-size:15px;line-height:1.5;border-bottom:1px solid rgba(200,168,106,0.18);">${escapeHtml(f)}</td></tr>`).join('');
+  return `
+  <div style="margin:0;padding:0;background:${PACK.charcoal};font-family:Arial, 'Helvetica Neue', sans-serif;color:${PACK.grey};">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${PACK.charcoal};padding:36px 18px;">
+      <tr><td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:${PACK.tile};border:1px solid rgba(200,168,106,0.25);border-radius:14px;overflow:hidden;">
+          <tr><td style="padding:30px 34px 8px;">
+            <img src="${LOGO_URL}" alt="FalconBridge Partners" width="120" style="display:block;border:0;outline:none;" />
+            <h1 style="margin:26px 0 10px;font-size:24px;line-height:1.3;color:#ffffff;font-weight:700;">${escapeHtml(studyTitle)}</h1>
+            <p style="margin:0 0 6px;font-family:Georgia, 'Times New Roman', serif;font-style:italic;color:${PACK.goldPale};font-size:17px;line-height:1.5;">The research pack you asked for.</p>
+          </td></tr>
+          <tr><td style="padding:14px 34px 6px;color:${PACK.grey};font-size:15px;line-height:1.65;">
+            <p style="margin:0 0 16px;">${escapeHtml(name)}, the pack is ready. The link below opens a page with each document. It works until ${escapeHtml(expires)}.</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 22px;"><tr><td style="border-radius:999px;background:${PACK.gold};">
+              <a href="${link}" style="display:inline-block;padding:13px 28px;color:${PACK.charcoal};font-size:15px;font-weight:700;text-decoration:none;">Open the research pack</a>
+            </td></tr></table>
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px;">${items}</table>
+            <p style="margin:0 0 14px;">Start with the first document, the guide. It explains how the report is built, what the evidence grades mean and where to enter the report for the time you have.</p>
+            <p style="margin:0 0 14px;">The findings are bounded by their scope, evidence and date. The research supports your decision. It does not make it for you.</p>
+          </td></tr>
+          <tr><td style="padding:18px 34px 26px;border-top:1px solid rgba(200,168,106,0.18);font-size:12px;color:${PACK.grey};line-height:1.65;">
+            The pack is released under a Type-1 licence for your own use. FalconBridge Partners retains its research IP; wider circulation or publication needs our agreement.
+            Questions about the study: <a href="mailto:${escapeHtml(replyTo)}" style="color:${PACK.goldPale};">${escapeHtml(replyTo)}</a>.
+            If the button does not work, paste this address into your browser:<br /><span style="color:${PACK.goldPale};word-break:break-all;">${link}</span>
+          </td></tr>
+        </table>
+        <p style="margin:18px 0 0;color:rgba(184,189,200,0.6);font-size:11px;">FalconBridge Partners FZC LLC · falconbp.com</p>
+      </td></tr>
+    </table>
+  </div>`;
+}

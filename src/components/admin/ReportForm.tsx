@@ -1,7 +1,7 @@
 import { saveReport, deleteReport } from '@/lib/admin/actions';
 import { input, label, btn, btnGhost, Field, Check } from '@/components/admin/ui';
 import UploadField from '@/components/admin/UploadField';
-import { publicMediaUrl, REPORT_KINDS, TERRITORIES, type Report, type ReportFile } from '@/lib/data';
+import { publicMediaUrl, FILE_ACCESS, REPORT_KINDS, TERRITORIES, type Report, type ReportFile } from '@/lib/data';
 
 const LABELS = ['User guide', 'Executive deck', 'Full research report', 'Executive summary', 'Executive visual', 'Reference and link audit'];
 
@@ -22,6 +22,7 @@ export default function ReportForm({ report }: { report?: Report }) {
         </Field>
         <Field id="year" title="Year"><input id="year" name="year" type="number" defaultValue={report?.year ?? ''} className={input} /></Field>
         <Field id="published_at" title="Published on"><input id="published_at" name="published_at" type="date" defaultValue={report?.published_at ?? ''} className={input} /></Field>
+        <Field id="week_label" title="Week" hint="For weekly studies, e.g. 2026-W41. Leave blank otherwise."><input id="week_label" name="week_label" defaultValue={report?.week_label ?? ''} placeholder="2026-W41" className={input} /></Field>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -49,7 +50,7 @@ export default function ReportForm({ report }: { report?: Report }) {
 
       <div>
         <p className={label}>Package files</p>
-        <p className="text-[0.7rem] text-white/40 mb-3">Upload each element. “Open download” serves it to any reader; “On request” keeps it behind the request form.</p>
+        <p className="text-[0.7rem] text-white/40 mb-3">Upload each element and choose who may have it. Open files download straight from the study page. Pack files are released by an emailed link once a reader completes the form. Internal files are never shown or served.</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {LABELS.map((l, i) => {
             const f = files[i];
@@ -58,9 +59,8 @@ export default function ReportForm({ report }: { report?: Report }) {
                 <input type="hidden" name={`file_id_${i}`} value={f?.id ?? ''} />
                 <input name={`file_label_${i}`} defaultValue={f?.label ?? l} className={input} />
                 <UploadField name={`file_path_${i}`} sizeName={`file_size_${i}`} kind="file" folder="reports" defaultPath={f?.storage_path} label={`${l} — file`} />
-                <select name={`file_access_${i}`} defaultValue={f?.access ?? 'request'} className={`${input} bg-brand-navy`}>
-                  <option value="request">On request</option>
-                  <option value="open">Open download</option>
+                <select name={`file_access_${i}`} defaultValue={f?.access ?? 'request'} className={`${input} bg-brand-navy`} aria-label={`${l} — who may have it`}>
+                  {FILE_ACCESS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
                 </select>
               </div>
             );

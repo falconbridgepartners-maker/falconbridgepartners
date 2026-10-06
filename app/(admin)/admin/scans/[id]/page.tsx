@@ -12,5 +12,6 @@ export default async function EditScan({ params }: { params: { id: string } }) {
   const { data } = await db.from('scans').select('*').eq('id', params.id).maybeSingle();
   if (!data) notFound();
   const scan = data as Scan;
-  return (<><PageHead title="Edit scan entry" sub={scan.title} /><ScanForm scan={scan} /></>);
+  const { data: reports } = await db.from('reports').select('id, title, week_label').order('updated_at', { ascending: false }).limit(300);
+  return (<><PageHead title="Edit scan entry" sub={scan.title} /><ScanForm scan={scan} reports={reports ?? []} /></>);
 }
