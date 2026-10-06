@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { Download } from 'lucide-react';
+import { ArrowDown, Download } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import PageHero from '@/components/dss/PageHero';
 import Invitation from '@/components/dss/Invitation';
 import RequestReport from '@/components/dss/RequestReport';
@@ -32,7 +33,13 @@ export default async function StudyPage({ params }: { params: { slug: string } }
   const scan = await getScanForStudy(s.id);
   return (
     <>
-      <PageHero eyebrow={`${s.kind === 'study' ? 'Public study' : s.kind === 'sample' ? 'Commissioned sample' : 'White paper'} · ${territoryName[s.territory] ?? s.territory}${s.year ? ` · ${s.year}` : ''}`} title={s.title} governing={s.subtitle ?? undefined} />
+      <PageHero eyebrow={`${s.kind === 'study' ? 'Public study' : s.kind === 'sample' ? 'Commissioned sample' : 'White paper'} · ${territoryName[s.territory] ?? s.territory}${s.year ? ` · ${s.year}` : ''}`} title={s.title} governing={s.subtitle ?? undefined}>
+        {hasRequest && (
+          <div className="mt-2">
+            <Button href="#research-pack" variant="primary" size="sm" icon={ArrowDown}>{auto ? 'Get the research pack' : 'Request the full report'}</Button>
+          </div>
+        )}
+      </PageHero>
       <Section>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-7">
@@ -81,7 +88,7 @@ export default async function StudyPage({ params }: { params: { slug: string } }
             )
           ))}
         </div>
-        {hasRequest && <RequestReport studyTitle={s.title} slug={s.slug} auto={auto} packFiles={auto ? files.map((f) => f.label) : []} />}
+        {hasRequest && <div id="research-pack" className="scroll-mt-32"><RequestReport studyTitle={s.title} slug={s.slug} auto={auto} packFiles={auto ? files.map((f) => f.label) : []} /></div>}
         {!auto && !hasOpen && hasRequest && <p className="text-sm text-white/45 mt-4">Direct downloads are added as each element is released.</p>}
         {s.qualifier && <div className="mt-10"><Band title="The sample demonstrates the work" body={s.qualifier} /></div>}
       </Section>

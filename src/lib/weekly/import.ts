@@ -1,7 +1,7 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { PUBLIC_MEDIA, RESEARCH_FILES, territoryName } from '@/lib/data';
+import { PUBLIC_MEDIA, RESEARCH_FILES, territoryName, thumbPathOf } from '@/lib/data';
 import { download } from '@/lib/dropbox';
 import { SLOTS, type ManifestEntry, type ManifestFile, type WeeklyManifest } from '@/lib/weekly/manifest';
 
@@ -39,7 +39,23 @@ async function copyImage(db: Db, ref: string, folder: 'extracts' | 'covers'): Pr
   const path = `${folder}/${randomUUID()}.${ext === 'jpeg' ? 'jpg' : ext}`;
   const { error } = await db.storage.from(PUBLIC_MEDIA).upload(path, data, { contentType: mime, upsert: true });
   if (error) throw new Error(error.message);
+  await makeThumb(db, data, path);
   return path;
+}
+
+/**
+ * A web-sized copy for lists and cards, so a page of studies does not load every full-size visual.
+ * Best effort: if it cannot be made, the cards fall back to the full image.
+ */
+async function makeThumb(db: Db, data: ArrayBuffer, path: string): Promise<void> {
+  try {
+    const sharp = (await import('sharp')).default;
+    const out = await sharp(Buffer.from(data)).resize({ width: 960, withoutEnlargement: true }).webp({ quality: 78 }).toBuffer();
+    const { error } = await db.storage.from(PUBLIC_MEDIA).upload(thumbPathOf(path), out, { contentType: 'image/webp', upsert: true });
+    if (error) throw new Error(error.message);
+  } catch (e) {
+    console.error('[import] thumbnail not made:', e instanceof Error ? e.message : e);
+  }
 }
 
 type FileRow = { id: string; sort_order: number; storage_path: string | null; source_ref: string | null; access: string };
@@ -120,7 +136,7 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
         if (error) throw new Error(`report: ${error.message}`);
         for (const column of ['extract_path', 'cover_path'] as const) {
           const old = exReport?.[column];
-          if (row[column] && old && old !== row[column]) await db.storage.from(PUBLIC_MEDIA).remove([old]).catch(() => undefined);
+          if (row[column] && old && old !== row[column]) await db.storage.from(PUBLIC_MEDIA).remove([old, thumbPathOf(old)]).catch(() => undefined);
         }
       } else {
         const { data, error } = await db.from('reports').insert({ ...row, published: false, featured: false }).select('id').single();

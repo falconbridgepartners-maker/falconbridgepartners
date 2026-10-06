@@ -48,6 +48,9 @@ export const SERVICES = [
 ];
 export const REPORT_KINDS = [{ value: 'study', label: 'Public study' }, { value: 'sample', label: 'Commissioned sample' }, { value: 'paper', label: 'White paper' }];
 
+/** A web-sized copy of an image sits beside it: extracts/abc.png → extracts/abc.thumb.webp. */
+export const thumbPathOf = (path: string) => path.replace(/\.[a-z0-9]+$/i, '.thumb.webp');
+
 /** Public URL for an object in public-media (or null). */
 export function publicMediaUrl(path: string | null | undefined): string | null {
   if (!path || !process.env.NEXT_PUBLIC_SUPABASE_URL) return null;
@@ -158,6 +161,12 @@ export async function getScanForStudy(reportId: string): Promise<Pick<Scan, 'slu
     if (error) return null;
     return (data as Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'>) ?? null;
   }, null);
+}
+
+/** The weeks present in a set of rows, newest first, as filter options. */
+export function weekOptions(rows: { week_label?: string | null }[]): { value: string; label: string }[] {
+  const seen = Array.from(new Set(rows.map((r) => r.week_label).filter((w): w is string => Boolean(w))));
+  return seen.sort((a, b) => (a < b ? 1 : -1)).map((value) => ({ value, label: weekText(value) ?? value }));
 }
 
 /** "2026-W41" → "Week 41, 2026". */
