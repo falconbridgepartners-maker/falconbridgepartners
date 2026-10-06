@@ -1,15 +1,28 @@
 import 'server-only';
 import { createAdminClient, supabaseConfigured } from '@/lib/supabase/admin';
 
-export type ReportFile = { id: string; report_id: string; label: string; sort_order: number; storage_path: string | null; access: 'open' | 'request'; size_bytes: number | null };
+/** open = anyone may download · request = in the pack, behind the email form · internal = never shown or served. */
+export type FileAccess = 'open' | 'request' | 'internal';
+export const FILE_ACCESS: { value: FileAccess; label: string }[] = [
+  { value: 'request', label: 'In the pack — behind the email form' },
+  { value: 'open', label: 'Open download' },
+  { value: 'internal', label: 'Internal — never shown' },
+];
+export type ReportFile = { id: string; report_id: string; label: string; sort_order: number; storage_path: string | null; access: FileAccess; size_bytes: number | null; source_ref?: string | null; file_name?: string | null };
 export type Report = {
   id: string; slug: string; title: string; subtitle: string | null; kind: 'study' | 'sample' | 'paper'; territory: string; year: number | null;
   published_at: string | null; cover_path: string | null; extract_path: string | null; extract_note: string | null; qualifier: string | null;
   body: string | null; facts: { figure: string; body: string }[]; featured: boolean; published: boolean; files?: ReportFile[];
+  week_label?: string | null;
 };
 export type Scan = {
   id: string; slug: string; title: string; territory: string; service: string; week_of: string; signal: string; question: string;
   finding: string | null; interpretation: string | null; open_questions: string[]; reviewed: boolean; sample: boolean; published: boolean;
+  week_label?: string | null; report_id?: string | null;
+};
+export type AccessRequest = {
+  id: string; report_id: string; full_name: string; email: string; organisation: string; role: string | null; intended_use: string | null;
+  consent: boolean; expires_at: string; first_opened_at: string | null; last_opened_at: string | null; open_count: number; download_count: number; created_at: string;
 };
 export type SiteSettings = { featured_report_id: string | null; portraits: Record<string, string> };
 export type PartnerRow = {
@@ -109,13 +122,38 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   }, { featured_report_id: null, portraits: {} });
 }
 
-/** Signed URL for an open package file (1 hour). */
-export async function signedFileUrl(path: string): Promise<string | null> {
+/** Signed URL for a package file. `download` sets the name the reader's copy is saved under. */
+export async function signedFileUrl(path: string, opts: { expiresIn?: number; download?: string | null } = {}): Promise<string | null> {
   return safe(async () => {
     const db = createAdminClient();
-    const { data, error } = await db.storage.from(RESEARCH_FILES).createSignedUrl(path, 3600);
+    const { data, error } = await db.storage.from(RESEARCH_FILES).createSignedUrl(path, opts.expiresIn ?? 3600, opts.download ? { download: opts.download } : undefined);
     if (error) throw error;
     return data.signedUrl;
+  }, null);
+}
+
+/** The files a reader may ever see: uploaded, and not internal. */
+export const readerFiles = (files: ReportFile[] | undefined) => (files ?? []).filter((f) => f.storage_path && f.access !== 'internal');
+/** True when the pack can be released automatically: at least one uploaded file sits behind the email form. */
+export const hasGatedPack = (files: ReportFile[] | undefined) => (files ?? []).some((f) => f.storage_path && f.access === 'request');
+
+/** The published study a scan led to (or null). Tolerates a database that predates the weekly pipeline. */
+export async function getStudyForScan(scan: Scan): Promise<Pick<Report, 'slug' | 'title' | 'subtitle'> | null> {
+  if (!scan.report_id) return null;
+  return safe(async () => {
+    const db = createAdminClient();
+    const { data } = await db.from('reports').select('slug, title, subtitle').eq('id', scan.report_id!).eq('published', true).maybeSingle();
+    return (data as Pick<Report, 'slug' | 'title' | 'subtitle'>) ?? null;
+  }, null);
+}
+
+/** The published scan entry behind a study (or null). */
+export async function getScanForStudy(reportId: string): Promise<Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory'> | null> {
+  return safe(async () => {
+    const db = createAdminClient();
+    const { data, error } = await db.from('scans').select('slug, question, week_of, territory').eq('report_id', reportId).eq('published', true).order('week_of', { ascending: false }).limit(1).maybeSingle();
+    if (error) return null;
+    return (data as Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory'>) ?? null;
   }, null);
 }
 

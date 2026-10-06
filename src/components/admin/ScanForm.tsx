@@ -2,7 +2,7 @@ import { saveScan, deleteScan } from '@/lib/admin/actions';
 import { input, btn, btnGhost, Field, Check } from '@/components/admin/ui';
 import { SERVICES, TERRITORIES, type Scan } from '@/lib/data';
 
-export default function ScanForm({ scan }: { scan?: Scan }) {
+export default function ScanForm({ scan, reports = [] }: { scan?: Scan; reports?: { id: string; title: string; week_label?: string | null }[] }) {
   return (
     <form action={saveScan} className="space-y-8">
       {scan && <input type="hidden" name="id" value={scan.id} />}
@@ -16,6 +16,15 @@ export default function ScanForm({ scan }: { scan?: Scan }) {
           <select id="service" name="service" defaultValue={scan?.service ?? 'none'} className={`${input} bg-brand-navy`}>{SERVICES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>
         </Field>
         <Field id="week_of" title="Week of"><input id="week_of" name="week_of" type="date" required defaultValue={scan?.week_of ?? new Date().toISOString().slice(0, 10)} className={input} /></Field>
+        <Field id="week_label" title="Week" hint="FalconBridge week number, e.g. 2026-W41."><input id="week_label" name="week_label" defaultValue={scan?.week_label ?? ''} placeholder="2026-W41" className={input} /></Field>
+        <div className="md:col-span-2">
+          <Field id="report_id" title="Study this signal led to" hint="The scan page links to the study, and the study links back.">
+            <select id="report_id" name="report_id" defaultValue={scan?.report_id ?? ''} className={`${input} bg-brand-navy`}>
+              <option value="">No study</option>
+              {reports.map((r) => <option key={r.id} value={r.id}>{r.week_label ? `${r.week_label} · ` : ''}{r.title}</option>)}
+            </select>
+          </Field>
+        </div>
       </div>
       <div className="space-y-5">
         <Field id="signal" title="The signal" hint="What the weekly scan identified. Firm voice: “Our research finds…”"><textarea id="signal" name="signal" required rows={3} defaultValue={scan?.signal} className={`${input} resize-none`} /></Field>
