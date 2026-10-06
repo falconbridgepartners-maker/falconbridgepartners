@@ -40,6 +40,8 @@ export const RESEARCH_FILES = 'research-files';
 
 export const territoryName: Record<string, string> = {
   'uae-gcc': 'UAE / GCC', 'south-africa': 'South Africa', 'new-zealand': 'New Zealand', mauritius: 'Mauritius', 'north-carolina': 'North Carolina', singapore: 'Singapore',
+  // Studies that belong to no single territory. It is a category for the library, not a place on the map.
+  global: 'Global',
 };
 export const TERRITORIES = Object.entries(territoryName).map(([value, label]) => ({ value, label }));
 export const SERVICES = [

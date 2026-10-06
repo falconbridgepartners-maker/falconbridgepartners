@@ -93,7 +93,7 @@ One JSON file per week. Whoever writes it — a person, Claude or HT+ — the im
 }
 ```
 
-- `territory`: `uae-gcc`, `south-africa`, `new-zealand`, `mauritius`, `north-carolina`, `singapore`.
+- `territory`: `uae-gcc`, `south-africa`, `new-zealand`, `mauritius`, `north-carolina`, `singapore`, or `global` for a study that belongs to no single territory.
 - `week_label` uses FalconBridge's week number; `week_of` is the Monday the review period starts.
 - An entry may carry a scan, a report, or both. `files` need a report.
 - Slots and their default access: 1 User guide (pack), 2 Executive deck (pack), 3 Full research report (pack), 4 Executive summary (open), 5 Executive visual (open), 6 Reference and link audit (internal). `label` and `access` override the defaults. A slot left out is created empty and internal.
