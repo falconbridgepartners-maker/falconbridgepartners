@@ -1,0 +1,2134 @@
+From 7f19e408fae54608ddc522980e4cbbe3018b09eb Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 6 Oct 2026 06:45:37 +0000
+Subject: [PATCH] Weekly pipeline: Dropbox importer in /admin, emailed pack
+ links with lead log, three access levels per file
+
+- Report files: access is now open / request (in the pack, behind the email form) / internal (never shown or served)
+- Email gate: /api/request-pack logs the request, emails the reader an expiring link (/research/pack/<token>) and tells info@ plus the territory's partner; downloads are short-lived signed URLs; opens and downloads are counted
+- /admin/import: one-time Dropbox connection (read-only), lists weekly manifests from the publishing folder, imports each territory as drafts or publishes; idempotent; live entries protected; a study never publishes with a file missing
+- /admin/requests: who asked for which study, and whether they opened it
+- Scans link to the study they led to, and studies link back; week label on both
+- Study page lists only files a reader may have; Executive Visual shown at natural size
+- supabase/004_weekly_pipeline.sql, docs/WEEKLY_PIPELINE.md, .env.example
+---
+ .env.example                                 |  10 +
+ app/(admin)/admin/import/page.tsx            |  28 +++
+ app/(admin)/admin/page.tsx                   |   8 +-
+ app/(admin)/admin/requests/page.tsx          |  53 +++++
+ app/(admin)/admin/scans/[id]/page.tsx        |   3 +-
+ app/(admin)/admin/scans/new/page.tsx         |   7 +-
+ app/api/dropbox/callback/route.ts            |  29 +++
+ app/api/dropbox/connect/route.ts             |  17 ++
+ app/api/request-pack/route.ts                |  93 +++++++++
+ app/research/files/[id]/route.ts             |   6 +-
+ app/research/pack/[token]/file/[id]/route.ts |  18 ++
+ app/research/pack/[token]/page.tsx           |  73 +++++++
+ app/research/studies/[slug]/page.tsx         |  50 +++--
+ app/research/weekly-scan/[slug]/page.tsx     |   4 +-
+ app/robots.ts                                |   2 +-
+ docs/WEEKLY_PIPELINE.md                      |  99 ++++++++++
+ middleware.ts                                |   2 +-
+ src/components/admin/AdminShell.tsx          |   4 +-
+ src/components/admin/ReportForm.tsx          |  10 +-
+ src/components/admin/ScanForm.tsx            |  11 +-
+ src/components/admin/WeeklyImport.tsx        | 182 ++++++++++++++++++
+ src/components/dss/RequestReport.tsx         |  74 +++++--
+ src/lib/admin/actions.ts                     |   7 +-
+ src/lib/admin/importActions.ts               |  97 ++++++++++
+ src/lib/data.ts                              |  46 ++++-
+ src/lib/dropbox.ts                           | 192 +++++++++++++++++++
+ src/lib/emailTemplates.ts                    |  39 ++++
+ src/lib/packAccess.ts                        |  43 +++++
+ src/lib/weekly/import.ts                     | 189 ++++++++++++++++++
+ src/lib/weekly/manifest.ts                   | 132 +++++++++++++
+ supabase/004_weekly_pipeline.sql             |  87 +++++++++
+ 31 files changed, 1555 insertions(+), 60 deletions(-)
+ create mode 100644 app/(admin)/admin/import/page.tsx
+ create mode 100644 app/(admin)/admin/requests/page.tsx
+ create mode 100644 app/api/dropbox/callback/route.ts
+ create mode 100644 app/api/dropbox/connect/route.ts
+ create mode 100644 app/api/request-pack/route.ts
+ create mode 100644 app/research/pack/[token]/file/[id]/route.ts
+ create mode 100644 app/research/pack/[token]/page.tsx
+ create mode 100644 docs/WEEKLY_PIPELINE.md
+ create mode 100644 src/components/admin/WeeklyImport.tsx
+ create mode 100644 src/lib/admin/importActions.ts
+ create mode 100644 src/lib/dropbox.ts
+ create mode 100644 src/lib/packAccess.ts
+ create mode 100644 src/lib/weekly/import.ts
+ create mode 100644 src/lib/weekly/manifest.ts
+ create mode 100644 supabase/004_weekly_pipeline.sql
+
+diff --git a/.env.example b/.env.example
+index 8b0ff6b..8b2e08e 100644
+--- a/.env.example
++++ b/.env.example
+@@ -17,3 +17,13 @@ RESEND_API_KEY=
+ RESEND_FROM=
+ RESEND_CONTACT_EMAIL=
+ RESEND_RESEARCH_EMAIL=
++
++# ── Weekly pipeline (October 2026) ────────────────────────────────────────
++# Dropbox app (Scoped access · Full Dropbox · files.metadata.read + files.content.read).
++# Redirect URI in the Dropbox app: https://falconbp.com/api/dropbox/callback (and the www host if it is used).
++# The connection itself is made once from /admin/import and stored in public.app_secrets.
++DROPBOX_APP_KEY=
++DROPBOX_APP_SECRET=                                        # SERVER ONLY
++# DROPBOX_PUBLISH_PATH=/FalconBridge Workspace [Shared - All]/W. Website Publishing   # default shown
++# RESEND_LEADS_EMAIL=info@falconbp.com                     # who is told when a pack is requested (default shown)
++# PACK_LINK_DAYS=7                                         # how long an emailed pack link works (default shown)
+diff --git a/app/(admin)/admin/import/page.tsx b/app/(admin)/admin/import/page.tsx
+new file mode 100644
+index 0000000..119a16e
+--- /dev/null
++++ b/app/(admin)/admin/import/page.tsx
+@@ -0,0 +1,28 @@
++import { PageHead } from '@/components/admin/ui';
++import WeeklyImport from '@/components/admin/WeeklyImport';
++import { loadImportScreen } from '@/lib/admin/importActions';
++
++export const dynamic = 'force-dynamic';
++export const revalidate = 0;
++// Copying a territory's pack from Dropbox into storage can take longer than the default function window.
++export const maxDuration = 60;
++
++const NOTES: Record<string, string> = {
++  connected: 'Dropbox is connected.',
++  declined: 'Dropbox access was declined. Nothing was connected.',
++  state: 'The Dropbox reply could not be matched to this browser. Start the connection again.',
++  failed: 'Dropbox did not complete the connection. Check the app key, secret and redirect address, then try again.',
++  'not-configured': 'Add DROPBOX_APP_KEY and DROPBOX_APP_SECRET in Vercel and redeploy before connecting.',
++};
++
++export default async function ImportPage({ searchParams }: { searchParams?: { dropbox?: string } }) {
++  const screen = await loadImportScreen();
++  const note = searchParams?.dropbox ? NOTES[searchParams.dropbox] : undefined;
++  return (
++    <>
++      <PageHead title="Weekly import" sub="Bring a week’s scan entries, studies and pack files in from Dropbox." />
++      {note && <p className="tile-ivory p-3 text-sm mb-6" role="status">{note}</p>}
++      <WeeklyImport screen={screen} />
++    </>
++  );
++}
+diff --git a/app/(admin)/admin/page.tsx b/app/(admin)/admin/page.tsx
+index 53762f4..424f409 100644
+--- a/app/(admin)/admin/page.tsx
++++ b/app/(admin)/admin/page.tsx
+@@ -1,5 +1,5 @@
+ import Link from 'next/link';
+-import { BookOpen, Radar, Settings } from 'lucide-react';
++import { BookOpen, Radar, Settings, DownloadCloud, Inbox } from 'lucide-react';
+ import { createAdminClient } from '@/lib/supabase/admin';
+ import { getAdminUser } from '@/lib/admin/auth';
+ import { PageHead } from '@/components/admin/ui';
+@@ -10,12 +10,14 @@ export const revalidate = 0;
+ export default async function Dashboard() {
+   const admin = await getAdminUser();
+   const db = createAdminClient();
+-  const [{ count: published }, { count: drafts }, { count: scans }, { count: scanDrafts }, { data: featured }] = await Promise.all([
++  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
++  const [{ count: published }, { count: drafts }, { count: scans }, { count: scanDrafts }, { data: featured }, { count: requests }] = await Promise.all([
+     db.from('reports').select('*', { count: 'exact', head: true }).eq('published', true),
+     db.from('reports').select('*', { count: 'exact', head: true }).eq('published', false),
+     db.from('scans').select('*', { count: 'exact', head: true }).eq('published', true),
+     db.from('scans').select('*', { count: 'exact', head: true }).eq('published', false),
+     db.from('site_settings').select('featured:reports(title)').eq('id', 1).maybeSingle(),
++    db.from('access_requests').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo),
+   ]);
+   const featuredTitle = (featured as unknown as { featured: { title: string } | null } | null)?.featured?.title;
+   const stat = (n: number | null, l: string) => (
+@@ -31,6 +33,8 @@ export default async function Dashboard() {
+         {[
+           { href: '/admin/reports', icon: BookOpen, title: 'Manage reports', body: 'Add, edit or remove studies, samples and papers; upload covers and package files.' },
+           { href: '/admin/scans', icon: Radar, title: 'Manage Weekly Scan', body: 'Write and publish scan entries by territory.' },
++          { href: '/admin/import', icon: DownloadCloud, title: 'Weekly import', body: 'Bring a week’s scans, studies and pack files in from Dropbox.' },
++          { href: '/admin/requests', icon: Inbox, title: 'Pack requests', body: `${requests ?? 0} in the last seven days. See who asked for which study and whether they opened it.` },
+           { href: '/admin/settings', icon: Settings, title: 'Site settings', body: `Featured report${featuredTitle ? `: ${featuredTitle}` : ''}; partner portraits.` },
+         ].map(({ href, icon: Icon, title, body }) => (
+           <Link key={href} href={href} className="tile p-6 hover:border-brand-gold/60 transition-colors">
+diff --git a/app/(admin)/admin/requests/page.tsx b/app/(admin)/admin/requests/page.tsx
+new file mode 100644
+index 0000000..199da00
+--- /dev/null
++++ b/app/(admin)/admin/requests/page.tsx
+@@ -0,0 +1,53 @@
++import Link from 'next/link';
++import { createAdminClient } from '@/lib/supabase/admin';
++import { PageHead } from '@/components/admin/ui';
++import type { AccessRequest } from '@/lib/data';
++
++export const dynamic = 'force-dynamic';
++export const revalidate = 0;
++
++type Row = AccessRequest & { report: { id: string; title: string; slug: string; week_label: string | null } | null };
++const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
++
++export default async function PackRequests({ searchParams }: { searchParams?: { report?: string } }) {
++  const db = createAdminClient();
++  let q = db.from('access_requests').select('*, report:reports(id, title, slug, week_label)').order('created_at', { ascending: false }).limit(500);
++  if (searchParams?.report) q = q.eq('report_id', searchParams.report);
++  const { data, error } = await q;
++  const rows = (data ?? []) as unknown as Row[];
++  const opened = rows.filter((r) => r.open_count > 0).length;
++  return (
++    <>
++      <PageHead title="Pack requests" sub="Everyone who asked for a research pack, newest first." />
++      {error && <p className="text-sm text-red-200 bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-6" role="alert">Pack requests are not available yet. Run supabase/004_weekly_pipeline.sql in the Supabase SQL editor.</p>}
++      {!error && (
++        <p className="text-white/55 text-sm mb-6">
++          {rows.length} request{rows.length === 1 ? '' : 's'}{rows.length ? ` · ${opened} opened the pack` : ''}
++          {searchParams?.report && <> · <Link href="/admin/requests" className="underline underline-offset-4">show all studies</Link></>}
++        </p>
++      )}
++      {!error && rows.length === 0 && <p className="text-white/55">No one has asked for a pack yet. Requests appear here the moment a reader completes the form on a study page.</p>}
++      <div className="space-y-3">
++        {rows.map((r) => (
++          <div key={r.id} className="tile p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-baseline">
++            <div className="md:col-span-4 min-w-0">
++              <p className="text-white font-bold truncate">{r.full_name}</p>
++              <p className="text-white/60 text-sm truncate">{r.organisation}{r.role ? ` · ${r.role}` : ''}</p>
++              <a href={`mailto:${r.email}`} className="text-brand-gold-pale text-sm underline underline-offset-4 break-all">{r.email}</a>
++            </div>
++            <div className="md:col-span-5 min-w-0">
++              {r.report ? (
++                <Link href={`/admin/requests?report=${r.report.id}`} className="text-white/80 text-sm hover:text-white">{r.report.week_label ? `${r.report.week_label} · ` : ''}{r.report.title}</Link>
++              ) : <span className="text-white/40 text-sm">Study removed</span>}
++              {r.intended_use && <p className="text-white/45 text-xs mt-1">{r.intended_use}</p>}
++            </div>
++            <div className="md:col-span-3 text-xs text-white/50 md:text-right">
++              <p>Asked {day(r.created_at)}</p>
++              <p>{r.open_count > 0 ? `Opened ${day(r.first_opened_at)} · ${r.download_count} download${r.download_count === 1 ? '' : 's'}` : new Date(r.expires_at) < new Date() ? 'Link lapsed unopened' : 'Not opened yet'}</p>
++            </div>
++          </div>
++        ))}
++      </div>
++    </>
++  );
++}
+diff --git a/app/(admin)/admin/scans/[id]/page.tsx b/app/(admin)/admin/scans/[id]/page.tsx
+index 5f0193c..3eaf1c5 100644
+--- a/app/(admin)/admin/scans/[id]/page.tsx
++++ b/app/(admin)/admin/scans/[id]/page.tsx
+@@ -12,5 +12,6 @@ export default async function EditScan({ params }: { params: { id: string } }) {
+   const { data } = await db.from('scans').select('*').eq('id', params.id).maybeSingle();
+   if (!data) notFound();
+   const scan = data as Scan;
+-  return (<><PageHead title="Edit scan entry" sub={scan.title} /><ScanForm scan={scan} /></>);
++  const { data: reports } = await db.from('reports').select('id, title, week_label').order('updated_at', { ascending: false }).limit(300);
++  return (<><PageHead title="Edit scan entry" sub={scan.title} /><ScanForm scan={scan} reports={reports ?? []} /></>);
+ }
+diff --git a/app/(admin)/admin/scans/new/page.tsx b/app/(admin)/admin/scans/new/page.tsx
+index ee5451d..49f24fd 100644
+--- a/app/(admin)/admin/scans/new/page.tsx
++++ b/app/(admin)/admin/scans/new/page.tsx
+@@ -1,6 +1,11 @@
+ import ScanForm from '@/components/admin/ScanForm';
+ import { PageHead } from '@/components/admin/ui';
++import { createAdminClient } from '@/lib/supabase/admin';
+ 
+ export const dynamic = 'force-dynamic';
+ export const revalidate = 0;
+-export default function NewScan() { return (<><PageHead title="New scan entry" /><ScanForm /></>); }
++export default async function NewScan() {
++  const db = createAdminClient();
++  const { data: reports } = await db.from('reports').select('id, title, week_label').order('updated_at', { ascending: false }).limit(300);
++  return (<><PageHead title="New scan entry" /><ScanForm reports={reports ?? []} /></>);
++}
+diff --git a/app/api/dropbox/callback/route.ts b/app/api/dropbox/callback/route.ts
+new file mode 100644
+index 0000000..6013005
+--- /dev/null
++++ b/app/api/dropbox/callback/route.ts
+@@ -0,0 +1,29 @@
++import { NextResponse } from 'next/server';
++import { cookies } from 'next/headers';
++import { requireAdmin } from '@/lib/admin/auth';
++import { completeConnection } from '@/lib/dropbox';
++
++export const dynamic = 'force-dynamic';
++
++/** Dropbox sends the admin back here with a code; it is exchanged for a refresh token kept server-side. */
++export async function GET(request: Request) {
++  const admin = await requireAdmin();
++  const { origin, searchParams } = new URL(request.url);
++  const back = (q: string) => {
++    const res = NextResponse.redirect(`${origin}/admin/import?dropbox=${q}`);
++    res.cookies.set('dbx_state', '', { path: '/api/dropbox', maxAge: 0 });
++    return res;
++  };
++  const code = searchParams.get('code');
++  const state = searchParams.get('state');
++  const expected = cookies().get('dbx_state')?.value;
++  if (searchParams.get('error')) return back('declined');
++  if (!code || !state || !expected || state !== expected) return back('state');
++  try {
++    await completeConnection(code, `${origin}/api/dropbox/callback`, admin.email);
++    return back('connected');
++  } catch (e) {
++    console.error('[dropbox] connect failed:', e);
++    return back('failed');
++  }
++}
+diff --git a/app/api/dropbox/connect/route.ts b/app/api/dropbox/connect/route.ts
+new file mode 100644
+index 0000000..ea3230c
+--- /dev/null
++++ b/app/api/dropbox/connect/route.ts
+@@ -0,0 +1,17 @@
++import { NextResponse } from 'next/server';
++import { randomBytes } from 'node:crypto';
++import { requireAdmin } from '@/lib/admin/auth';
++import { authorizeUrl, dropboxConfigured } from '@/lib/dropbox';
++
++export const dynamic = 'force-dynamic';
++
++/** Starts the one-time Dropbox connection. Admins only; the state cookie ties the reply to this browser. */
++export async function GET(request: Request) {
++  await requireAdmin();
++  const { origin } = new URL(request.url);
++  if (!dropboxConfigured()) return NextResponse.redirect(`${origin}/admin/import?dropbox=not-configured`);
++  const state = randomBytes(24).toString('base64url');
++  const res = NextResponse.redirect(authorizeUrl(`${origin}/api/dropbox/callback`, state));
++  res.cookies.set('dbx_state', state, { httpOnly: true, secure: true, sameSite: 'lax', path: '/api/dropbox', maxAge: 600 });
++  return res;
++}
+diff --git a/app/api/request-pack/route.ts b/app/api/request-pack/route.ts
+new file mode 100644
+index 0000000..af0b767
+--- /dev/null
++++ b/app/api/request-pack/route.ts
+@@ -0,0 +1,93 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { Resend } from 'resend';
++import { sanitizeInput, isValidEmail, verifyTurnstile } from '@/lib/security';
++import { buildBrandedEmail, buildPackEmail } from '@/lib/emailTemplates';
++import { checkRateLimit } from '@/lib/rateLimit';
++import { createAdminClient, supabaseConfigured } from '@/lib/supabase/admin';
++import { hasGatedPack, readerFiles, territoryName, type Report } from '@/lib/data';
++import { newToken } from '@/lib/packAccess';
++
++export const dynamic = 'force-dynamic';
++
++const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://falconbp.com').replace(/\/+$/, '');
++const LEADS_TO = () => process.env.RESEND_LEADS_EMAIL || 'info@falconbp.com';
++const FROM = () => process.env.RESEND_FROM || 'noreply@notifications.falconbp.com';
++const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
++
++/**
++ * A reader asks for a study's research pack.
++ * The request is logged, the reader is emailed a link that expires, and the firm is told who asked.
++ * Files are never attached and never linked directly: the emailed link opens a page that issues short-lived downloads.
++ */
++export async function POST(request: NextRequest) {
++  try {
++    if (!process.env.RESEND_API_KEY || !supabaseConfigured()) return bad('The pack cannot be sent at the moment. Please write to info@falconbp.com.', 503);
++
++    const forwardedFor = request.headers.get('x-forwarded-for');
++    const ip = (forwardedFor ? forwardedFor.split(',')[0].trim() : null) || request.headers.get('x-real-ip') || 'unknown';
++    if (!checkRateLimit(`pack:${ip}`, 12)) return bad('Too many requests. Please try again later.', 429);
++
++    const data = await request.json();
++    if (!data.slug || !data.fullName || !data.email || !data.organization || !data.turnstileToken) return bad('Please complete the form.');
++    if (data.consent !== true) return bad('Please confirm that we may contact you about this study.');
++    if (!(await verifyTurnstile(data.turnstileToken, process.env.TURNSTILE_SECRET_KEY || '', ip))) return bad('Bot verification failed. Please try again.');
++
++    const fullName = sanitizeInput(String(data.fullName));
++    const email = sanitizeInput(String(data.email)).toLowerCase();
++    const organisation = sanitizeInput(String(data.organization));
++    const role = data.role ? sanitizeInput(String(data.role)).slice(0, 100) : '';
++    const intendedUse = data.decisionContext ? sanitizeInput(String(data.decisionContext)).slice(0, 1000) : '';
++    if (!isValidEmail(email) || email.length > 200) return bad('Please enter a valid email address.');
++    if (fullName.length < 2 || fullName.length > 100) return bad('Name must be between 2 and 100 characters.');
++    if (organisation.length < 2 || organisation.length > 200) return bad('Organisation must be between 2 and 200 characters.');
++
++    const db = createAdminClient();
++    const { data: found } = await db.from('reports').select('*, files:report_files(*)').eq('slug', String(data.slug)).eq('published', true).maybeSingle();
++    const report = found as Report | null;
++    if (!report || !hasGatedPack(report.files)) return bad('This pack is not available for download. Please write to info@falconbp.com.', 404);
++
++    const { token, hash, expiresAt } = newToken();
++    const { error: insertError } = await db.from('access_requests').insert({
++      report_id: report.id, full_name: fullName, email, organisation, role: role || null, intended_use: intendedUse || null,
++      consent: true, token_hash: hash, expires_at: expiresAt.toISOString(),
++    });
++    if (insertError) { console.error('[request-pack] insert', insertError); return bad('The request could not be recorded. Please try again.', 500); }
++
++    const resend = new Resend(process.env.RESEND_API_KEY);
++    const link = `${SITE_URL}/research/pack/${token}`;
++    const expires = expiresAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
++    const files = readerFiles(report.files).sort((a, b) => a.sort_order - b.sort_order).map((f) => f.label);
++
++    const sent = await resend.emails.send({
++      from: FROM(), to: email, replyTo: LEADS_TO(),
++      subject: `Your research pack: ${report.title}`,
++      html: buildPackEmail({ name: fullName, studyTitle: report.title, link, expires, files, replyTo: LEADS_TO() }),
++    });
++    if (sent.error) { console.error('[request-pack] reader email', sent.error); return bad('The email could not be sent. Please check the address and try again.', 502); }
++
++    // Tell the firm: the general address, copied to the partner(s) for the study's territory.
++    try {
++      const { data: partners } = await db.from('partners').select('email').eq('active', true).contains('territories', [report.territory]);
++      const cc = Array.from(new Set((partners ?? []).map((p) => String(p.email || '').toLowerCase()).filter((e) => e && e !== LEADS_TO().toLowerCase())));
++      await resend.emails.send({
++        from: FROM(), to: LEADS_TO(), ...(cc.length ? { cc } : {}), replyTo: email,
++        subject: `Pack requested: ${report.title} — ${organisation}`,
++        html: buildBrandedEmail({
++          title: 'A research pack was requested',
++          subtitle: `${report.title} · ${territoryName[report.territory] ?? report.territory}${report.week_label ? ` · ${report.week_label}` : ''}`,
++          fields: [
++            { label: 'Name', value: fullName }, { label: 'Email', value: email }, { label: 'Organisation', value: organisation },
++            ...(role ? [{ label: 'Role', value: role }] : []), ...(intendedUse ? [{ label: 'Intended use', value: intendedUse }] : []),
++            { label: 'Link expires', value: expires },
++          ],
++          footerNote: 'The reader has been emailed a link to the pack. Reply to this message to write to them. Opens and downloads are recorded under Pack requests in the admin.',
++        }),
++      });
++    } catch (e) { console.error('[request-pack] lead email', e); /* the reader already has the pack; the lead is in the admin */ }
++
++    return NextResponse.json({ success: true });
++  } catch (error) {
++    console.error('[request-pack]', error);
++    return bad('The request could not be processed. Please try again.', 500);
++  }
++}
+diff --git a/app/research/files/[id]/route.ts b/app/research/files/[id]/route.ts
+index 6591f7b..a8fa274 100644
+--- a/app/research/files/[id]/route.ts
++++ b/app/research/files/[id]/route.ts
+@@ -8,10 +8,10 @@ export const dynamic = 'force-dynamic';
+ export async function GET(_req: Request, { params }: { params: { id: string } }) {
+   if (!supabaseConfigured()) return new NextResponse('Not available', { status: 404 });
+   const db = createAdminClient();
+-  const { data } = await db.from('report_files').select('storage_path, access, report:reports(published)').eq('id', params.id).maybeSingle();
+-  const rep = (data as unknown as { storage_path: string | null; access: string; report: { published: boolean } | null } | null);
++  const { data } = await db.from('report_files').select('*, report:reports(published)').eq('id', params.id).maybeSingle();
++  const rep = (data as unknown as { storage_path: string | null; access: string; file_name?: string | null; report: { published: boolean } | null } | null);
+   if (!rep?.storage_path || rep.access !== 'open' || !rep.report?.published) return new NextResponse('Not available', { status: 404 });
+-  const url = await signedFileUrl(rep.storage_path);
++  const url = await signedFileUrl(rep.storage_path, { expiresIn: 300, download: rep.file_name ?? null });
+   if (!url) return new NextResponse('Not available', { status: 404 });
+   return NextResponse.redirect(url, 302);
+ }
+diff --git a/app/research/pack/[token]/file/[id]/route.ts b/app/research/pack/[token]/file/[id]/route.ts
+new file mode 100644
+index 0000000..ccc27e9
+--- /dev/null
++++ b/app/research/pack/[token]/file/[id]/route.ts
+@@ -0,0 +1,18 @@
++import { NextResponse } from 'next/server';
++import { signedFileUrl } from '@/lib/data';
++import { resolvePack, recordDownload } from '@/lib/packAccess';
++
++export const dynamic = 'force-dynamic';
++
++/** One download from an emailed pack link: checks the link, then redirects to a signed URL that lasts two minutes. */
++export async function GET(_req: Request, { params }: { params: { token: string; id: string } }) {
++  const grant = await resolvePack(params.token);
++  if (!grant) return new NextResponse('This link is not recognised.', { status: 404 });
++  if (grant.expired) return new NextResponse('This link has expired. Ask for the pack again from the study page.', { status: 410 });
++  const file = grant.files.find((f) => f.id === params.id);
++  if (!file?.storage_path) return new NextResponse('Not available', { status: 404 });
++  const url = await signedFileUrl(file.storage_path, { expiresIn: 120, download: file.file_name ?? null });
++  if (!url) return new NextResponse('Not available', { status: 404 });
++  await recordDownload(grant.request);
++  return NextResponse.redirect(url, { status: 302, headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
++}
+diff --git a/app/research/pack/[token]/page.tsx b/app/research/pack/[token]/page.tsx
+new file mode 100644
+index 0000000..d3ba805
+--- /dev/null
++++ b/app/research/pack/[token]/page.tsx
+@@ -0,0 +1,73 @@
++import type { Metadata } from 'next';
++import Link from 'next/link';
++import { Download } from 'lucide-react';
++import PageHero from '@/components/dss/PageHero';
++import Invitation from '@/components/dss/Invitation';
++import { Section, Band } from '@/components/dss/Tiles';
++import { territoryName } from '@/lib/data';
++import { resolvePack, recordOpen } from '@/lib/packAccess';
++
++export const dynamic = 'force-dynamic';
++export const revalidate = 0;
++export const metadata: Metadata = { title: 'Research pack — FalconBridge Partners', robots: { index: false, follow: false }, referrer: 'no-referrer' };
++
++const mb = (n: number | null) => (n ? `${(n / 1048576).toFixed(n < 1048576 ? 2 : 1)} MB` : '');
++const kind = (path: string | null) => ({ pdf: 'PDF', pptx: 'PowerPoint', docx: 'Word', zip: 'ZIP' } as Record<string, string>)[(path ?? '').split('.').pop() ?? ''] ?? '';
++
++export default async function PackPage({ params }: { params: { token: string } }) {
++  const grant = await resolvePack(params.token);
++
++  if (!grant) {
++    return (
++      <>
++        <PageHero eyebrow="Research pack" title="This link is not recognised" intro="The address may be incomplete, or the study may have been withdrawn. Ask for the pack again from the study’s page and a new link will be emailed to you." />
++        <Section><Link href="/research/library" className="text-brand-gold-pale underline underline-offset-4">Go to the research library</Link></Section>
++      </>
++    );
++  }
++
++  const { report, files, request, expired } = grant;
++  if (expired) {
++    return (
++      <>
++        <PageHero eyebrow="Research pack" title="This link has expired" governing={report.title} intro="Pack links work for a limited time. Ask for the pack again and a new link will be emailed to you straight away." />
++        <Section><Link href={`/research/studies/${report.slug}`} className="text-brand-gold-pale underline underline-offset-4">Ask for the pack again</Link></Section>
++      </>
++    );
++  }
++
++  await recordOpen(request);
++  const until = new Date(request.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
++  return (
++    <>
++      <PageHero
++        eyebrow={`Research pack · ${territoryName[report.territory] ?? report.territory}${report.year ? ` · ${report.year}` : ''}`}
++        title={report.title}
++        governing={report.subtitle ?? undefined}
++        intro={`Prepared for ${request.full_name}, ${request.organisation}. This page works until ${until}.`}
++      />
++      <Section>
++        <ol className="space-y-3 max-w-3xl">
++          {files.map((f, i) => (
++            <li key={f.id}>
++              <a href={`/research/pack/${params.token}/file/${f.id}`} className="tile p-5 flex items-center gap-5 hover:border-brand-gold/60 transition-colors">
++                <span className="governing text-xl w-6 shrink-0 text-center" aria-hidden="true">{i + 1}</span>
++                <span className="min-w-0 flex-1">
++                  <span className="block text-white font-bold">{f.label}</span>
++                  <span className="block text-white/45 text-xs mt-0.5">{[kind(f.storage_path), mb(f.size_bytes)].filter(Boolean).join(' · ')}</span>
++                </span>
++                <Download className="w-4 h-4 text-brand-gold shrink-0" />
++              </a>
++            </li>
++          ))}
++        </ol>
++        <p className="text-white/60 text-sm mt-6 max-w-3xl">Read them in the order shown. The first document explains how the report is built, what the evidence grades mean and where to enter the report for the time you have.</p>
++        <div className="mt-12 space-y-8">
++          <Band title="Findings are bounded" body={report.qualifier || 'Findings remain bounded by scope, evidence and date. The research supports your decision. It does not make it for you.'} />
++          <Band title="Licensed for your own use" body="The pack is released under a Type-1 licence for the requester’s own use. FalconBridge Partners retains its research IP. Wider circulation, publication or reproduction needs our agreement." />
++        </div>
++      </Section>
++      <Invitation compact />
++    </>
++  );
++}
+diff --git a/app/research/studies/[slug]/page.tsx b/app/research/studies/[slug]/page.tsx
+index f0fd1b0..af52d7a 100644
+--- a/app/research/studies/[slug]/page.tsx
++++ b/app/research/studies/[slug]/page.tsx
+@@ -4,8 +4,8 @@ import { Download } from 'lucide-react';
+ import PageHero from '@/components/dss/PageHero';
+ import Invitation from '@/components/dss/Invitation';
+ import RequestReport from '@/components/dss/RequestReport';
+-import { Section, Band } from '@/components/dss/Tiles';
+-import { getReportBySlug, publicMediaUrl, territoryName } from '@/lib/data';
++import { Section, Band, NextLink } from '@/components/dss/Tiles';
++import { getReportBySlug, getScanForStudy, hasGatedPack, publicMediaUrl, readerFiles, territoryName } from '@/lib/data';
+ 
+ export const dynamic = 'force-dynamic';
+ 
+@@ -15,31 +15,44 @@ export async function generateMetadata({ params }: { params: { slug: string } })
+   return { title: `${s.title} — FalconBridge Partners`, description: s.subtitle ?? undefined, openGraph: s.cover_path ? { images: [publicMediaUrl(s.cover_path)!] } : undefined };
+ }
+ 
++const COUNT = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six'];
++
+ export default async function StudyPage({ params }: { params: { slug: string } }) {
+   const s = await getReportBySlug(params.slug);
+   if (!s) notFound();
+   const extract = publicMediaUrl(s.extract_path);
+-  const files = s.files ?? [];
+-  const hasOpen = files.some((f) => f.storage_path && f.access === 'open');
+-  const hasRequest = files.some((f) => f.access === 'request' || !f.storage_path);
++  const all = s.files ?? [];
++  // With uploaded pack files behind the form, the pack is emailed automatically and only real files are listed.
++  // Otherwise (older studies) every non-internal element is listed and a partner replies to the request by hand.
++  const auto = hasGatedPack(all);
++  const files = auto ? readerFiles(all) : all.filter((f) => f.access !== 'internal');
++  const isOpen = (f: (typeof files)[number]) => Boolean(f.storage_path) && f.access === 'open';
++  const hasOpen = files.some(isOpen);
++  const hasRequest = auto || files.some((f) => !isOpen(f));
++  const scan = await getScanForStudy(s.id);
+   return (
+     <>
+       <PageHero eyebrow={`${s.kind === 'study' ? 'Public study' : s.kind === 'sample' ? 'Commissioned sample' : 'White paper'} · ${territoryName[s.territory] ?? s.territory}${s.year ? ` · ${s.year}` : ''}`} title={s.title} governing={s.subtitle ?? undefined} />
+       <Section>
+         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+           <div className="lg:col-span-7">
+-            <div className="tile p-8 md:p-10 aspect-[4/3] flex items-center justify-center text-center overflow-hidden">
+-              {extract ? (
+-                // eslint-disable-next-line @next/next/no-img-element
+-                <img src={extract} alt={`${s.title} — extract`} className="w-full h-full object-contain" />
+-              ) : (
++            {extract ? (
++              <figure>
++                <a href={extract} target="_blank" rel="noopener" className="tile block p-3 md:p-4 overflow-hidden hover:border-brand-gold/60 transition-colors" aria-label={`${s.title} — open the extract at full size`}>
++                  {/* eslint-disable-next-line @next/next/no-img-element */}
++                  <img src={extract} alt={`${s.title} — extract`} className="w-full h-auto rounded-md" />
++                </a>
++                {s.extract_note && <figcaption className="text-white/50 text-sm mt-3">{s.extract_note}</figcaption>}
++              </figure>
++            ) : s.extract_note ? (
++              <div className="tile p-8 md:p-10 aspect-[4/3] flex items-center justify-center text-center overflow-hidden">
+                 <div>
+                   <p className="governing text-2xl mb-3">Report extract</p>
+                   <p className="text-white/55 text-sm max-w-md">{s.extract_note}</p>
+                 </div>
+-              )}
+-            </div>
+-            {s.body && <p className="text-white/70 mt-6 whitespace-pre-line">{s.body}</p>}
++              </div>
++            ) : null}
++            {s.body && <p className={`text-white/70 whitespace-pre-line ${extract || s.extract_note ? 'mt-6' : ''}`}>{s.body}</p>}
+           </div>
+           <div className="lg:col-span-5 space-y-4">
+             {s.facts.map((f) => (
+@@ -48,13 +61,14 @@ export default async function StudyPage({ params }: { params: { slug: string } }
+                 <p className="text-sm">{f.body}</p>
+               </div>
+             ))}
++            {scan && <NextLink href={`/research/weekly-scan/${scan.slug}`} label="The signal behind this study" sub={scan.question} />}
+           </div>
+         </div>
+       </Section>
+-      <Section eyebrow="The complete package" title="Six elements, tailored to the question and to how readers will use the work">
++      <Section eyebrow="The complete package" title={`${COUNT[files.length] ?? files.length} element${files.length === 1 ? '' : 's'}, tailored to the question and to how readers will use the work`}>
+         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+           {files.map((f) => (
+-            f.storage_path && f.access === 'open' ? (
++            isOpen(f) ? (
+               <a key={f.id} href={`/research/files/${f.id}`} className="tile p-5 flex items-center justify-between gap-3 hover:border-brand-gold/60 transition-colors">
+                 <span className="text-white text-sm font-bold">{f.label}</span>
+                 <Download className="w-4 h-4 text-brand-gold" />
+@@ -62,13 +76,13 @@ export default async function StudyPage({ params }: { params: { slug: string } }
+             ) : (
+               <div key={f.id} className="tile p-5 flex items-center justify-between gap-3">
+                 <span className="text-white text-sm font-bold">{f.label}</span>
+-                <span className="text-[0.7rem] text-white/40">on request</span>
++                <span className="text-[0.7rem] text-white/40">{auto ? 'in the pack' : 'on request'}</span>
+               </div>
+             )
+           ))}
+         </div>
+-        {hasRequest && <RequestReport studyTitle={s.title} />}
+-        {!hasOpen && hasRequest && <p className="text-sm text-white/45 mt-4">Direct downloads are added as each element is released.</p>}
++        {hasRequest && <RequestReport studyTitle={s.title} slug={s.slug} auto={auto} packFiles={auto ? files.map((f) => f.label) : []} />}
++        {!auto && !hasOpen && hasRequest && <p className="text-sm text-white/45 mt-4">Direct downloads are added as each element is released.</p>}
+         {s.qualifier && <div className="mt-10"><Band title="The sample demonstrates the work" body={s.qualifier} /></div>}
+       </Section>
+       <Invitation compact />
+diff --git a/app/research/weekly-scan/[slug]/page.tsx b/app/research/weekly-scan/[slug]/page.tsx
+index 6b0c170..64b5983 100644
+--- a/app/research/weekly-scan/[slug]/page.tsx
++++ b/app/research/weekly-scan/[slug]/page.tsx
+@@ -4,7 +4,7 @@ import Link from 'next/link';
+ import PageHero from '@/components/dss/PageHero';
+ import Invitation from '@/components/dss/Invitation';
+ import { Section, Tile, Band, NextLink } from '@/components/dss/Tiles';
+-import { getScanBySlug, territoryName } from '@/lib/data';
++import { getScanBySlug, getStudyForScan, territoryName } from '@/lib/data';
+ import { services } from '@/content/site';
+ 
+ export const dynamic = 'force-dynamic';
+@@ -19,6 +19,7 @@ export default async function ScanEntryPage({ params }: { params: { slug: string
+   const e = await getScanBySlug(params.slug);
+   if (!e) notFound();
+   const svc = services.find((s) => s.key === e.service);
++  const study = await getStudyForScan(e);
+   return (
+     <>
+       <PageHero eyebrow={`Weekly Scan · ${territoryName[e.territory] ?? e.territory} · Week of ${e.week_of}`} title="A signal, and the question it raises" governing={e.question} intro={e.signal}>
+@@ -36,6 +37,7 @@ export default async function ScanEntryPage({ params }: { params: { slug: string
+           </div>
+         )}
+         <div className="mt-10"><Band title="Findings and interpretation are kept apart" body="The scan frames an investigation; subsequent research must establish the evidence supporting its findings. A weekly scan entry is AI-assisted and human-reviewed. It is not a study, and it does not oblige anyone to commission one." /></div>
++        {study && <div className="mt-8"><NextLink href={`/research/studies/${study.slug}`} label={`The study this signal led to: ${study.title}`} sub={study.subtitle ?? 'Read the summary and get the research pack.'} /></div>}
+         {svc && <div className="mt-8"><NextLink href={`/decision-support-system/${svc.slug}`} label={`${svc.acronym} · ${svc.name}`} sub="The service closest to this question." /></div>}
+         <p className="text-sm text-white/45 mt-8"><Link href="/research/weekly-scan" className="text-brand-gold-pale underline underline-offset-4">All scan entries</Link></p>
+       </Section>
+diff --git a/app/robots.ts b/app/robots.ts
+index 2cd7e90..7766c3d 100644
+--- a/app/robots.ts
++++ b/app/robots.ts
+@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
+       {
+         userAgent: '*',
+         allow: '/',
+-        disallow: ['/admin', '/api/'],
++        disallow: ['/admin', '/api/', '/research/pack/', '/research/files/'],
+       },
+     ],
+     sitemap: `${SITE_URL}/sitemap.xml`,
+diff --git a/docs/WEEKLY_PIPELINE.md b/docs/WEEKLY_PIPELINE.md
+new file mode 100644
+index 0000000..24d2136
+--- /dev/null
++++ b/docs/WEEKLY_PIPELINE.md
+@@ -0,0 +1,99 @@
++# Weekly pipeline
++
++How a week's research gets from Dropbox to falconbp.com. Built October 2026.
++
++## What goes where
++
++| Layer | What | How a reader gets it |
++|---|---|---|
++| Open | The Weekly Scan entry; the study page with the Executive Visual and Executive Summary | On the site, no form |
++| Pack | Quick Start Guide, Executive Deck, full GDRS report | Reader completes the form on the study page; a link is emailed and works for 7 days |
++| Internal | Partner Brief, Reference Audit, internal memo, research brief, working files | Never uploaded, never shown |
++
++Each file's level is a setting on the study in `/admin/reports`: **Open download**, **In the pack**, or **Internal**.
++
++## The weekly run (Wednesday, once all five packs are in Dropbox)
++
++1. Read the week's five folders in `K2. RaaS Engagements` and write the public copy.
++2. Save one `manifest.json` to `W. Website Publishing/<year>-W<week>/` in the shared Dropbox.
++3. Open `/admin/import`. The week appears with each territory and its files.
++4. **Import as drafts** to review first, or **Import and publish**.
++5. The importer copies the pack files from Dropbox into private storage and creates the scan entry and the study for each territory, linked to each other.
++
++Running an import again is safe. Entries are matched by slug and files by slot; a file already copied from the same Dropbox file is not copied again. An entry that is already live is skipped unless **Replace published entries** is ticked. A study is never published while one of its files failed to copy.
++
++## One-time setup
++
++1. **Database.** Run `supabase/004_weekly_pipeline.sql` in the Supabase SQL editor.
++2. **Dropbox app.** At dropbox.com/developers/apps create an app: *Scoped access*, *Full Dropbox*. Under Permissions tick `files.metadata.read` and `files.content.read`. Under Settings add the redirect URI `https://falconbp.com/api/dropbox/callback` (and the `www.` host if the admin is used there).
++3. **Vercel.** Add `DROPBOX_APP_KEY` and `DROPBOX_APP_SECRET` (Production), then redeploy.
++4. **Connect.** In `/admin/import` choose **Connect Dropbox** and allow access. The site reads from Dropbox; it never writes.
++
++Optional environment variables: `DROPBOX_PUBLISH_PATH`, `RESEND_LEADS_EMAIL` (default `info@falconbp.com`), `PACK_LINK_DAYS` (default 7).
++
++## Pack requests
++
++A reader gives name, work email and organisation and ticks the consent line. The site then:
++
++- records the request in `access_requests` (see **Pack requests** in the admin),
++- emails the reader a link to `/research/pack/<token>`,
++- emails `info@falconbp.com`, copied to the partner(s) whose territories include the study's.
++
++Only a hash of the token is stored. The pack page issues each download as a signed URL that lasts two minutes. The link stops working after seven days, or at once if the study is unpublished. Opens and downloads are counted per request.
++
++Studies without uploaded pack files keep the earlier behaviour: the form emails the research team and a partner replies by hand.
++
++## The manifest
++
++One JSON file per week. Whoever writes it — a person, Claude or HT+ — the importer treats it the same way. Files are referenced by Dropbox file id (`id:…`), so their names and folders do not matter.
++
++```json
++{
++  "version": 1,
++  "week_label": "2026-W41",
++  "review_period": { "from": "2026-09-28", "to": "2026-10-04" },
++  "prepared_by": "Claude",
++  "notes": "Optional note shown on the import screen.",
++  "entries": [
++    {
++      "territory": "mauritius",
++      "scan": {
++        "slug": "mauritius-week-41-2026-fuel-price-pass-through",
++        "title": "Mauritius · Week 41 · Fuel price pass-through",
++        "service": "raas",
++        "week_of": "2026-09-28",
++        "signal": "…",
++        "question": "…",
++        "finding": "…",
++        "interpretation": "…",
++        "open_questions": ["…"]
++      },
++      "report": {
++        "slug": "from-pump-price-to-cost-base-mauritius",
++        "title": "From Pump Price to Cost Base",
++        "subtitle": "…",
++        "published_at": "2026-10-07",
++        "body": "The Executive Summary text.",
++        "facts": [{ "figure": "164 sources", "body": "…" }],
++        "extract_image": "id:…"
++      },
++      "files": [
++        { "slot": 1, "label": "Quick start guide", "dropbox": "id:…" },
++        { "slot": 2, "dropbox": "id:…" },
++        { "slot": 3, "dropbox": "id:…" },
++        { "slot": 4, "dropbox": "id:…" },
++        { "slot": 5, "dropbox": "id:…" }
++      ]
++    }
++  ]
++}
++```
++
++- `territory`: `uae-gcc`, `south-africa`, `new-zealand`, `mauritius`, `north-carolina`, `singapore`.
++- `week_label` uses FalconBridge's week number; `week_of` is the Monday the review period starts.
++- An entry may carry a scan, a report, or both. `files` need a report.
++- Slots and their default access: 1 User guide (pack), 2 Executive deck (pack), 3 Full research report (pack), 4 Executive summary (open), 5 Executive visual (open), 6 Reference and link audit (internal). `label` and `access` override the defaults. A slot left out is created empty and internal.
++- `extract_image` is the Executive Visual as PNG, JPEG or WebP; it is shown on the study page. `cover_image` (3:4) is optional.
++- Pack files may be PDF, PPTX, DOCX or ZIP.
++
++The validator is `src/lib/weekly/manifest.ts`; the import screen lists every problem before anything is written.
+diff --git a/middleware.ts b/middleware.ts
+index 95fb08b..d1c2a46 100644
+--- a/middleware.ts
++++ b/middleware.ts
+@@ -6,5 +6,5 @@ export async function middleware(request: NextRequest) {
+ }
+ 
+ export const config = {
+-  matcher: ['/admin/:path*', '/auth/:path*'],
++  matcher: ['/admin/:path*', '/auth/:path*', '/api/dropbox/:path*'],
+ };
+diff --git a/src/components/admin/AdminShell.tsx b/src/components/admin/AdminShell.tsx
+index 4a6544e..f17efdb 100644
+--- a/src/components/admin/AdminShell.tsx
++++ b/src/components/admin/AdminShell.tsx
+@@ -1,6 +1,6 @@
+ import Link from 'next/link';
+ import Image from 'next/image';
+-import { LayoutDashboard, BookOpen, Radar, Users, UserRound, Settings, Globe, LogOut } from 'lucide-react';
++import { LayoutDashboard, BookOpen, Radar, Users, UserRound, Settings, Globe, LogOut, DownloadCloud, Inbox } from 'lucide-react';
+ import logo from '@/assets/logos/logo.png';
+ import type { AdminUser } from '@/lib/admin/auth';
+ import { signOut } from '@/lib/admin/actions';
+@@ -9,6 +9,8 @@ const nav = [
+   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+   { href: '/admin/reports', label: 'Reports', icon: BookOpen },
+   { href: '/admin/scans', label: 'Weekly Scan', icon: Radar },
++  { href: '/admin/import', label: 'Weekly import', icon: DownloadCloud },
++  { href: '/admin/requests', label: 'Pack requests', icon: Inbox },
+   { href: '/admin/partners', label: 'Partners', icon: Users },
+   { href: '/admin/team', label: 'Team', icon: UserRound },
+   { href: '/admin/settings', label: 'Site settings', icon: Settings },
+diff --git a/src/components/admin/ReportForm.tsx b/src/components/admin/ReportForm.tsx
+index 602fa03..9c6de40 100644
+--- a/src/components/admin/ReportForm.tsx
++++ b/src/components/admin/ReportForm.tsx
+@@ -1,7 +1,7 @@
+ import { saveReport, deleteReport } from '@/lib/admin/actions';
+ import { input, label, btn, btnGhost, Field, Check } from '@/components/admin/ui';
+ import UploadField from '@/components/admin/UploadField';
+-import { publicMediaUrl, REPORT_KINDS, TERRITORIES, type Report, type ReportFile } from '@/lib/data';
++import { publicMediaUrl, FILE_ACCESS, REPORT_KINDS, TERRITORIES, type Report, type ReportFile } from '@/lib/data';
+ 
+ const LABELS = ['User guide', 'Executive deck', 'Full research report', 'Executive summary', 'Executive visual', 'Reference and link audit'];
+ 
+@@ -22,6 +22,7 @@ export default function ReportForm({ report }: { report?: Report }) {
+         </Field>
+         <Field id="year" title="Year"><input id="year" name="year" type="number" defaultValue={report?.year ?? ''} className={input} /></Field>
+         <Field id="published_at" title="Published on"><input id="published_at" name="published_at" type="date" defaultValue={report?.published_at ?? ''} className={input} /></Field>
++        <Field id="week_label" title="Week" hint="For weekly studies, e.g. 2026-W41. Leave blank otherwise."><input id="week_label" name="week_label" defaultValue={report?.week_label ?? ''} placeholder="2026-W41" className={input} /></Field>
+       </div>
+ 
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+@@ -49,7 +50,7 @@ export default function ReportForm({ report }: { report?: Report }) {
+ 
+       <div>
+         <p className={label}>Package files</p>
+-        <p className="text-[0.7rem] text-white/40 mb-3">Upload each element. “Open download” serves it to any reader; “On request” keeps it behind the request form.</p>
++        <p className="text-[0.7rem] text-white/40 mb-3">Upload each element and choose who may have it. Open files download straight from the study page. Pack files are released by an emailed link once a reader completes the form. Internal files are never shown or served.</p>
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           {LABELS.map((l, i) => {
+             const f = files[i];
+@@ -58,9 +59,8 @@ export default function ReportForm({ report }: { report?: Report }) {
+                 <input type="hidden" name={`file_id_${i}`} value={f?.id ?? ''} />
+                 <input name={`file_label_${i}`} defaultValue={f?.label ?? l} className={input} />
+                 <UploadField name={`file_path_${i}`} sizeName={`file_size_${i}`} kind="file" folder="reports" defaultPath={f?.storage_path} label={`${l} — file`} />
+-                <select name={`file_access_${i}`} defaultValue={f?.access ?? 'request'} className={`${input} bg-brand-navy`}>
+-                  <option value="request">On request</option>
+-                  <option value="open">Open download</option>
++                <select name={`file_access_${i}`} defaultValue={f?.access ?? 'request'} className={`${input} bg-brand-navy`} aria-label={`${l} — who may have it`}>
++                  {FILE_ACCESS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                 </select>
+               </div>
+             );
+diff --git a/src/components/admin/ScanForm.tsx b/src/components/admin/ScanForm.tsx
+index a3906f3..fa2fa99 100644
+--- a/src/components/admin/ScanForm.tsx
++++ b/src/components/admin/ScanForm.tsx
+@@ -2,7 +2,7 @@ import { saveScan, deleteScan } from '@/lib/admin/actions';
+ import { input, btn, btnGhost, Field, Check } from '@/components/admin/ui';
+ import { SERVICES, TERRITORIES, type Scan } from '@/lib/data';
+ 
+-export default function ScanForm({ scan }: { scan?: Scan }) {
++export default function ScanForm({ scan, reports = [] }: { scan?: Scan; reports?: { id: string; title: string; week_label?: string | null }[] }) {
+   return (
+     <form action={saveScan} className="space-y-8">
+       {scan && <input type="hidden" name="id" value={scan.id} />}
+@@ -16,6 +16,15 @@ export default function ScanForm({ scan }: { scan?: Scan }) {
+           <select id="service" name="service" defaultValue={scan?.service ?? 'none'} className={`${input} bg-brand-navy`}>{SERVICES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>
+         </Field>
+         <Field id="week_of" title="Week of"><input id="week_of" name="week_of" type="date" required defaultValue={scan?.week_of ?? new Date().toISOString().slice(0, 10)} className={input} /></Field>
++        <Field id="week_label" title="Week" hint="FalconBridge week number, e.g. 2026-W41."><input id="week_label" name="week_label" defaultValue={scan?.week_label ?? ''} placeholder="2026-W41" className={input} /></Field>
++        <div className="md:col-span-2">
++          <Field id="report_id" title="Study this signal led to" hint="The scan page links to the study, and the study links back.">
++            <select id="report_id" name="report_id" defaultValue={scan?.report_id ?? ''} className={`${input} bg-brand-navy`}>
++              <option value="">No study</option>
++              {reports.map((r) => <option key={r.id} value={r.id}>{r.week_label ? `${r.week_label} · ` : ''}{r.title}</option>)}
++            </select>
++          </Field>
++        </div>
+       </div>
+       <div className="space-y-5">
+         <Field id="signal" title="The signal" hint="What the weekly scan identified. Firm voice: “Our research finds…”"><textarea id="signal" name="signal" required rows={3} defaultValue={scan?.signal} className={`${input} resize-none`} /></Field>
+diff --git a/src/components/admin/WeeklyImport.tsx b/src/components/admin/WeeklyImport.tsx
+new file mode 100644
+index 0000000..7cb337e
+--- /dev/null
++++ b/src/components/admin/WeeklyImport.tsx
+@@ -0,0 +1,182 @@
++'use client';
++import { useState } from 'react';
++import { useRouter } from 'next/navigation';
++import Link from 'next/link';
++import { checkPastedManifest, disconnectDropbox, importOne, type ImportScreen, type ManifestSummary } from '@/lib/admin/importActions';
++import type { ImportResult } from '@/lib/weekly/import';
++import { input, btn, btnGhost } from '@/components/admin/ui';
++
++const TERRITORY: Record<string, string> = {
++  'uae-gcc': 'UAE / GCC', 'south-africa': 'South Africa', 'new-zealand': 'New Zealand', mauritius: 'Mauritius', 'north-carolina': 'North Carolina', singapore: 'Singapore',
++};
++const ACCESS: Record<string, string> = { open: 'open', request: 'in the pack', internal: 'internal' };
++const STATE: Record<string, string> = { new: 'new', draft: 'draft exists', published: 'live', none: '—' };
++
++type Run = { busy: boolean; mode?: 'draft' | 'publish'; results: Record<number, ImportResult | 'working'> };
++
++function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
++  const router = useRouter();
++  const [run, setRun] = useState<Run>({ busy: false, results: {} });
++  const [confirmPublish, setConfirmPublish] = useState(false);
++  const [overwrite, setOverwrite] = useState(false);
++  const anyLive = m.entries.some((e) => e.scanState === 'published' || e.reportState === 'published');
++
++  const start = async (publish: boolean) => {
++    setConfirmPublish(false);
++    setRun({ busy: true, mode: publish ? 'publish' : 'draft', results: {} });
++    // One territory per request, in order, so a slow file never takes the whole week down with it.
++    for (const e of m.entries) {
++      setRun((r) => ({ ...r, results: { ...r.results, [e.index]: 'working' } }));
++      let res: ImportResult;
++      try { res = await importOne(m.source, e.index, { publish, overwritePublished: overwrite }, pasted); }
++      catch (err) { res = { territory: e.territory, status: 'failed', detail: err instanceof Error ? err.message : 'The request did not complete.', files: [], warnings: [] }; }
++      setRun((r) => ({ ...r, results: { ...r.results, [e.index]: res } }));
++    }
++    setRun((r) => ({ ...r, busy: false }));
++    router.refresh();
++  };
++
++  const done = Object.values(run.results).filter((r) => r !== 'working') as ImportResult[];
++  const finished = !run.busy && done.length === m.entries.length && done.length > 0;
++  const problems = done.filter((r) => r.status === 'failed' || r.files.some((f) => f.status === 'failed'));
++
++  return (
++    <section className="tile p-6 space-y-5" aria-label={`Manifest ${m.weekLabel ?? m.name}`}>
++      <div className="flex flex-wrap items-baseline justify-between gap-3">
++        <div>
++          <h2 className="text-2xl">{m.weekLabel ?? m.name}</h2>
++          <p className="text-white/50 text-xs mt-1">
++            {[m.reviewPeriod && `Review period ${m.reviewPeriod}`, m.preparedBy && `prepared by ${m.preparedBy}`, m.modified && `saved ${new Date(m.modified).toLocaleString('en-GB')}`].filter(Boolean).join(' · ')}
++          </p>
++        </div>
++        <p className="text-[0.7rem] text-white/35 truncate max-w-full">{m.source}</p>
++      </div>
++
++      {m.notes && <p className="text-sm text-white/70 border-l-2 border-brand-gold pl-4">{m.notes}</p>}
++
++      {m.errors.length > 0 ? (
++        <div className="text-sm text-red-200 bg-red-900/20 border border-red-500/30 rounded-lg p-4" role="alert">
++          <p className="font-bold mb-2">This manifest cannot be imported until these are fixed:</p>
++          <ul className="list-disc pl-5 space-y-1">{m.errors.map((e) => <li key={e}>{e}</li>)}</ul>
++        </div>
++      ) : (
++        <>
++          <div className="space-y-3">
++            {m.entries.map((e) => {
++              const r = run.results[e.index];
++              return (
++                <div key={e.index} className="rounded-lg border border-brand-gold/15 p-4">
++                  <div className="flex flex-wrap items-baseline justify-between gap-2">
++                    <p className="text-white font-bold">{TERRITORY[e.territory] ?? e.territory}</p>
++                    <p className="text-xs text-white/45">scan: {STATE[e.scanState]} · study: {STATE[e.reportState]}</p>
++                  </div>
++                  {e.reportTitle && <p className="text-sm text-white/75 mt-1">{e.reportTitle}</p>}
++                  {e.scanTitle && <p className="text-xs text-white/45 mt-0.5">{e.scanTitle}</p>}
++                  {e.files.length > 0 && (
++                    <p className="text-xs text-white/50 mt-2">{e.files.map((f) => `${f.label} (${ACCESS[f.access]})`).join(' · ')}</p>
++                  )}
++                  {r === 'working' && <p className="text-xs text-brand-gold-pale mt-3" role="status">Copying from Dropbox…</p>}
++                  {r && r !== 'working' && (
++                    <div className={`text-xs mt-3 ${r.status === 'failed' ? 'text-red-200' : 'text-white/70'}`} role="status">
++                      <p className="font-bold">
++                        {r.status === 'skipped' ? 'Skipped.' : r.status === 'failed' ? 'Failed.' : r.report?.published || r.scan?.published ? 'Published.' : 'Saved as draft.'}
++                        {r.detail ? ` ${r.detail}` : ''}
++                      </p>
++                      {r.files.length > 0 && <p className="mt-1">{r.files.map((f) => `${f.label}: ${f.status}${f.detail ? ` (${f.detail})` : ''}`).join(' · ')}</p>}
++                      {r.warnings.map((w) => <p key={w} className="mt-1 text-brand-gold-pale">{w}</p>)}
++                      <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
++                        {r.report && <Link className="underline underline-offset-4" href={`/admin/reports/${r.report.id}`}>Edit study</Link>}
++                        {r.scan && <Link className="underline underline-offset-4" href={`/admin/scans/${r.scan.id}`}>Edit scan</Link>}
++                        {r.report?.published && <a className="underline underline-offset-4" href={`/research/studies/${r.report.slug}`} target="_blank" rel="noopener">View study</a>}
++                        {r.scan?.published && <a className="underline underline-offset-4" href={`/research/weekly-scan/${r.scan.slug}`} target="_blank" rel="noopener">View scan</a>}
++                      </p>
++                    </div>
++                  )}
++                </div>
++              );
++            })}
++          </div>
++
++          {finished && (
++            <p className={`text-sm p-3 rounded-lg ${problems.length ? 'bg-red-900/20 border border-red-500/30 text-red-100' : 'tile-ivory'}`} role="status">
++              {problems.length
++                ? `${problems.length} of ${m.entries.length} territories need attention. Run the import again to retry; files already copied are not copied twice.`
++                : run.mode === 'publish' ? `Week ${m.weekLabel ?? ''} is published: ${m.entries.length} territories.` : `Week ${m.weekLabel ?? ''} is saved as drafts. Review, then publish from here or from each entry.`}
++            </p>
++          )}
++
++          {anyLive && (
++            <label className="flex items-start gap-3 text-sm text-white/75">
++              <input type="checkbox" checked={overwrite} onChange={(ev) => setOverwrite(ev.target.checked)} className="mt-1 accent-[#c8a86a]" disabled={run.busy} />
++              <span>Replace published entries<span className="block text-[0.7rem] text-white/40">Live entries are skipped unless this is ticked. Ticking it replaces their text with the manifest’s.</span></span>
++            </label>
++          )}
++
++          <div className="flex flex-wrap items-center gap-3 pt-1">
++            <button type="button" className={btnGhost} disabled={run.busy} onClick={() => start(false)}>{run.busy && run.mode === 'draft' ? 'Importing…' : 'Import as drafts'}</button>
++            {confirmPublish ? (
++              <>
++                <button type="button" className={btn} disabled={run.busy} onClick={() => start(true)}>Confirm: publish {m.entries.length} territories</button>
++                <button type="button" className="text-sm text-white/50 hover:text-white" onClick={() => setConfirmPublish(false)}>Cancel</button>
++              </>
++            ) : (
++              <button type="button" className={btn} disabled={run.busy} onClick={() => setConfirmPublish(true)}>{run.busy && run.mode === 'publish' ? 'Publishing…' : 'Import and publish'}</button>
++            )}
++          </div>
++        </>
++      )}
++    </section>
++  );
++}
++
++export default function WeeklyImport({ screen }: { screen: ImportScreen }) {
++  const router = useRouter();
++  const [json, setJson] = useState('');
++  const [pasted, setPasted] = useState<ManifestSummary | null>(null);
++  const [checking, setChecking] = useState(false);
++
++  const check = async () => {
++    setChecking(true);
++    try { setPasted(await checkPastedManifest(json)); } finally { setChecking(false); }
++  };
++
++  return (
++    <div className="space-y-8">
++      <section className="tile p-6">
++        <h2 className="text-xl mb-2">Dropbox</h2>
++        {!screen.configured ? (
++          <p className="text-sm text-white/70">Dropbox is not set up on this deployment. Add <code>DROPBOX_APP_KEY</code> and <code>DROPBOX_APP_SECRET</code> in Vercel, redeploy, then return here to connect.</p>
++        ) : screen.connection.connected ? (
++          <div className="flex flex-wrap items-center justify-between gap-4">
++            <p className="text-sm text-white/70">
++              Connected{screen.connection.account ? ` as ${screen.connection.account}` : ''}. Read-only.
++              <span className="block text-[0.7rem] text-white/40 mt-1">Manifests are read from {screen.folder}</span>
++            </p>
++            <button type="button" className="text-sm text-white/50 hover:text-white" onClick={async () => { await disconnectDropbox(); router.refresh(); }}>Disconnect</button>
++          </div>
++        ) : (
++          <div className="flex flex-wrap items-center justify-between gap-4">
++            <p className="text-sm text-white/70">Connect once so the site can read the weekly packs. The site only ever reads from Dropbox.</p>
++            <a href="/api/dropbox/connect" className={btn}>Connect Dropbox</a>
++          </div>
++        )}
++      </section>
++
++      {screen.error && <p className="text-sm text-red-200 bg-red-900/20 border border-red-500/30 rounded-lg p-4" role="alert">{screen.error}</p>}
++
++      {screen.connection.connected && !screen.error && screen.manifests.length === 0 && (
++        <p className="text-white/60 text-sm">No manifest yet. When a week is ready, its <code>manifest.json</code> appears in a dated folder inside the publishing folder and shows up here.</p>
++      )}
++
++      {screen.manifests.map((m) => <ManifestCard key={m.source} m={m} />)}
++
++      <details className="tile p-6">
++        <summary className="cursor-pointer text-white font-bold">Paste a manifest instead</summary>
++        <p className="text-sm text-white/60 mt-3 mb-3">For a manifest that is not in the publishing folder. Files are still copied from Dropbox, so Dropbox must be connected.</p>
++        <textarea value={json} onChange={(e) => { setJson(e.target.value); setPasted(null); }} rows={8} className={`${input} font-mono text-xs resize-y`} placeholder='{ "version": 1, "week_label": "2026-W41", "entries": [ … ] }' aria-label="Manifest JSON" />
++        <div className="mt-3"><button type="button" className={btnGhost} disabled={!json.trim() || checking} onClick={check}>{checking ? 'Checking…' : 'Check manifest'}</button></div>
++        {pasted && <div className="mt-5"><ManifestCard m={pasted} pasted={json} /></div>}
++      </details>
++    </div>
++  );
++}
+diff --git a/src/components/dss/RequestReport.tsx b/src/components/dss/RequestReport.tsx
+index d3f5c9d..7853a4c 100644
+--- a/src/components/dss/RequestReport.tsx
++++ b/src/components/dss/RequestReport.tsx
+@@ -1,6 +1,7 @@
+ "use client";
+ 
+ import React, { useState } from 'react';
++import Link from 'next/link';
+ import { ArrowRight } from 'lucide-react';
+ import { Button } from '@/components/ui/Button';
+ import TurnstileWidget from '@/components/ui/TurnstileWidget';
+@@ -8,13 +9,24 @@ import TurnstileWidget from '@/components/ui/TurnstileWidget';
+ const inputClass = "w-full rounded-lg bg-white/3 border border-brand-gold/25 px-3.5 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-brand-gold/70 transition-colors";
+ const labelClass = "text-xs font-bold text-white/70 block";
+ 
+-/** Request the full research package for a public study — routes to /api/submit-research (existing). */
+-const RequestReport: React.FC<{ studyTitle: string }> = ({ studyTitle }) => {
++type Props = {
++    studyTitle: string;
++    /** The study's slug. With `auto`, the pack is emailed straight away as a link that expires. */
++    slug?: string;
++    /** True when the study has uploaded pack files behind the form. False keeps the older route: a partner replies by hand. */
++    auto?: boolean;
++    /** What the reader receives, shown above the form (auto mode). */
++    packFiles?: string[];
++};
++
++/** Ask for a study's research pack. Auto mode posts to /api/request-pack; otherwise to /api/submit-research. */
++const RequestReport: React.FC<Props> = ({ studyTitle, slug, auto = false, packFiles = [] }) => {
+     const [open, setOpen] = useState(false);
+     const [done, setDone] = useState(false);
+     const [busy, setBusy] = useState(false);
+     const [error, setError] = useState<string | null>(null);
+     const [token, setToken] = useState<string | null>(null);
++    const [consent, setConsent] = useState(false);
+     const [form, setForm] = useState({ fullName: '', email: '', organization: '', role: '', decisionContext: '' });
+ 
+     const change = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+@@ -26,11 +38,17 @@ const RequestReport: React.FC<{ studyTitle: string }> = ({ studyTitle }) => {
+         setBusy(true); setError(null);
+         try {
+             if (!token) { setError('Unable to verify request. Please try again.'); setBusy(false); return; }
+-            const res = await fetch('/api/submit-research', {
+-                method: 'POST',
+-                headers: { 'Content-Type': 'application/json' },
+-                body: JSON.stringify({ ...form, decisionContext: `[${studyTitle}] ${form.decisionContext}`.trim(), turnstileToken: token }),
+-            });
++            const res = auto
++                ? await fetch('/api/request-pack', {
++                    method: 'POST',
++                    headers: { 'Content-Type': 'application/json' },
++                    body: JSON.stringify({ ...form, slug, consent, turnstileToken: token }),
++                })
++                : await fetch('/api/submit-research', {
++                    method: 'POST',
++                    headers: { 'Content-Type': 'application/json' },
++                    body: JSON.stringify({ ...form, role: form.role || 'Not given', decisionContext: `[${studyTitle}] ${form.decisionContext}`.trim(), turnstileToken: token }),
++                });
+             if (res.ok) setDone(true);
+             else {
+                 let msg = `The request could not be sent (${res.status}).`;
+@@ -44,33 +62,49 @@ const RequestReport: React.FC<{ studyTitle: string }> = ({ studyTitle }) => {
+     if (!open) {
+         return (
+             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+-                <Button variant="primary" size="md" icon={ArrowRight} onClick={() => setOpen(true)}>Request the full report</Button>
+-                <p className="text-sm text-white/50">The package is released under a Type-1 licence for the requester’s own use. Public access does not transfer ownership.</p>
++                <Button variant="primary" size="md" icon={ArrowRight} onClick={() => setOpen(true)}>{auto ? 'Get the research pack' : 'Request the full report'}</Button>
++                <p className="text-sm text-white/50">
++                    {auto ? 'Tell us who is reading and the pack is emailed to you straight away. ' : ''}
++                    The package is released under a Type-1 licence for the requester’s own use. Public access does not transfer ownership.
++                </p>
+             </div>
+         );
+     }
+     if (done) {
+         return (
+-            <div className="border border-brand-gold/30 rounded-xl p-6">
+-                <h3 className="text-xl mb-2">Received.</h3>
+-                <p className="text-sm text-white/70">A partner will reply with the package and its licence terms.</p>
++            <div className="border border-brand-gold/30 rounded-xl p-6" role="status">
++                <h3 className="text-xl mb-2">{auto ? 'Sent. Check your inbox.' : 'Received.'}</h3>
++                <p className="text-sm text-white/70">
++                    {auto
++                        ? `A link to the pack is on its way to ${form.email}. It works for a limited time; if it lapses, ask again here and a new one is sent.`
++                        : 'A partner will reply with the package and its licence terms.'}
++                </p>
+             </div>
+         );
+     }
+     return (
+         <form onSubmit={submit} className="tile p-6 md:p-8 space-y-4">
+-            <p className="label-tech">Request the full report</p>
+-            {error && <p className="text-red-200 text-sm bg-red-900/20 border border-red-500/30 rounded-lg p-3">{error}</p>}
++            <p className="label-tech">{auto ? 'Get the research pack' : 'Request the full report'}</p>
++            {auto && packFiles.length > 0 && <p className="text-sm text-white/60">You will be emailed a link to: {packFiles.join(', ')}.</p>}
++            {error && <p className="text-red-200 text-sm bg-red-900/20 border border-red-500/30 rounded-lg p-3" role="alert">{error}</p>}
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+-                <div className="space-y-1.5"><label htmlFor="rr-name" className={labelClass}>Full name</label><input id="rr-name" name="fullName" value={form.fullName} onChange={change} required className={inputClass} /></div>
+-                <div className="space-y-1.5"><label htmlFor="rr-email" className={labelClass}>Work email</label><input id="rr-email" type="email" name="email" value={form.email} onChange={change} required className={inputClass} /></div>
+-                <div className="space-y-1.5"><label htmlFor="rr-org" className={labelClass}>Organisation</label><input id="rr-org" name="organization" value={form.organization} onChange={change} required className={inputClass} /></div>
+-                <div className="space-y-1.5"><label htmlFor="rr-role" className={labelClass}>Role</label><input id="rr-role" name="role" value={form.role} onChange={change} required className={inputClass} /></div>
++                <div className="space-y-1.5"><label htmlFor="rr-name" className={labelClass}>Full name</label><input id="rr-name" name="fullName" value={form.fullName} onChange={change} required autoComplete="name" className={inputClass} /></div>
++                <div className="space-y-1.5"><label htmlFor="rr-email" className={labelClass}>Work email</label><input id="rr-email" type="email" name="email" value={form.email} onChange={change} required autoComplete="email" className={inputClass} /></div>
++                <div className="space-y-1.5"><label htmlFor="rr-org" className={labelClass}>Organisation</label><input id="rr-org" name="organization" value={form.organization} onChange={change} required autoComplete="organization" className={inputClass} /></div>
++                <div className="space-y-1.5"><label htmlFor="rr-role" className={labelClass}>Role{auto ? ' (optional)' : ''}</label><input id="rr-role" name="role" value={form.role} onChange={change} required={!auto} autoComplete="organization-title" className={inputClass} /></div>
+             </div>
+-            <div className="space-y-1.5"><label htmlFor="rr-ctx" className={labelClass}>Intended use (optional)</label><textarea id="rr-ctx" name="decisionContext" value={form.decisionContext} onChange={change} rows={3} className={`${inputClass} resize-none`} placeholder="Internal reading, adviser use, a decision in view…" /></div>
++            {!auto && (
++                <div className="space-y-1.5"><label htmlFor="rr-ctx" className={labelClass}>Intended use (optional)</label><textarea id="rr-ctx" name="decisionContext" value={form.decisionContext} onChange={change} rows={3} className={`${inputClass} resize-none`} placeholder="Internal reading, adviser use, a decision in view…" /></div>
++            )}
++            {auto && (
++                <label className="flex items-start gap-3 text-sm text-white/70">
++                    <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} required className="mt-1 accent-[#c8a86a]" />
++                    <span>FalconBridge Partners may contact me about this study. My details are handled as set out in the <Link href="/privacy-policy" className="text-brand-gold-pale underline underline-offset-4">privacy policy</Link>.</span>
++                </label>
++            )}
+             <TurnstileWidget onTokenChange={setToken} />
+             <div className="flex items-center gap-4 pt-2 border-t border-brand-gold/15">
+-                <Button type="submit" variant="primary" size="sm" icon={ArrowRight} disabled={busy}>{busy ? 'Sending…' : 'Send request'}</Button>
++                <Button type="submit" variant="primary" size="sm" icon={ArrowRight} disabled={busy}>{busy ? 'Sending…' : auto ? 'Email me the pack' : 'Send request'}</Button>
+                 <button type="button" onClick={() => setOpen(false)} className="text-sm text-white/50 hover:text-white">Cancel</button>
+             </div>
+         </form>
+diff --git a/src/lib/admin/actions.ts b/src/lib/admin/actions.ts
+index 074e57f..f980924 100644
+--- a/src/lib/admin/actions.ts
++++ b/src/lib/admin/actions.ts
+@@ -16,6 +16,7 @@ export async function signOut() {
+ const slugify = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-').replace(/-+/g, '-').slice(0, 80);
+ const str = (fd: FormData, k: string) => String(fd.get(k) ?? '').trim();
+ const bool = (fd: FormData, k: string) => fd.get(k) === 'on' || fd.get(k) === 'true';
++const accessOf = (v: string) => (v === 'open' || v === 'internal' ? v : 'request');
+ 
+ /** Purge the admin tree from Next's client Router Cache so edit pages reload fresh rows after a save/delete. */
+ function revalidateAdmin() { revalidatePath('/admin', 'layout'); }
+@@ -52,6 +53,7 @@ export async function saveReport(fd: FormData) {
+     facts,
+     featured: bool(fd, 'featured'),
+     published: bool(fd, 'published'),
++    week_label: str(fd, 'week_label') || null,
+   };
+   let reportId = id;
+   if (id) {
+@@ -68,7 +70,7 @@ export async function saveReport(fd: FormData) {
+     const fileId = str(fd, `file_id_${i}`);
+     const payload = {
+       report_id: reportId!, label: str(fd, `file_label_${i}`) || labels[i], sort_order: i + 1,
+-      storage_path: str(fd, `file_path_${i}`) || null, access: str(fd, `file_access_${i}`) === 'open' ? 'open' : 'request',
++      storage_path: str(fd, `file_path_${i}`) || null, access: accessOf(str(fd, `file_access_${i}`)),
+       size_bytes: str(fd, `file_size_${i}`) ? Number(str(fd, `file_size_${i}`)) : null,
+     };
+     if (fileId) await db.from('report_files').update(payload).eq('id', fileId);
+@@ -114,12 +116,15 @@ export async function saveScan(fd: FormData) {
+     reviewed: bool(fd, 'reviewed'),
+     sample: bool(fd, 'sample'),
+     published: bool(fd, 'published'),
++    week_label: str(fd, 'week_label') || null,
++    report_id: str(fd, 'report_id') || null,
+   };
+   if (row.published && !row.reviewed) throw new Error('A scan must be marked reviewed before it is published.');
+   const { error } = id ? await db.from('scans').update(row).eq('id', id) : await db.from('scans').insert(row);
+   if (error) throw new Error(error.message);
+   revalidateResearch();
+   revalidatePath(`/research/weekly-scan/${row.slug}`);
++  revalidatePath('/research/studies/[slug]', 'page');
+   revalidateAdmin();
+   redirect('/admin/scans?saved=1');
+ }
+diff --git a/src/lib/admin/importActions.ts b/src/lib/admin/importActions.ts
+new file mode 100644
+index 0000000..93c0f5a
+--- /dev/null
++++ b/src/lib/admin/importActions.ts
+@@ -0,0 +1,97 @@
++'use server';
++import { revalidatePath } from 'next/cache';
++import { requireAdmin } from '@/lib/admin/auth';
++import { createAdminClient } from '@/lib/supabase/admin';
++import { connectionStatus, disconnect, downloadText, dropboxConfigured, listFolder, publishPath, DropboxError, type DropboxConnection } from '@/lib/dropbox';
++import { parseManifest, previewEntries, type EntryPreview } from '@/lib/weekly/manifest';
++import { importEntry, type ImportResult } from '@/lib/weekly/import';
++
++export type EntryState = EntryPreview & { scanState: 'new' | 'draft' | 'published' | 'none'; reportState: 'new' | 'draft' | 'published' | 'none' };
++export type ManifestSummary = {
++  source: string;          // Dropbox path, or "pasted"
++  name: string;            // folder name, e.g. 2026-W41
++  weekLabel?: string; reviewPeriod?: string; modified?: string; preparedBy?: string; notes?: string;
++  entries: EntryState[]; errors: string[];
++};
++export type ImportScreen = { configured: boolean; connection: DropboxConnection; folder: string; manifests: ManifestSummary[]; error?: string };
++
++async function withStates(entries: EntryPreview[]): Promise<EntryState[]> {
++  const db = createAdminClient();
++  const scanSlugs = entries.map((e) => e.scanSlug).filter(Boolean) as string[];
++  const reportSlugs = entries.map((e) => e.reportSlug).filter(Boolean) as string[];
++  const [{ data: scans }, { data: reports }] = await Promise.all([
++    scanSlugs.length ? db.from('scans').select('slug, published').in('slug', scanSlugs) : Promise.resolve({ data: [] as { slug: string; published: boolean }[] }),
++    reportSlugs.length ? db.from('reports').select('slug, published').in('slug', reportSlugs) : Promise.resolve({ data: [] as { slug: string; published: boolean }[] }),
++  ]);
++  const state = (rows: { slug: string; published: boolean }[] | null, slug?: string) => {
++    if (!slug) return 'none' as const;
++    const r = (rows ?? []).find((x) => x.slug === slug);
++    return r ? (r.published ? 'published' as const : 'draft' as const) : 'new' as const;
++  };
++  return entries.map((e) => ({ ...e, scanState: state(scans, e.scanSlug), reportState: state(reports, e.reportSlug) }));
++}
++
++async function summarise(source: string, name: string, json: string, modified?: string): Promise<ManifestSummary> {
++  const { manifest, errors } = parseManifest(json);
++  if (!manifest) return { source, name, modified, entries: [], errors };
++  const rp = manifest.review_period;
++  return {
++    source, name, modified, weekLabel: manifest.week_label, preparedBy: manifest.prepared_by, notes: manifest.notes,
++    reviewPeriod: rp ? `${rp.from} to ${rp.to}` : undefined, entries: await withStates(previewEntries(manifest)), errors: [],
++  };
++}
++
++/** Everything the import screen needs: the connection, and each manifest found in the publishing folder (newest first). */
++export async function loadImportScreen(): Promise<ImportScreen> {
++  await requireAdmin();
++  const base: ImportScreen = { configured: dropboxConfigured(), connection: await connectionStatus(), folder: publishPath(), manifests: [] };
++  if (!base.configured || !base.connection.connected) return base;
++  try {
++    const files = (await listFolder(publishPath(), true)).filter((e) => e.tag === 'file' && /manifest.*\.json$/i.test(e.name));
++    files.sort((a, b) => (b.path > a.path ? 1 : -1));
++    for (const f of files.slice(0, 8)) {
++      const folderName = f.path.split('/').slice(-2, -1)[0] ?? f.name;
++      try { base.manifests.push(await summarise(f.path, folderName, (await downloadText(f.id)).text, f.modified)); }
++      catch (e) { base.manifests.push({ source: f.path, name: folderName, entries: [], errors: [e instanceof Error ? e.message : String(e)] }); }
++    }
++  } catch (e) {
++    base.error = e instanceof DropboxError && e.code === 'not-found'
++      ? `The publishing folder was not found in Dropbox: ${publishPath()}`
++      : e instanceof Error ? e.message : String(e);
++  }
++  return base;
++}
++
++/** Checks a pasted manifest without writing anything. */
++export async function checkPastedManifest(json: string): Promise<ManifestSummary> {
++  await requireAdmin();
++  return summarise('pasted', 'Pasted manifest', json);
++}
++
++/**
++ * Imports one territory. The screen calls this once per territory so each call stays short.
++ * `source` is a Dropbox path from loadImportScreen, or "pasted" with the JSON in `pasted`.
++ */
++export async function importOne(source: string, index: number, opts: { publish: boolean; overwritePublished: boolean }, pasted?: string): Promise<ImportResult> {
++  const admin = await requireAdmin();
++  let json = pasted ?? '';
++  if (source !== 'pasted') {
++    if (!source.toLowerCase().startsWith(`${publishPath().toLowerCase()}/`)) return { territory: '?', status: 'failed', detail: 'That file is outside the publishing folder.', files: [], warnings: [] };
++    try { json = (await downloadText(source)).text; }
++    catch (e) { return { territory: '?', status: 'failed', detail: e instanceof Error ? e.message : String(e), files: [], warnings: [] }; }
++  }
++  const { manifest, errors } = parseManifest(json);
++  if (!manifest) return { territory: '?', status: 'failed', detail: errors.join(' '), files: [], warnings: [] };
++  const result = await importEntry(manifest, index, { ...opts, adminEmail: admin.email, source });
++  for (const p of ['/', '/research', '/research/library', '/research/weekly-scan', '/sitemap.xml']) revalidatePath(p);
++  if (result.report) revalidatePath(`/research/studies/${result.report.slug}`);
++  if (result.scan) revalidatePath(`/research/weekly-scan/${result.scan.slug}`);
++  revalidatePath('/admin', 'layout');
++  return result;
++}
++
++export async function disconnectDropbox(): Promise<void> {
++  await requireAdmin();
++  await disconnect();
++  revalidatePath('/admin', 'layout');
++}
+diff --git a/src/lib/data.ts b/src/lib/data.ts
+index bcfbead..2552760 100644
+--- a/src/lib/data.ts
++++ b/src/lib/data.ts
+@@ -1,15 +1,28 @@
+ import 'server-only';
+ import { createAdminClient, supabaseConfigured } from '@/lib/supabase/admin';
+ 
+-export type ReportFile = { id: string; report_id: string; label: string; sort_order: number; storage_path: string | null; access: 'open' | 'request'; size_bytes: number | null };
++/** open = anyone may download · request = in the pack, behind the email form · internal = never shown or served. */
++export type FileAccess = 'open' | 'request' | 'internal';
++export const FILE_ACCESS: { value: FileAccess; label: string }[] = [
++  { value: 'request', label: 'In the pack — behind the email form' },
++  { value: 'open', label: 'Open download' },
++  { value: 'internal', label: 'Internal — never shown' },
++];
++export type ReportFile = { id: string; report_id: string; label: string; sort_order: number; storage_path: string | null; access: FileAccess; size_bytes: number | null; source_ref?: string | null; file_name?: string | null };
+ export type Report = {
+   id: string; slug: string; title: string; subtitle: string | null; kind: 'study' | 'sample' | 'paper'; territory: string; year: number | null;
+   published_at: string | null; cover_path: string | null; extract_path: string | null; extract_note: string | null; qualifier: string | null;
+   body: string | null; facts: { figure: string; body: string }[]; featured: boolean; published: boolean; files?: ReportFile[];
++  week_label?: string | null;
+ };
+ export type Scan = {
+   id: string; slug: string; title: string; territory: string; service: string; week_of: string; signal: string; question: string;
+   finding: string | null; interpretation: string | null; open_questions: string[]; reviewed: boolean; sample: boolean; published: boolean;
++  week_label?: string | null; report_id?: string | null;
++};
++export type AccessRequest = {
++  id: string; report_id: string; full_name: string; email: string; organisation: string; role: string | null; intended_use: string | null;
++  consent: boolean; expires_at: string; first_opened_at: string | null; last_opened_at: string | null; open_count: number; download_count: number; created_at: string;
+ };
+ export type SiteSettings = { featured_report_id: string | null; portraits: Record<string, string> };
+ export type PartnerRow = {
+@@ -109,16 +122,41 @@ export async function getSiteSettings(): Promise<SiteSettings> {
+   }, { featured_report_id: null, portraits: {} });
+ }
+ 
+-/** Signed URL for an open package file (1 hour). */
+-export async function signedFileUrl(path: string): Promise<string | null> {
++/** Signed URL for a package file. `download` sets the name the reader's copy is saved under. */
++export async function signedFileUrl(path: string, opts: { expiresIn?: number; download?: string | null } = {}): Promise<string | null> {
+   return safe(async () => {
+     const db = createAdminClient();
+-    const { data, error } = await db.storage.from(RESEARCH_FILES).createSignedUrl(path, 3600);
++    const { data, error } = await db.storage.from(RESEARCH_FILES).createSignedUrl(path, opts.expiresIn ?? 3600, opts.download ? { download: opts.download } : undefined);
+     if (error) throw error;
+     return data.signedUrl;
+   }, null);
+ }
+ 
++/** The files a reader may ever see: uploaded, and not internal. */
++export const readerFiles = (files: ReportFile[] | undefined) => (files ?? []).filter((f) => f.storage_path && f.access !== 'internal');
++/** True when the pack can be released automatically: at least one uploaded file sits behind the email form. */
++export const hasGatedPack = (files: ReportFile[] | undefined) => (files ?? []).some((f) => f.storage_path && f.access === 'request');
++
++/** The published study a scan led to (or null). Tolerates a database that predates the weekly pipeline. */
++export async function getStudyForScan(scan: Scan): Promise<Pick<Report, 'slug' | 'title' | 'subtitle'> | null> {
++  if (!scan.report_id) return null;
++  return safe(async () => {
++    const db = createAdminClient();
++    const { data } = await db.from('reports').select('slug, title, subtitle').eq('id', scan.report_id!).eq('published', true).maybeSingle();
++    return (data as Pick<Report, 'slug' | 'title' | 'subtitle'>) ?? null;
++  }, null);
++}
++
++/** The published scan entry behind a study (or null). */
++export async function getScanForStudy(reportId: string): Promise<Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory'> | null> {
++  return safe(async () => {
++    const db = createAdminClient();
++    const { data, error } = await db.from('scans').select('slug, question, week_of, territory').eq('report_id', reportId).eq('published', true).order('week_of', { ascending: false }).limit(1).maybeSingle();
++    if (error) return null;
++    return (data as Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory'>) ?? null;
++  }, null);
++}
++
+ /** Active partners in display order. Empty when the partners table has not been created yet — callers fall back to the built-in list. */
+ export async function getPartners({ includeInactive = false } = {}): Promise<PartnerRow[]> {
+   return safe(async () => {
+diff --git a/src/lib/dropbox.ts b/src/lib/dropbox.ts
+new file mode 100644
+index 0000000..fa89d15
+--- /dev/null
++++ b/src/lib/dropbox.ts
+@@ -0,0 +1,192 @@
++import 'server-only';
++import { createAdminClient } from '@/lib/supabase/admin';
++
++/**
++ * Read-only Dropbox access for the weekly importer.
++ *
++ * The app key and secret live in the environment (DROPBOX_APP_KEY / DROPBOX_APP_SECRET).
++ * The refresh token is obtained once through /api/dropbox/connect and kept in public.app_secrets,
++ * which only the service-role client can read. Nothing here writes to Dropbox.
++ */
++
++const API = 'https://api.dropboxapi.com';
++const CONTENT = 'https://content.dropboxapi.com';
++const SECRET_KEY = 'dropbox_refresh_token';
++
++export const DEFAULT_PUBLISH_PATH = '/FalconBridge Workspace [Shared - All]/W. Website Publishing';
++export const publishPath = () => (process.env.DROPBOX_PUBLISH_PATH || DEFAULT_PUBLISH_PATH).replace(/\/+$/, '');
++
++export const dropboxConfigured = () => Boolean(process.env.DROPBOX_APP_KEY && process.env.DROPBOX_APP_SECRET);
++
++export class DropboxError extends Error {
++  constructor(message: string, public code: 'not-configured' | 'not-connected' | 'auth' | 'not-found' | 'api' = 'api') { super(message); }
++}
++
++export type DropboxConnection = { connected: boolean; account?: string; connectedAt?: string; connectedBy?: string };
++export type DropboxEntry = { tag: 'file' | 'folder'; id: string; name: string; path: string; size?: number; rev?: string; modified?: string };
++
++const basicAuth = () => `Basic ${Buffer.from(`${process.env.DROPBOX_APP_KEY}:${process.env.DROPBOX_APP_SECRET}`).toString('base64')}`;
++
++/** JSON for the Dropbox-API-Arg header: HTTP headers must be ASCII, so everything else is \u-escaped. */
++const headerJson = (v: unknown) => JSON.stringify(v).replace(/[\u007f-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
++
++// ── Connection (OAuth, offline access) ───────────────────────────────────────
++export function authorizeUrl(redirectUri: string, state: string): string {
++  if (!dropboxConfigured()) throw new DropboxError('Dropbox app key and secret are not set.', 'not-configured');
++  const p = new URLSearchParams({
++    client_id: process.env.DROPBOX_APP_KEY!, response_type: 'code', token_access_type: 'offline', redirect_uri: redirectUri, state,
++  });
++  return `https://www.dropbox.com/oauth2/authorize?${p.toString()}`;
++}
++
++/** Exchanges the code from the redirect for a refresh token and stores it. */
++export async function completeConnection(code: string, redirectUri: string, connectedBy: string): Promise<void> {
++  if (!dropboxConfigured()) throw new DropboxError('Dropbox app key and secret are not set.', 'not-configured');
++  const res = await fetch(`${API}/oauth2/token`, {
++    method: 'POST',
++    headers: { Authorization: basicAuth(), 'Content-Type': 'application/x-www-form-urlencoded' },
++    body: new URLSearchParams({ code, grant_type: 'authorization_code', redirect_uri: redirectUri }).toString(),
++    cache: 'no-store',
++  });
++  const data = await res.json().catch(() => ({}));
++  if (!res.ok || !data.refresh_token) throw new DropboxError(`Dropbox did not issue a refresh token (${data.error_description || data.error || res.status}).`, 'auth');
++  tokenCache = { token: data.access_token, exp: Date.now() + (Number(data.expires_in) || 14400) * 1000 };
++  rootCache = null;
++  let account = '';
++  try { account = (await currentAccount()).email; } catch { /* the connection is still valid */ }
++  const db = createAdminClient();
++  const { error } = await db.from('app_secrets').upsert({
++    key: SECRET_KEY, value: data.refresh_token, updated_at: new Date().toISOString(),
++    meta: { account, connected_by: connectedBy, connected_at: new Date().toISOString() },
++  });
++  if (error) throw new DropboxError(`Could not store the Dropbox connection: ${error.message}`);
++}
++
++export async function connectionStatus(): Promise<DropboxConnection> {
++  try {
++    const db = createAdminClient();
++    const { data } = await db.from('app_secrets').select('meta').eq('key', SECRET_KEY).maybeSingle();
++    if (!data) return { connected: false };
++    const m = (data.meta ?? {}) as Record<string, string>;
++    return { connected: true, account: m.account, connectedAt: m.connected_at, connectedBy: m.connected_by };
++  } catch { return { connected: false }; }
++}
++
++export async function disconnect(): Promise<void> {
++  const db = createAdminClient();
++  const { data } = await db.from('app_secrets').select('value').eq('key', SECRET_KEY).maybeSingle();
++  if (data?.value) {
++    try { const t = await accessToken(); await fetch(`${API}/2/auth/token/revoke`, { method: 'POST', headers: { Authorization: `Bearer ${t}` }, cache: 'no-store' }); } catch { /* best effort */ }
++  }
++  await db.from('app_secrets').delete().eq('key', SECRET_KEY);
++  tokenCache = null; rootCache = null;
++}
++
++// ── Tokens ───────────────────────────────────────────────────────────────────
++let tokenCache: { token: string; exp: number } | null = null;
++let rootCache: string | null = null;
++
++async function accessToken(): Promise<string> {
++  if (tokenCache && tokenCache.exp - 60_000 > Date.now()) return tokenCache.token;
++  if (!dropboxConfigured()) throw new DropboxError('Dropbox app key and secret are not set.', 'not-configured');
++  const db = createAdminClient();
++  const { data } = await db.from('app_secrets').select('value').eq('key', SECRET_KEY).maybeSingle();
++  if (!data?.value) throw new DropboxError('Dropbox is not connected yet.', 'not-connected');
++  const res = await fetch(`${API}/oauth2/token`, {
++    method: 'POST',
++    headers: { Authorization: basicAuth(), 'Content-Type': 'application/x-www-form-urlencoded' },
++    body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: data.value }).toString(),
++    cache: 'no-store',
++  });
++  const tok = await res.json().catch(() => ({}));
++  if (!res.ok || !tok.access_token) throw new DropboxError(`Dropbox refused the stored connection (${tok.error_description || tok.error || res.status}). Reconnect Dropbox.`, 'auth');
++  tokenCache = { token: tok.access_token, exp: Date.now() + (Number(tok.expires_in) || 14400) * 1000 };
++  return tokenCache.token;
++}
++
++async function currentAccount(): Promise<{ email: string; root: string }> {
++  const token = await accessToken();
++  const res = await fetch(`${API}/2/users/get_current_account`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
++  const data = await res.json().catch(() => ({}));
++  if (!res.ok) throw new DropboxError(`Dropbox account lookup failed (${res.status}).`, 'auth');
++  return { email: data.email ?? '', root: data.root_info?.root_namespace_id ?? '' };
++}
++
++/** Team spaces sit outside a member's home folder; every call is rooted at the account's root namespace so shared team folders resolve. */
++async function pathRootHeader(): Promise<Record<string, string>> {
++  if (rootCache === null) rootCache = (await currentAccount()).root;
++  return rootCache ? { 'Dropbox-API-Path-Root': headerJson({ '.tag': 'root', root: rootCache }) } : {};
++}
++
++const describe = (data: unknown, status: number) => {
++  const d = data as { error_summary?: string } | string | null;
++  return typeof d === 'string' ? d.slice(0, 200) : d?.error_summary ?? `HTTP ${status}`;
++};
++
++async function rpc<T>(endpoint: string, body: unknown): Promise<T> {
++  const token = await accessToken();
++  const res = await fetch(`${API}/2/${endpoint}`, {
++    method: 'POST',
++    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(await pathRootHeader()) },
++    body: JSON.stringify(body),
++    cache: 'no-store',
++  });
++  const text = await res.text();
++  let data: unknown = text;
++  try { data = JSON.parse(text); } catch { /* plain-text error */ }
++  if (!res.ok) {
++    const summary = describe(data, res.status);
++    throw new DropboxError(`Dropbox: ${summary}`, /not_found/.test(summary) ? 'not-found' : res.status === 401 ? 'auth' : 'api');
++  }
++  return data as T;
++}
++
++type RawEntry = { '.tag': string; id: string; name: string; path_display?: string; path_lower?: string; size?: number; rev?: string; server_modified?: string };
++const toEntry = (e: RawEntry): DropboxEntry | null =>
++  e['.tag'] === 'file' || e['.tag'] === 'folder'
++    ? { tag: e['.tag'], id: e.id, name: e.name, path: e.path_display ?? e.path_lower ?? '', size: e.size, rev: e.rev, modified: e.server_modified }
++    : null;
++
++/** Lists a folder (all pages). `path` may be a display path or an `id:` reference. */
++export async function listFolder(path: string, recursive = false): Promise<DropboxEntry[]> {
++  const out: DropboxEntry[] = [];
++  type Page = { entries: RawEntry[]; cursor: string; has_more: boolean };
++  let page = await rpc<Page>('files/list_folder', { path, recursive, limit: 1000 });
++  for (;;) {
++    for (const e of page.entries) { const x = toEntry(e); if (x) out.push(x); }
++    if (!page.has_more) break;
++    page = await rpc<Page>('files/list_folder/continue', { cursor: page.cursor });
++  }
++  return out;
++}
++
++export async function metadata(path: string): Promise<DropboxEntry> {
++  const e = toEntry(await rpc<RawEntry>('files/get_metadata', { path }));
++  if (!e) throw new DropboxError(`Dropbox: nothing usable at ${path}`, 'not-found');
++  return e;
++}
++
++/** Downloads one file. `path` may be a display path or an `id:` reference. */
++export async function download(path: string): Promise<{ data: ArrayBuffer; entry: DropboxEntry }> {
++  const token = await accessToken();
++  const res = await fetch(`${CONTENT}/2/files/download`, {
++    method: 'POST',
++    headers: { Authorization: `Bearer ${token}`, 'Dropbox-API-Arg': headerJson({ path }), ...(await pathRootHeader()) },
++    cache: 'no-store',
++  });
++  if (!res.ok) {
++    const text = await res.text();
++    let data: unknown = text;
++    try { data = JSON.parse(text); } catch { /* plain-text error */ }
++    const summary = describe(data, res.status);
++    throw new DropboxError(`Dropbox: ${summary} (${path})`, /not_found/.test(summary) ? 'not-found' : 'api');
++  }
++  let raw: RawEntry = { '.tag': 'file', id: path, name: path.split('/').pop() ?? path };
++  try { raw = { '.tag': 'file', ...JSON.parse(res.headers.get('dropbox-api-result') ?? '{}') }; } catch { /* metadata header is optional */ }
++  return { data: await res.arrayBuffer(), entry: toEntry(raw)! };
++}
++
++export async function downloadText(path: string): Promise<{ text: string; entry: DropboxEntry }> {
++  const { data, entry } = await download(path);
++  return { text: new TextDecoder('utf-8').decode(data), entry };
++}
+diff --git a/src/lib/emailTemplates.ts b/src/lib/emailTemplates.ts
+index 29fa63f..189c897 100644
+--- a/src/lib/emailTemplates.ts
++++ b/src/lib/emailTemplates.ts
+@@ -97,3 +97,42 @@ export function buildBrandedEmail({
+   </div>
+   `;
+ }
++
++// ── Research pack link (sent to the reader) ──────────────────────────────────
++const PACK = { charcoal: '#262626', tile: '#2e2e2e', ivory: '#F4F2EC', gold: '#C8A86A', goldPale: '#E3CE98', grey: '#B8BDC8' };
++
++/** The email a reader receives after completing the pack form: one button, the file list, the expiry date. */
++export function buildPackEmail({ name, studyTitle, link, expires, files, replyTo }: {
++  name: string; studyTitle: string; link: string; expires: string; files: string[]; replyTo: string;
++}) {
++  const items = files.map((f) => `<tr><td style="padding:7px 0;color:${PACK.ivory};font-size:15px;line-height:1.5;border-bottom:1px solid rgba(200,168,106,0.18);">${escapeHtml(f)}</td></tr>`).join('');
++  return `
++  <div style="margin:0;padding:0;background:${PACK.charcoal};font-family:Arial, 'Helvetica Neue', sans-serif;color:${PACK.grey};">
++    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${PACK.charcoal};padding:36px 18px;">
++      <tr><td align="center">
++        <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:${PACK.tile};border:1px solid rgba(200,168,106,0.25);border-radius:14px;overflow:hidden;">
++          <tr><td style="padding:30px 34px 8px;">
++            <img src="${LOGO_URL}" alt="FalconBridge Partners" width="120" style="display:block;border:0;outline:none;" />
++            <h1 style="margin:26px 0 10px;font-size:24px;line-height:1.3;color:#ffffff;font-weight:700;">${escapeHtml(studyTitle)}</h1>
++            <p style="margin:0 0 6px;font-family:Georgia, 'Times New Roman', serif;font-style:italic;color:${PACK.goldPale};font-size:17px;line-height:1.5;">The research pack you asked for.</p>
++          </td></tr>
++          <tr><td style="padding:14px 34px 6px;color:${PACK.grey};font-size:15px;line-height:1.65;">
++            <p style="margin:0 0 16px;">${escapeHtml(name)}, the pack is ready. The link below opens a page with each document. It works until ${escapeHtml(expires)}.</p>
++            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 22px;"><tr><td style="border-radius:999px;background:${PACK.gold};">
++              <a href="${link}" style="display:inline-block;padding:13px 28px;color:${PACK.charcoal};font-size:15px;font-weight:700;text-decoration:none;">Open the research pack</a>
++            </td></tr></table>
++            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px;">${items}</table>
++            <p style="margin:0 0 14px;">Start with the first document, the guide. It explains how the report is built, what the evidence grades mean and where to enter the report for the time you have.</p>
++            <p style="margin:0 0 14px;">The findings are bounded by their scope, evidence and date. The research supports your decision. It does not make it for you.</p>
++          </td></tr>
++          <tr><td style="padding:18px 34px 26px;border-top:1px solid rgba(200,168,106,0.18);font-size:12px;color:${PACK.grey};line-height:1.65;">
++            The pack is released under a Type-1 licence for your own use. FalconBridge Partners retains its research IP; wider circulation or publication needs our agreement.
++            Questions about the study: <a href="mailto:${escapeHtml(replyTo)}" style="color:${PACK.goldPale};">${escapeHtml(replyTo)}</a>.
++            If the button does not work, paste this address into your browser:<br /><span style="color:${PACK.goldPale};word-break:break-all;">${link}</span>
++          </td></tr>
++        </table>
++        <p style="margin:18px 0 0;color:rgba(184,189,200,0.6);font-size:11px;">FalconBridge Partners FZC LLC · falconbp.com</p>
++      </td></tr>
++    </table>
++  </div>`;
++}
+diff --git a/src/lib/packAccess.ts b/src/lib/packAccess.ts
+new file mode 100644
+index 0000000..6ff7eac
+--- /dev/null
++++ b/src/lib/packAccess.ts
+@@ -0,0 +1,43 @@
++import 'server-only';
++import { createHash, randomBytes } from 'node:crypto';
++import { createAdminClient } from '@/lib/supabase/admin';
++import { readerFiles, type AccessRequest, type Report, type ReportFile } from '@/lib/data';
++
++/** How long an emailed pack link works. PACK_LINK_DAYS overrides the default of 7. */
++export const packLinkDays = () => {
++  const n = Number(process.env.PACK_LINK_DAYS);
++  return Number.isFinite(n) && n >= 1 && n <= 90 ? Math.round(n) : 7;
++};
++
++export const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
++
++/** A fresh link token and its hash. Only the hash is stored; the token exists in the email alone. */
++export function newToken(): { token: string; hash: string; expiresAt: Date } {
++  const token = randomBytes(32).toString('base64url');
++  return { token, hash: hashToken(token), expiresAt: new Date(Date.now() + packLinkDays() * 86_400_000) };
++}
++
++export type PackGrant = { request: AccessRequest; report: Report; files: ReportFile[]; expired: boolean };
++
++/** Resolves an emailed link. Returns null when the token is unknown or the study is no longer published. */
++export async function resolvePack(token: string): Promise<PackGrant | null> {
++  if (!/^[A-Za-z0-9_-]{40,64}$/.test(token)) return null;
++  const db = createAdminClient();
++  const { data: request } = await db.from('access_requests').select('*').eq('token_hash', hashToken(token)).maybeSingle();
++  if (!request) return null;
++  const { data: report } = await db.from('reports').select('*, files:report_files(*)').eq('id', request.report_id).eq('published', true).maybeSingle();
++  if (!report) return null;
++  const files = readerFiles((report as Report).files).sort((a, b) => a.sort_order - b.sort_order);
++  return { request: request as AccessRequest, report: report as Report, files, expired: new Date(request.expires_at).getTime() < Date.now() };
++}
++
++export async function recordOpen(request: AccessRequest): Promise<void> {
++  const db = createAdminClient();
++  const now = new Date().toISOString();
++  await db.from('access_requests').update({ first_opened_at: request.first_opened_at ?? now, last_opened_at: now, open_count: (request.open_count ?? 0) + 1 }).eq('id', request.id);
++}
++
++export async function recordDownload(request: AccessRequest): Promise<void> {
++  const db = createAdminClient();
++  await db.from('access_requests').update({ download_count: (request.download_count ?? 0) + 1, last_opened_at: new Date().toISOString() }).eq('id', request.id);
++}
+diff --git a/src/lib/weekly/import.ts b/src/lib/weekly/import.ts
+new file mode 100644
+index 0000000..37965c2
+--- /dev/null
++++ b/src/lib/weekly/import.ts
+@@ -0,0 +1,189 @@
++import 'server-only';
++import { randomUUID } from 'node:crypto';
++import { createAdminClient } from '@/lib/supabase/admin';
++import { PUBLIC_MEDIA, RESEARCH_FILES, territoryName } from '@/lib/data';
++import { download } from '@/lib/dropbox';
++import { SLOTS, type ManifestEntry, type ManifestFile, type WeeklyManifest } from '@/lib/weekly/manifest';
++
++export type ImportOptions = { publish: boolean; overwritePublished: boolean; adminEmail: string; source?: string };
++export type ImportFileResult = { slot: number; label: string; access: string; status: 'copied' | 'unchanged' | 'failed'; detail?: string };
++export type ImportResult = {
++  territory: string; status: 'imported' | 'skipped' | 'failed'; detail?: string;
++  scan?: { id: string; slug: string; published: boolean }; report?: { id: string; slug: string; published: boolean };
++  files: ImportFileResult[]; warnings: string[];
++};
++
++const PACK_MIME: Record<string, string> = {
++  pdf: 'application/pdf',
++  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
++  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
++  zip: 'application/zip',
++};
++const IMAGE_MIME: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
++const extOf = (name: string) => (name.split('.').pop() ?? '').toLowerCase();
++
++/** "From Pump Price to Cost Base" + "Executive deck" → a tidy name for the reader's download. */
++function downloadName(studyTitle: string, label: string, ext: string) {
++  const clean = (s: string) => s.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
++  return `FalconBridge - ${clean(studyTitle).slice(0, 90)} - ${clean(label)}.${ext}`;
++}
++
++type Db = ReturnType<typeof createAdminClient>;
++
++async function copyImage(db: Db, ref: string, folder: 'extracts' | 'covers'): Promise<string> {
++  const { data, entry } = await download(ref);
++  const ext = extOf(entry.name);
++  const mime = IMAGE_MIME[ext];
++  if (!mime) throw new Error(`${entry.name}: images must be PNG, JPEG or WebP.`);
++  if (data.byteLength > 10 * 1024 * 1024) throw new Error(`${entry.name}: images must be under 10 MB.`);
++  const path = `${folder}/${randomUUID()}.${ext === 'jpeg' ? 'jpg' : ext}`;
++  const { error } = await db.storage.from(PUBLIC_MEDIA).upload(path, data, { contentType: mime, upsert: true });
++  if (error) throw new Error(error.message);
++  return path;
++}
++
++type FileRow = { id: string; sort_order: number; storage_path: string | null; source_ref: string | null; access: string };
++
++async function copyPackFile(db: Db, reportId: string, studyTitle: string, f: ManifestFile, existing: FileRow | undefined): Promise<ImportFileResult> {
++  const slot = SLOTS[f.slot - 1];
++  const label = f.label || slot.label;
++  const access = f.access ?? slot.access;
++  try {
++    // A file already copied from the same Dropbox reference is left alone; only its label and access follow the manifest.
++    if (existing?.storage_path && existing.source_ref && existing.source_ref.split('@')[0] === f.dropbox) {
++      const { error } = await db.from('report_files').update({ label, access }).eq('id', existing.id);
++      if (error) throw new Error(error.message);
++      return { slot: f.slot, label, access, status: 'unchanged' };
++    }
++    const { data, entry } = await download(f.dropbox);
++    const ext = extOf(f.name || entry.name);
++    const mime = PACK_MIME[ext];
++    if (!mime) throw new Error(`${entry.name}: pack files must be PDF, PPTX, DOCX or ZIP.`);
++    const path = `reports/${randomUUID()}.${ext}`;
++    const up = await db.storage.from(RESEARCH_FILES).upload(path, data, { contentType: mime, upsert: true });
++    if (up.error) throw new Error(up.error.message);
++    const row = {
++      report_id: reportId, label, sort_order: f.slot, storage_path: path, access, size_bytes: data.byteLength,
++      source_ref: `${f.dropbox}@${entry.rev ?? ''}`, file_name: downloadName(studyTitle, label, ext),
++    };
++    const { error } = existing ? await db.from('report_files').update(row).eq('id', existing.id) : await db.from('report_files').insert(row);
++    if (error) throw new Error(error.message);
++    if (existing?.storage_path) await db.storage.from(RESEARCH_FILES).remove([existing.storage_path]).catch(() => undefined);
++    return { slot: f.slot, label, access, status: 'copied', detail: `${(data.byteLength / 1048576).toFixed(1)} MB` };
++  } catch (e) {
++    return { slot: f.slot, label, access, status: 'failed', detail: e instanceof Error ? e.message : String(e) };
++  }
++}
++
++/**
++ * Imports one territory from a validated manifest. Safe to run again: rows are matched by slug and files by slot,
++ * and files already copied from the same Dropbox reference are not copied twice.
++ *
++ * Nothing is published unless `publish` is set. An entry that is already live is left untouched unless
++ * `overwritePublished` is set, so a partner's edits to a published page are not replaced by accident.
++ */
++export async function importEntry(manifest: WeeklyManifest, index: number, opts: ImportOptions): Promise<ImportResult> {
++  const entry: ManifestEntry | undefined = manifest.entries[index];
++  if (!entry) return { territory: '?', status: 'failed', detail: `No entry ${index} in the manifest.`, files: [], warnings: [] };
++  const out: ImportResult = { territory: entry.territory, status: 'imported', files: [], warnings: [] };
++  const db = createAdminClient();
++
++  try {
++    // ── What is already there ────────────────────────────────────────────────
++    const [{ data: exReport }, { data: exScan }] = await Promise.all([
++      entry.report ? db.from('reports').select('id, published, extract_path, cover_path').eq('slug', entry.report.slug).maybeSingle() : Promise.resolve({ data: null }),
++      entry.scan ? db.from('scans').select('id, published, reviewed').eq('slug', entry.scan.slug).maybeSingle() : Promise.resolve({ data: null }),
++    ]);
++    if (!opts.overwritePublished && (exReport?.published || exScan?.published)) {
++      return { ...out, status: 'skipped', detail: 'Already published. Tick “Replace published entries” to import over it.' };
++    }
++
++    // ── The study ────────────────────────────────────────────────────────────
++    let reportId: string | null = exReport?.id ?? null;
++    let reportPublished = Boolean(exReport?.published);
++    if (entry.report) {
++      const r = entry.report;
++      const row: Record<string, unknown> = {
++        slug: r.slug, title: r.title, subtitle: r.subtitle ?? null, kind: r.kind ?? 'study', territory: entry.territory,
++        year: r.year ?? Number(manifest.week_label.slice(0, 4)), published_at: r.published_at ?? new Date().toISOString().slice(0, 10),
++        body: r.body ?? null, facts: r.facts ?? [], extract_note: r.extract_note ?? null, qualifier: r.qualifier ?? null,
++        week_label: manifest.week_label,
++      };
++      for (const [key, folder, column] of [['extract_image', 'extracts', 'extract_path'], ['cover_image', 'covers', 'cover_path']] as const) {
++        const ref = r[key];
++        if (!ref) continue;
++        try { row[column] = await copyImage(db, ref, folder); }
++        catch (e) { out.warnings.push(`${key}: ${e instanceof Error ? e.message : String(e)}`); }
++      }
++      if (reportId) {
++        const { error } = await db.from('reports').update(row).eq('id', reportId);
++        if (error) throw new Error(`report: ${error.message}`);
++        for (const column of ['extract_path', 'cover_path'] as const) {
++          const old = exReport?.[column];
++          if (row[column] && old && old !== row[column]) await db.storage.from(PUBLIC_MEDIA).remove([old]).catch(() => undefined);
++        }
++      } else {
++        const { data, error } = await db.from('reports').insert({ ...row, published: false, featured: false }).select('id').single();
++        if (error) throw new Error(`report: ${error.message}`);
++        reportId = data.id;
++      }
++
++      // ── Its files ──────────────────────────────────────────────────────────
++      const { data: rows } = await db.from('report_files').select('id, sort_order, storage_path, source_ref, access').eq('report_id', reportId!);
++      const bySlot = new Map<number, FileRow>((rows ?? []).map((x) => [x.sort_order, x as FileRow]));
++      out.files = await Promise.all((entry.files ?? []).map((f) => copyPackFile(db, reportId!, r.title, f, bySlot.get(f.slot))));
++      // Slots the manifest leaves out are created empty and internal, so the admin form never defaults them to "in the pack".
++      const named = new Set((entry.files ?? []).map((f) => f.slot));
++      const missing = SLOTS.filter((s) => !named.has(s.slot) && !bySlot.has(s.slot)).map((s) => ({ report_id: reportId!, label: s.label, sort_order: s.slot, access: 'internal' }));
++      if (missing.length) await db.from('report_files').insert(missing);
++    }
++
++    const failed = out.files.filter((f) => f.status === 'failed');
++    // A study never goes live with a file missing: it stays a draft and the screen says which file failed.
++    const mayPublish = opts.publish && failed.length === 0;
++    if (opts.publish && failed.length) out.warnings.push(`Not published: ${failed.length} file${failed.length === 1 ? '' : 's'} could not be copied.`);
++
++    if (entry.report && reportId && mayPublish && !reportPublished) {
++      const { error } = await db.from('reports').update({ published: true }).eq('id', reportId);
++      if (error) throw new Error(`report: ${error.message}`);
++      reportPublished = true;
++    }
++    if (entry.report && reportId) out.report = { id: reportId, slug: entry.report.slug, published: reportPublished };
++
++    // ── The scan entry ───────────────────────────────────────────────────────
++    if (entry.scan) {
++      const s = entry.scan;
++      const row: Record<string, unknown> = {
++        slug: s.slug, title: s.title, territory: entry.territory, service: s.service ?? 'none', week_of: s.week_of,
++        signal: s.signal, question: s.question, finding: s.finding ?? null, interpretation: s.interpretation ?? null,
++        open_questions: s.open_questions ?? [], week_label: manifest.week_label, sample: false,
++      };
++      if (reportId) row.report_id = reportId;
++      let scanPublished = Boolean(exScan?.published);
++      if (mayPublish) { row.reviewed = true; row.published = true; scanPublished = true; }
++      let scanId = exScan?.id as string | undefined;
++      if (scanId) {
++        const { error } = await db.from('scans').update(row).eq('id', scanId);
++        if (error) throw new Error(`scan: ${error.message}`);
++      } else {
++        const { data, error } = await db.from('scans').insert({ reviewed: false, published: false, ...row }).select('id').single();
++        if (error) throw new Error(`scan: ${error.message}`);
++        scanId = data.id;
++      }
++      out.scan = { id: scanId!, slug: s.slug, published: scanPublished };
++    }
++
++    if (failed.length) out.detail = `${territoryName[entry.territory] ?? entry.territory}: ${failed.length} file${failed.length === 1 ? '' : 's'} failed — run the import again to retry.`;
++  } catch (e) {
++    out.status = 'failed';
++    out.detail = e instanceof Error ? e.message : String(e);
++  }
++
++  try {
++    await db.from('import_log').insert({
++      week_label: manifest.week_label, territory: entry.territory, scan_slug: entry.scan?.slug ?? null, report_slug: entry.report?.slug ?? null,
++      published: Boolean(out.report?.published || out.scan?.published), result: out, source: opts.source ?? null, created_by: opts.adminEmail,
++    });
++  } catch { /* the log is a record, not a dependency */ }
++  return out;
++}
+diff --git a/src/lib/weekly/manifest.ts b/src/lib/weekly/manifest.ts
+new file mode 100644
+index 0000000..8541208
+--- /dev/null
++++ b/src/lib/weekly/manifest.ts
+@@ -0,0 +1,132 @@
++/**
++ * The weekly manifest: one JSON file per week that says what goes on the site.
++ *
++ * It carries the public copy for each territory's Weekly Scan entry and study page, and points at the
++ * pack files in Dropbox by their file id. The importer in /admin reads it, copies the files into private
++ * storage and creates the entries. Whoever writes the manifest — a person, Claude, or HT+ — the importer
++ * does the same thing with it.
++ *
++ * This module is pure (no I/O) so the same validation runs in the importer and in tests.
++ */
++
++export const MANIFEST_VERSION = 1;
++
++export const TERRITORY_KEYS = ['uae-gcc', 'south-africa', 'new-zealand', 'mauritius', 'north-carolina', 'singapore'] as const;
++export const SERVICE_KEYS = ['ceaas', 'raas', 'caas', 'emaas', 'aaas', 'none'] as const;
++export const ACCESS_KEYS = ['open', 'request', 'internal'] as const;
++
++/** The six package slots, in the order the study page and the admin form show them. */
++export const SLOTS = [
++  { slot: 1, label: 'User guide', access: 'request' },
++  { slot: 2, label: 'Executive deck', access: 'request' },
++  { slot: 3, label: 'Full research report', access: 'request' },
++  { slot: 4, label: 'Executive summary', access: 'open' },
++  { slot: 5, label: 'Executive visual', access: 'open' },
++  { slot: 6, label: 'Reference and link audit', access: 'internal' },
++] as const;
++
++export type ManifestAccess = (typeof ACCESS_KEYS)[number];
++export type ManifestFile = { slot: number; label?: string; access?: ManifestAccess; dropbox: string; name?: string };
++export type ManifestScan = {
++  slug: string; title: string; service?: string; week_of: string; signal: string; question: string;
++  finding?: string; interpretation?: string; open_questions?: string[];
++};
++export type ManifestReport = {
++  slug: string; title: string; subtitle?: string; kind?: 'study' | 'sample' | 'paper'; year?: number; published_at?: string;
++  body?: string; facts?: { figure: string; body: string }[]; extract_note?: string; qualifier?: string;
++  /** Dropbox references to images: the Executive Visual as PNG/JPEG (shown on the study page) and an optional 3:4 cover. */
++  extract_image?: string; cover_image?: string;
++};
++export type ManifestEntry = { territory: string; scan?: ManifestScan; report?: ManifestReport; files?: ManifestFile[] };
++export type WeeklyManifest = {
++  version: number; week_label: string; review_period?: { from: string; to: string }; prepared_by?: string; notes?: string;
++  entries: ManifestEntry[];
++};
++
++const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
++const DATE = /^\d{4}-\d{2}-\d{2}$/;
++const WEEK = /^\d{4}-W\d{2}$/;
++/** A Dropbox file id, or an absolute display path. Ids survive renames and moves, so they are preferred. */
++const DBX_REF = /^(id:[A-Za-z0-9_-]+|\/.+)$/;
++
++const isStr = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
++
++/** Returns the list of problems; empty means the manifest can be imported. */
++export function validateManifest(input: unknown): string[] {
++  const errs: string[] = [];
++  const m = input as Partial<WeeklyManifest> | null;
++  if (!m || typeof m !== 'object') return ['The manifest is not a JSON object.'];
++  if (m.version !== MANIFEST_VERSION) errs.push(`version must be ${MANIFEST_VERSION}.`);
++  if (!isStr(m.week_label) || !WEEK.test(m.week_label)) errs.push('week_label must look like 2026-W41.');
++  if (m.review_period && (!DATE.test(m.review_period.from ?? '') || !DATE.test(m.review_period.to ?? ''))) errs.push('review_period dates must be YYYY-MM-DD.');
++  if (!Array.isArray(m.entries) || m.entries.length === 0) return [...errs, 'entries must list at least one territory.'];
++  if (m.entries.length > 12) errs.push('entries: at most 12 per manifest.');
++
++  const seenScan = new Set<string>(), seenReport = new Set<string>();
++  m.entries.forEach((e, i) => {
++    const at = `entries[${i}]${isStr(e?.territory) ? ` (${e.territory})` : ''}`;
++    if (!e || typeof e !== 'object') { errs.push(`${at}: not an object.`); return; }
++    if (!(TERRITORY_KEYS as readonly string[]).includes(e.territory)) errs.push(`${at}: territory must be one of ${TERRITORY_KEYS.join(', ')}.`);
++    if (!e.scan && !e.report) errs.push(`${at}: needs a scan, a report, or both.`);
++
++    if (e.scan) {
++      const s = e.scan;
++      if (!isStr(s.slug) || !SLUG.test(s.slug) || s.slug.length > 80) errs.push(`${at}.scan.slug: lower-case letters, digits and hyphens, 80 characters at most.`);
++      else if (seenScan.has(s.slug)) errs.push(`${at}.scan.slug: "${s.slug}" is used twice.`); else seenScan.add(s.slug);
++      if (!isStr(s.title)) errs.push(`${at}.scan.title is required.`);
++      if (!isStr(s.week_of) || !DATE.test(s.week_of)) errs.push(`${at}.scan.week_of must be YYYY-MM-DD.`);
++      if (!isStr(s.signal)) errs.push(`${at}.scan.signal is required.`);
++      if (!isStr(s.question)) errs.push(`${at}.scan.question is required.`);
++      if (s.service && !(SERVICE_KEYS as readonly string[]).includes(s.service)) errs.push(`${at}.scan.service must be one of ${SERVICE_KEYS.join(', ')}.`);
++      if (s.open_questions && (!Array.isArray(s.open_questions) || s.open_questions.some((q) => !isStr(q)))) errs.push(`${at}.scan.open_questions must be a list of sentences.`);
++    }
++
++    if (e.report) {
++      const r = e.report;
++      if (!isStr(r.slug) || !SLUG.test(r.slug) || r.slug.length > 80) errs.push(`${at}.report.slug: lower-case letters, digits and hyphens, 80 characters at most.`);
++      else if (seenReport.has(r.slug)) errs.push(`${at}.report.slug: "${r.slug}" is used twice.`); else seenReport.add(r.slug);
++      if (!isStr(r.title)) errs.push(`${at}.report.title is required.`);
++      if (r.kind && !['study', 'sample', 'paper'].includes(r.kind)) errs.push(`${at}.report.kind must be study, sample or paper.`);
++      if (r.published_at && !DATE.test(r.published_at)) errs.push(`${at}.report.published_at must be YYYY-MM-DD.`);
++      if (r.facts && (!Array.isArray(r.facts) || r.facts.length > 3 || r.facts.some((f) => !f || !isStr(f.figure) || !isStr(f.body)))) errs.push(`${at}.report.facts: up to three {figure, body} pairs.`);
++      for (const k of ['extract_image', 'cover_image'] as const) if (r[k] && !DBX_REF.test(r[k]!)) errs.push(`${at}.report.${k} must be a Dropbox id (id:…) or an absolute path.`);
++    }
++
++    if (e.files) {
++      if (!e.report) errs.push(`${at}: files need a report to attach to.`);
++      if (!Array.isArray(e.files)) { errs.push(`${at}.files must be a list.`); return; }
++      const slots = new Set<number>();
++      e.files.forEach((f, j) => {
++        const fa = `${at}.files[${j}]`;
++        if (!f || !Number.isInteger(f.slot) || f.slot < 1 || f.slot > SLOTS.length) { errs.push(`${fa}.slot must be 1–${SLOTS.length}.`); return; }
++        if (slots.has(f.slot)) errs.push(`${fa}: slot ${f.slot} is used twice.`); else slots.add(f.slot);
++        if (!isStr(f.dropbox) || !DBX_REF.test(f.dropbox)) errs.push(`${fa}.dropbox must be a Dropbox id (id:…) or an absolute path.`);
++        if (f.access && !(ACCESS_KEYS as readonly string[]).includes(f.access)) errs.push(`${fa}.access must be open, request or internal.`);
++      });
++    }
++  });
++  return errs;
++}
++
++export function parseManifest(json: string): { manifest?: WeeklyManifest; errors: string[] } {
++  let raw: unknown;
++  try { raw = JSON.parse(json); } catch (e) { return { errors: [`Not valid JSON: ${e instanceof Error ? e.message : String(e)}`] }; }
++  const errors = validateManifest(raw);
++  return errors.length ? { errors } : { manifest: raw as WeeklyManifest, errors: [] };
++}
++
++/** What the import screen shows for each territory before anything is written. */
++export type EntryPreview = {
++  index: number; territory: string; scanSlug?: string; scanTitle?: string; reportSlug?: string; reportTitle?: string;
++  files: { slot: number; label: string; access: ManifestAccess }[];
++};
++
++export function previewEntries(m: WeeklyManifest): EntryPreview[] {
++  return m.entries.map((e, index) => ({
++    index, territory: e.territory, scanSlug: e.scan?.slug, scanTitle: e.scan?.title, reportSlug: e.report?.slug, reportTitle: e.report?.title,
++    files: (e.files ?? []).slice().sort((a, b) => a.slot - b.slot).map((f) => {
++      const d = SLOTS[f.slot - 1];
++      return { slot: f.slot, label: f.label || d.label, access: (f.access ?? d.access) as ManifestAccess };
++    }),
++  }));
++}
+diff --git a/supabase/004_weekly_pipeline.sql b/supabase/004_weekly_pipeline.sql
+new file mode 100644
+index 0000000..987e283
+--- /dev/null
++++ b/supabase/004_weekly_pipeline.sql
+@@ -0,0 +1,87 @@
++-- FalconBridge Partners — weekly pipeline (October 2026). Run after 001–003.
++-- Paste the whole file into Supabase → SQL Editor → Run. Safe to run more than once.
++--
++-- Adds:
++--   1. A third access level on package files: open · request (behind the email form) · internal (never shown)
++--   2. access_requests — one row per pack request: the lead, and the expiring link that was emailed
++--   3. app_secrets     — server-only key/value store (holds the Dropbox connection)
++--   4. import_log      — what the weekly importer created or updated, and who ran it
++--   5. week labels on reports and scans, and the link from a scan to the study it led to
++
++-- ── 1. Access levels ─────────────────────────────────────────────────────────
++do $$
++declare c record;
++begin
++  for c in
++    select conname from pg_constraint
++    where conrelid = 'public.report_files'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%access%'
++  loop
++    execute format('alter table public.report_files drop constraint %I', c.conname);
++  end loop;
++end $$;
++alter table public.report_files add constraint report_files_access_check check (access in ('open','request','internal'));
++
++alter table public.report_files add column if not exists source_ref text;   -- where the file came from (Dropbox id + revision)
++alter table public.report_files add column if not exists file_name  text;   -- the name a reader's download is saved under
++
++-- ── 2. Pack requests ─────────────────────────────────────────────────────────
++create table if not exists public.access_requests (
++  id              uuid primary key default gen_random_uuid(),
++  report_id       uuid not null references public.reports(id) on delete cascade,
++  full_name       text not null,
++  email           citext not null,
++  organisation    text not null,
++  role            text,
++  intended_use    text,
++  consent         boolean not null default false,
++  token_hash      text not null unique,          -- sha-256 of the link token; the token itself is never stored
++  expires_at      timestamptz not null,
++  first_opened_at timestamptz,
++  last_opened_at  timestamptz,
++  open_count      int not null default 0,
++  download_count  int not null default 0,
++  created_at      timestamptz not null default now()
++);
++alter table public.access_requests enable row level security;
++revoke all on public.access_requests from anon, authenticated;
++create index if not exists access_requests_report_idx  on public.access_requests (report_id, created_at desc);
++create index if not exists access_requests_created_idx on public.access_requests (created_at desc);
++
++-- ── 3. Server-only secrets ───────────────────────────────────────────────────
++create table if not exists public.app_secrets (
++  key        text primary key,
++  value      text not null,
++  meta       jsonb not null default '{}'::jsonb,
++  updated_at timestamptz not null default now()
++);
++alter table public.app_secrets enable row level security;
++revoke all on public.app_secrets from anon, authenticated;
++
++-- ── 4. Import log ────────────────────────────────────────────────────────────
++create table if not exists public.import_log (
++  id          uuid primary key default gen_random_uuid(),
++  week_label  text,
++  territory   text,
++  scan_slug   text,
++  report_slug text,
++  published   boolean not null default false,
++  result      jsonb not null default '{}'::jsonb,
++  source      text,
++  created_by  text,
++  created_at  timestamptz not null default now()
++);
++alter table public.import_log enable row level security;
++revoke all on public.import_log from anon, authenticated;
++create index if not exists import_log_week_idx on public.import_log (week_label, created_at desc);
++
++-- ── 5. Week labels and the scan → study link ─────────────────────────────────
++alter table public.reports add column if not exists week_label text;        -- e.g. 2026-W41 (FalconBridge week numbering)
++alter table public.scans   add column if not exists week_label text;
++alter table public.scans   add column if not exists report_id  uuid references public.reports(id) on delete set null;
++create index if not exists reports_week_idx  on public.reports (week_label);
++create index if not exists scans_week_idx    on public.scans (week_label);
++create index if not exists scans_report_idx  on public.scans (report_id);
++
++-- Grants for the tables created above (idempotent).
++grant all privileges on all tables in schema public to service_role;
++grant all privileges on all sequences in schema public to service_role;
+-- 
+2.43.0
+
