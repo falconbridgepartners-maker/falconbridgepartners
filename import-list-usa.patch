@@ -1,0 +1,133 @@
+From db0679ae0198632f17931901f9de5a93326f45a4 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 7 Oct 2026 01:30:48 +0000
+Subject: [PATCH] Import screen lists every manifest; USA category
+
+- The import screen showed only eight manifests, so newer ones dropped off once more were on file. It now lists up to sixty, newest saved first, loaded in parallel
+- Manifests whose entries are all live are folded into an 'Already imported' section; each card shows its file name
+- 'usa' added as a category for studies of the United States as a whole
+---
+ docs/WEEKLY_PIPELINE.md               |  2 +-
+ src/components/admin/WeeklyImport.tsx | 20 +++++++++++++++++++-
+ src/lib/admin/importActions.ts        | 15 ++++++++++-----
+ src/lib/data.ts                       |  2 ++
+ src/lib/weekly/manifest.ts            |  2 +-
+ 5 files changed, 33 insertions(+), 8 deletions(-)
+
+diff --git a/docs/WEEKLY_PIPELINE.md b/docs/WEEKLY_PIPELINE.md
+index ae83bd9..71a0c5d 100644
+--- a/docs/WEEKLY_PIPELINE.md
++++ b/docs/WEEKLY_PIPELINE.md
+@@ -93,7 +93,7 @@ One JSON file per week. Whoever writes it — a person, Claude or HT+ — the im
+ }
+ ```
+ 
+-- `territory`: `uae-gcc`, `south-africa`, `new-zealand`, `mauritius`, `north-carolina`, `singapore`, or `global` for a study that belongs to no single territory.
++- `territory`: `uae-gcc`, `south-africa`, `new-zealand`, `mauritius`, `north-carolina`, `singapore`, `global` for a study that belongs to no single territory, or `usa` for a study of the United States as a whole.
+ - `week_label` uses FalconBridge's week number; `week_of` is the Monday the review period starts.
+ - An entry may carry a scan, a report, or both. `files` need a report.
+ - Slots and their default access: 1 User guide (pack), 2 Executive deck (pack), 3 Full research report (pack), 4 Executive summary (open), 5 Executive visual (open), 6 Reference and link audit (internal). `label` and `access` override the defaults. A slot left out is created empty and internal.
+diff --git a/src/components/admin/WeeklyImport.tsx b/src/components/admin/WeeklyImport.tsx
+index ee4b308..107753b 100644
+--- a/src/components/admin/WeeklyImport.tsx
++++ b/src/components/admin/WeeklyImport.tsx
+@@ -45,6 +45,7 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
+       <div className="flex flex-wrap items-baseline justify-between gap-3">
+         <div>
+           <h2 className="text-2xl">{m.weekLabel ?? m.name}</h2>
++          {m.weekLabel && m.name !== m.weekLabel && <p className="text-white/70 text-sm mt-1">{m.name}</p>}
+           <p className="text-white/50 text-xs mt-1">
+             {[m.reviewPeriod && `Review period ${m.reviewPeriod}`, m.preparedBy && `prepared by ${m.preparedBy}`, m.modified && `saved ${new Date(m.modified).toLocaleString('en-GB')}`].filter(Boolean).join(' · ')}
+           </p>
+@@ -142,6 +143,11 @@ export default function WeeklyImport({ screen }: { screen: ImportScreen }) {
+     try { setPasted(await checkPastedManifest(json)); } finally { setChecking(false); }
+   };
+ 
++  // A manifest is finished when every scan and study it names is live; those are folded away below.
++  const isImported = (m: ManifestSummary) => m.errors.length === 0 && m.entries.length > 0 && m.entries.every((e) => (e.scanState === 'published' || e.scanState === 'none') && (e.reportState === 'published' || e.reportState === 'none'));
++  const pending = screen.manifests.filter((m) => !isImported(m));
++  const imported = screen.manifests.filter(isImported);
++
+   return (
+     <div className="space-y-8">
+       <section className="tile p-6">
+@@ -166,11 +172,23 @@ export default function WeeklyImport({ screen }: { screen: ImportScreen }) {
+ 
+       {screen.error && <p className="text-sm text-red-200 bg-red-900/20 border border-red-500/30 rounded-lg p-4" role="alert">{screen.error}</p>}
+ 
++      {screen.connection.connected && !screen.error && screen.manifests.length > 0 && pending.length === 0 && (
++        <p className="text-white/60 text-sm">Nothing is waiting. Every manifest in the publishing folder has been imported.</p>
++      )}
++
+       {screen.connection.connected && !screen.error && screen.manifests.length === 0 && (
+         <p className="text-white/60 text-sm">No manifest yet. When a week is ready, its <code>manifest.json</code> appears in a dated folder inside the publishing folder and shows up here.</p>
+       )}
+ 
+-      {screen.manifests.map((m) => <ManifestCard key={m.source} m={m} />)}
++      {pending.map((m) => <ManifestCard key={m.source} m={m} />)}
++
++      {imported.length > 0 && (
++        <details className="tile p-6">
++          <summary className="cursor-pointer text-white font-bold">Already imported ({imported.length})</summary>
++          <p className="text-sm text-white/60 mt-3 mb-5">Every entry in these manifests is live. Open one to import it again, for example after a file is replaced in Dropbox.</p>
++          <div className="space-y-6">{imported.map((m) => <ManifestCard key={m.source} m={m} />)}</div>
++        </details>
++      )}
+ 
+       <details className="tile p-6">
+         <summary className="cursor-pointer text-white font-bold">Paste a manifest instead</summary>
+diff --git a/src/lib/admin/importActions.ts b/src/lib/admin/importActions.ts
+index 93c0f5a..cc3f579 100644
+--- a/src/lib/admin/importActions.ts
++++ b/src/lib/admin/importActions.ts
+@@ -48,11 +48,16 @@ export async function loadImportScreen(): Promise<ImportScreen> {
+   if (!base.configured || !base.connection.connected) return base;
+   try {
+     const files = (await listFolder(publishPath(), true)).filter((e) => e.tag === 'file' && /manifest.*\.json$/i.test(e.name));
+-    files.sort((a, b) => (b.path > a.path ? 1 : -1));
+-    for (const f of files.slice(0, 8)) {
+-      const folderName = f.path.split('/').slice(-2, -1)[0] ?? f.name;
+-      try { base.manifests.push(await summarise(f.path, folderName, (await downloadText(f.id)).text, f.modified)); }
+-      catch (e) { base.manifests.push({ source: f.path, name: folderName, entries: [], errors: [e instanceof Error ? e.message : String(e)] }); }
++    // Newest saved first, so the manifest just written is always at the top however many weeks are on file.
++    files.sort((a, b) => ((b.modified ?? '') > (a.modified ?? '') ? 1 : (b.modified ?? '') < (a.modified ?? '') ? -1 : b.path > a.path ? 1 : -1));
++    const recent = files.slice(0, 60);
++    for (let i = 0; i < recent.length; i += 8) {
++      const batch = await Promise.all(recent.slice(i, i + 8).map(async (f) => {
++        const label = f.name.replace(/\.json$/i, '');
++        try { return await summarise(f.path, label, (await downloadText(f.id)).text, f.modified); }
++        catch (e) { return { source: f.path, name: label, entries: [], errors: [e instanceof Error ? e.message : String(e)] } as ManifestSummary; }
++      }));
++      base.manifests.push(...batch);
+     }
+   } catch (e) {
+     base.error = e instanceof DropboxError && e.code === 'not-found'
+diff --git a/src/lib/data.ts b/src/lib/data.ts
+index e4ef3da..761ae48 100644
+--- a/src/lib/data.ts
++++ b/src/lib/data.ts
+@@ -42,6 +42,8 @@ export const territoryName: Record<string, string> = {
+   'uae-gcc': 'UAE / GCC', 'south-africa': 'South Africa', 'new-zealand': 'New Zealand', mauritius: 'Mauritius', 'north-carolina': 'North Carolina', singapore: 'Singapore',
+   // Studies that belong to no single territory. It is a category for the library, not a place on the map.
+   global: 'Global',
++  // Studies about the United States as a whole, as distinct from the North Carolina territory.
++  usa: 'USA',
+ };
+ export const TERRITORIES = Object.entries(territoryName).map(([value, label]) => ({ value, label }));
+ export const SERVICES = [
+diff --git a/src/lib/weekly/manifest.ts b/src/lib/weekly/manifest.ts
+index 449594d..406d261 100644
+--- a/src/lib/weekly/manifest.ts
++++ b/src/lib/weekly/manifest.ts
+@@ -11,7 +11,7 @@
+ 
+ export const MANIFEST_VERSION = 1;
+ 
+-export const TERRITORY_KEYS = ['uae-gcc', 'south-africa', 'new-zealand', 'mauritius', 'north-carolina', 'singapore', 'global'] as const;
++export const TERRITORY_KEYS = ['uae-gcc', 'south-africa', 'new-zealand', 'mauritius', 'north-carolina', 'singapore', 'global', 'usa'] as const;
+ export const SERVICE_KEYS = ['ceaas', 'raas', 'caas', 'emaas', 'aaas', 'none'] as const;
+ export const ACCESS_KEYS = ['open', 'request', 'internal'] as const;
+ 
+-- 
+2.43.0
+
