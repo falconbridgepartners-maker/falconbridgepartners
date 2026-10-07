@@ -40,9 +40,10 @@ export default async function ResearchPage() {
           ))}
         </div>
         <TerritoryMap partners={partners} />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-8">
           <NextLink href="/research/weekly-scan" label="Weekly Scan" sub="Signals from each territory, turned into decision-relevant questions." />
-          <NextLink href="/research/library" label="Research library" sub="Public studies, commissioned samples and papers, available to readers." />
+          <NextLink href="/research/library" label="Research Library" sub="Public studies, commissioned samples and papers, available to readers." />
+          <NextLink href="/research/professional-curiosity" label="Professional Curiosity" sub="Opinion pieces drawn from our studies" />
         </div>
       </Section>
 

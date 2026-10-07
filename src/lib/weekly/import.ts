@@ -4,12 +4,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { PUBLIC_MEDIA, RESEARCH_FILES, territoryName, thumbPathOf } from '@/lib/data';
 import { download } from '@/lib/dropbox';
 import { SLOTS, type ManifestEntry, type ManifestFile, type WeeklyManifest } from '@/lib/weekly/manifest';
+import { PIECE_SERIES } from '@/lib/pieces';
 
 export type ImportOptions = { publish: boolean; overwritePublished: boolean; adminEmail: string; source?: string };
 export type ImportFileResult = { slot: number; label: string; access: string; status: 'copied' | 'unchanged' | 'failed'; detail?: string };
 export type ImportResult = {
   territory: string; status: 'imported' | 'skipped' | 'failed'; detail?: string;
   scan?: { id: string; slug: string; published: boolean }; report?: { id: string; slug: string; published: boolean };
+  piece?: { id: string; slug: string; published: boolean };
   files: ImportFileResult[]; warnings: string[];
 };
 
@@ -30,7 +32,7 @@ function downloadName(studyTitle: string, label: string, ext: string) {
 
 type Db = ReturnType<typeof createAdminClient>;
 
-async function copyImage(db: Db, ref: string, folder: 'extracts' | 'covers'): Promise<string> {
+async function copyImage(db: Db, ref: string, folder: 'extracts' | 'covers' | 'share'): Promise<string> {
   const { data, entry } = await download(ref);
   const ext = extOf(entry.name);
   const mime = IMAGE_MIME[ext];
@@ -106,11 +108,13 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
 
   try {
     // ── What is already there ────────────────────────────────────────────────
-    const [{ data: exReport }, { data: exScan }] = await Promise.all([
+    const [{ data: exReport }, { data: exScan }, { data: exPiece, error: pieceErr }] = await Promise.all([
       entry.report ? db.from('reports').select('id, published, extract_path, cover_path').eq('slug', entry.report.slug).maybeSingle() : Promise.resolve({ data: null }),
       entry.scan ? db.from('scans').select('id, published, reviewed').eq('slug', entry.scan.slug).maybeSingle() : Promise.resolve({ data: null }),
+      entry.piece ? db.from('pieces').select('id, published, share_image_path').eq('slug', entry.piece.slug).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
-    if (!opts.overwritePublished && (exReport?.published || exScan?.published)) {
+    if (entry.piece && pieceErr) throw new Error(`piece: ${pieceErr.message}. If the pieces table does not exist yet, run supabase/006_pieces.sql.`);
+    if (!opts.overwritePublished && (exReport?.published || exScan?.published || exPiece?.published)) {
       return { ...out, status: 'skipped', detail: 'Already published. Tick “Replace published entries” to import over it.' };
     }
 
@@ -191,6 +195,41 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
       out.scan = { id: scanId!, slug: s.slug, published: scanPublished };
     }
 
+    // ── The Professional Curiosity piece ─────────────────────────────────────
+    if (entry.piece) {
+      const p = entry.piece;
+      // The study behind the piece: this entry's own report, or the study the piece names.
+      let studyId: string | null = reportId;
+      if (!entry.report && p.study) {
+        const { data: st } = await db.from('reports').select('id').eq('slug', p.study).maybeSingle();
+        if (st) studyId = st.id; else out.warnings.push(`piece: no study with the slug "${p.study}" — the piece is saved without a link to its study.`);
+      }
+      const row: Record<string, unknown> = {
+        slug: p.slug, title: p.content.headline.trim(), series: p.content.series?.trim() || PIECE_SERIES, territory: entry.territory,
+        description: p.description ?? null, published_at: p.published_at ?? new Date().toISOString().slice(0, 10), evidence_date: p.evidence_date ?? null,
+        content: p.content,
+      };
+      if (studyId) row.report_id = studyId;
+      if (p.share_image) {
+        try { row.share_image_path = await copyImage(db, p.share_image, 'share'); }
+        catch (e) { out.warnings.push(`share_image: ${e instanceof Error ? e.message : String(e)}`); }
+      }
+      let piecePublished = Boolean(exPiece?.published);
+      if (mayPublish) { row.reviewed = true; row.published = true; piecePublished = true; }
+      let pieceId = exPiece?.id as string | undefined;
+      if (pieceId) {
+        const { error } = await db.from('pieces').update(row).eq('id', pieceId);
+        if (error) throw new Error(`piece: ${error.message}`);
+        const old = exPiece?.share_image_path;
+        if (row.share_image_path && old && old !== row.share_image_path) await db.storage.from(PUBLIC_MEDIA).remove([old, thumbPathOf(old)]).catch(() => undefined);
+      } else {
+        const { data, error } = await db.from('pieces').insert({ reviewed: false, published: false, ...row }).select('id').single();
+        if (error) throw new Error(`piece: ${error.message}`);
+        pieceId = data.id;
+      }
+      out.piece = { id: pieceId!, slug: p.slug, published: piecePublished };
+    }
+
     if (failed.length) out.detail = `${territoryName[entry.territory] ?? entry.territory}: ${failed.length} file${failed.length === 1 ? '' : 's'} failed — run the import again to retry.`;
   } catch (e) {
     out.status = 'failed';
@@ -200,7 +239,9 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
   try {
     await db.from('import_log').insert({
       week_label: manifest.week_label, territory: entry.territory, scan_slug: entry.scan?.slug ?? null, report_slug: entry.report?.slug ?? null,
-      published: Boolean(out.report?.published || out.scan?.published), result: out, source: opts.source ?? null, created_by: opts.adminEmail,
+      published: Boolean(out.report?.published || out.scan?.published || out.piece?.published), result: out, source: opts.source ?? null, created_by: opts.adminEmail,
+      // Only named when the entry carries a piece, so the log keeps working on a database that predates 006_pieces.sql.
+      ...(entry.piece ? { piece_slug: entry.piece.slug } : {}),
     });
   } catch { /* the log is a record, not a dependency */ }
   return out;

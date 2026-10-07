@@ -8,6 +8,7 @@ import Invitation from '@/components/dss/Invitation';
 import SignalAsIssued from '@/components/dss/SignalAsIssued';
 import { Section, Tile, Band, NextLink } from '@/components/dss/Tiles';
 import { getScanBySlug, getStudyForScan, territoryName, weekText } from '@/lib/data';
+import { generatedImagePath, shareMetadata } from '@/lib/share';
 import { services } from '@/content/site';
 
 export const dynamic = 'force-dynamic';
@@ -18,8 +19,14 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const e = await getScanBySlug(params.slug);
   if (!e) return {};
   const place = territoryName[e.territory] ?? e.territory;
-  if (e.content) return { title: `${e.content.heading} · ${weekText(e.week_label) ?? `week of ${e.week_of}`} — FalconBridge Partners`, description: e.content.lead?.title ?? e.question };
-  return { title: `${place} · Week of ${e.week_of} — Weekly Scan — FalconBridge Partners`, description: e.question };
+  // The link preview carries this signal's own title, description and image on LinkedIn and on X alike.
+  const share = { path: `/research/weekly-scan/${e.slug}`, image: { url: generatedImagePath('signal', e.slug), generated: true }, publishedTime: e.week_of };
+  if (e.content) {
+    const title = `${e.content.heading} · ${weekText(e.week_label) ?? `week of ${e.week_of}`}`;
+    return shareMetadata({ ...share, pageTitle: `${title} — FalconBridge Partners`, title, description: e.content.lead?.title ?? e.question });
+  }
+  const title = `${place} · Week of ${e.week_of} — Weekly Scan`;
+  return shareMetadata({ ...share, pageTitle: `${title} — FalconBridge Partners`, title, description: e.question });
 }
 
 export default async function ScanEntryPage({ params }: { params: { slug: string } }) {

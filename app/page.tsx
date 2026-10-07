@@ -135,7 +135,8 @@ export default async function Home() {
               <p className="text-sm">{origins.milestones[2].body}</p>
             </Tile>
             <NextLink href="/research/weekly-scan" label="Weekly Scan" sub="Territorial signals turned into decision-relevant questions." />
-            <NextLink href="/research/library" label="Research library" sub="Public studies, samples and papers available to readers." />
+            <NextLink href="/research/library" label="Research Library" sub="Public studies, samples and papers available to readers." />
+            <NextLink href="/research/professional-curiosity" label="Professional Curiosity" sub="Opinion pieces drawn from our studies" />
           </div>
         </div>
       </Section>

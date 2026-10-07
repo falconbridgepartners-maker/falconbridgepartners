@@ -3,6 +3,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    // The link-preview image route reads its fonts and logo from assets/og at run time.
+    outputFileTracingIncludes: { '/og/[kind]/[slug]': ['./assets/og/**/*'] },
+  },
   async redirects() {
     return [
       // Retired "How We Work" pages → the Decision Support System (Revamp, Sept 2026)

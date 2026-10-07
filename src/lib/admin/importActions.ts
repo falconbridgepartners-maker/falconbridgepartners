@@ -6,7 +6,8 @@ import { connectionStatus, disconnect, downloadText, dropboxConfigured, listFold
 import { parseManifest, previewEntries, type EntryPreview } from '@/lib/weekly/manifest';
 import { importEntry, type ImportResult } from '@/lib/weekly/import';
 
-export type EntryState = EntryPreview & { scanState: 'new' | 'draft' | 'published' | 'none'; reportState: 'new' | 'draft' | 'published' | 'none' };
+type RowState = 'new' | 'draft' | 'published' | 'none';
+export type EntryState = EntryPreview & { scanState: RowState; reportState: RowState; pieceState: RowState };
 export type ManifestSummary = {
   source: string;          // Dropbox path, or "pasted"
   name: string;            // folder name, e.g. 2026-W41
@@ -19,16 +20,19 @@ async function withStates(entries: EntryPreview[]): Promise<EntryState[]> {
   const db = createAdminClient();
   const scanSlugs = entries.map((e) => e.scanSlug).filter(Boolean) as string[];
   const reportSlugs = entries.map((e) => e.reportSlug).filter(Boolean) as string[];
-  const [{ data: scans }, { data: reports }] = await Promise.all([
+  const pieceSlugs = entries.map((e) => e.pieceSlug).filter(Boolean) as string[];
+  const [{ data: scans }, { data: reports }, { data: pieces }] = await Promise.all([
     scanSlugs.length ? db.from('scans').select('slug, published').in('slug', scanSlugs) : Promise.resolve({ data: [] as { slug: string; published: boolean }[] }),
     reportSlugs.length ? db.from('reports').select('slug, published').in('slug', reportSlugs) : Promise.resolve({ data: [] as { slug: string; published: boolean }[] }),
+    // Asked only when a manifest carries a piece, so the screen works on a database that predates 006_pieces.sql.
+    pieceSlugs.length ? db.from('pieces').select('slug, published').in('slug', pieceSlugs) : Promise.resolve({ data: [] as { slug: string; published: boolean }[] }),
   ]);
   const state = (rows: { slug: string; published: boolean }[] | null, slug?: string) => {
     if (!slug) return 'none' as const;
     const r = (rows ?? []).find((x) => x.slug === slug);
     return r ? (r.published ? 'published' as const : 'draft' as const) : 'new' as const;
   };
-  return entries.map((e) => ({ ...e, scanState: state(scans, e.scanSlug), reportState: state(reports, e.reportSlug) }));
+  return entries.map((e) => ({ ...e, scanState: state(scans, e.scanSlug), reportState: state(reports, e.reportSlug), pieceState: state(pieces, e.pieceSlug) }));
 }
 
 async function summarise(source: string, name: string, json: string, modified?: string): Promise<ManifestSummary> {
@@ -88,7 +92,8 @@ export async function importOne(source: string, index: number, opts: { publish: 
   const { manifest, errors } = parseManifest(json);
   if (!manifest) return { territory: '?', status: 'failed', detail: errors.join(' '), files: [], warnings: [] };
   const result = await importEntry(manifest, index, { ...opts, adminEmail: admin.email, source });
-  for (const p of ['/', '/research', '/research/library', '/research/weekly-scan', '/sitemap.xml']) revalidatePath(p);
+  for (const p of ['/', '/research', '/research/library', '/research/weekly-scan', '/research/professional-curiosity', '/sitemap.xml']) revalidatePath(p);
+  if (result.piece) { revalidatePath(`/research/professional-curiosity/${result.piece.slug}`); revalidatePath('/research/studies/[slug]', 'page'); }
   if (result.report) revalidatePath(`/research/studies/${result.report.slug}`);
   if (result.scan) revalidatePath(`/research/weekly-scan/${result.scan.slug}`);
   revalidatePath('/admin', 'layout');

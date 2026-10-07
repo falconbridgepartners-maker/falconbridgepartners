@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BookOpen, Radar, Settings, DownloadCloud, Inbox } from 'lucide-react';
+import { BookOpen, Radar, Settings, DownloadCloud, Inbox, PenLine } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdminUser } from '@/lib/admin/auth';
 import { PageHead } from '@/components/admin/ui';
@@ -33,6 +33,7 @@ export default async function Dashboard() {
         {[
           { href: '/admin/reports', icon: BookOpen, title: 'Manage reports', body: 'Add, edit or remove studies, samples and papers; upload covers and package files.' },
           { href: '/admin/scans', icon: Radar, title: 'Manage Weekly Scan', body: 'Write and publish scan entries by territory.' },
+          { href: '/admin/pieces', icon: PenLine, title: 'Professional Curiosity', body: 'Opinion pieces drawn from our studies: review, link to the study, publish.' },
           { href: '/admin/import', icon: DownloadCloud, title: 'Weekly import', body: 'Bring a week’s scans, studies and pack files in from Dropbox.' },
           { href: '/admin/requests', icon: Inbox, title: 'Pack requests', body: `${requests ?? 0} in the last seven days. See who asked for which study and whether they opened it.` },
           { href: '/admin/settings', icon: Settings, title: 'Site settings', body: `Featured report${featuredTitle ? `: ${featuredTitle}` : ''}; partner portraits.` },

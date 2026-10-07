@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient, supabaseConfigured } from '@/lib/supabase/admin';
 import type { SignalContent } from '@/lib/weekly/manifest';
+import type { PieceContent } from '@/lib/pieces';
 
 /** open = anyone may download · request = in the pack, behind the email form · internal = never shown or served. */
 export type FileAccess = 'open' | 'request' | 'internal';
@@ -22,6 +23,11 @@ export type Scan = {
   week_label?: string | null; report_id?: string | null;
   /** The Weekly Signal as issued (see src/lib/weekly/manifest.ts). When present, the scan page shows it as written. */
   content?: SignalContent | null;
+};
+/** A Professional Curiosity piece: a short opinion piece drawn from one of our own-account studies (see src/lib/pieces.ts). */
+export type Piece = {
+  id: string; slug: string; title: string; series: string; territory: string; report_id: string | null; description: string | null;
+  published_at: string | null; evidence_date: string | null; content: PieceContent; share_image_path: string | null; reviewed: boolean; published: boolean;
 };
 export type AccessRequest = {
   id: string; report_id: string; full_name: string; email: string; organisation: string; role: string | null; intended_use: string | null;
@@ -146,6 +152,60 @@ export async function signedFileUrl(path: string, opts: { expiresIn?: number; do
 export const readerFiles = (files: ReportFile[] | undefined) => (files ?? []).filter((f) => f.storage_path && f.access !== 'internal');
 /** True when the pack can be released automatically: at least one uploaded file sits behind the email form. */
 export const hasGatedPack = (files: ReportFile[] | undefined) => (files ?? []).some((f) => f.storage_path && f.access === 'request');
+
+/**
+ * True when the study page shows its request form (the #research-pack anchor): the pack is behind the email form,
+ * or an element is listed that is not an open download.
+ */
+export const hasRequestForm = (files: ReportFile[] | undefined) =>
+  hasGatedPack(files) || (files ?? []).some((f) => f.access !== 'internal' && !(f.storage_path && f.access === 'open'));
+
+// ── Professional Curiosity pieces ────────────────────────────────────────────
+// These tolerate a database that predates supabase/006_pieces.sql: with no pieces table they return nothing.
+
+export async function getPublishedPieces(territory?: string): Promise<Piece[]> {
+  return safe(async () => {
+    const db = createAdminClient();
+    let q = db.from('pieces').select('*').eq('published', true).order('published_at', { ascending: false }).order('created_at', { ascending: false });
+    if (territory) q = q.eq('territory', territory);
+    const { data, error } = await q;
+    if (error) return [];
+    return (data ?? []) as Piece[];
+  }, []);
+}
+
+export async function getPieceBySlug(slug: string, { includeUnpublished = false } = {}): Promise<Piece | null> {
+  return safe(async () => {
+    const db = createAdminClient();
+    let q = db.from('pieces').select('*').eq('slug', slug);
+    if (!includeUnpublished) q = q.eq('published', true);
+    const { data, error } = await q.maybeSingle();
+    if (error) return null;
+    return (data as Piece) ?? null;
+  }, null);
+}
+
+/** The published piece drawn from a study (or null). */
+export async function getPieceForStudy(reportId: string): Promise<Pick<Piece, 'slug' | 'title' | 'published_at'> | null> {
+  return safe(async () => {
+    const db = createAdminClient();
+    const { data, error } = await db.from('pieces').select('slug, title, published_at').eq('report_id', reportId).eq('published', true).order('published_at', { ascending: false }).limit(1).maybeSingle();
+    if (error) return null;
+    return (data as Pick<Piece, 'slug' | 'title' | 'published_at'>) ?? null;
+  }, null);
+}
+
+/** The published study behind a piece (or null), and whether its page carries the request form. */
+export async function getStudyForPiece(piece: Pick<Piece, 'report_id'>): Promise<(Pick<Report, 'slug' | 'title' | 'subtitle'> & { canRequest: boolean }) | null> {
+  if (!piece.report_id) return null;
+  return safe(async () => {
+    const db = createAdminClient();
+    const { data, error } = await db.from('reports').select('slug, title, subtitle, files:report_files(storage_path, access)').eq('id', piece.report_id!).eq('published', true).maybeSingle();
+    if (error || !data) return null;
+    const r = data as Pick<Report, 'slug' | 'title' | 'subtitle'> & { files?: ReportFile[] };
+    return { slug: r.slug, title: r.title, subtitle: r.subtitle, canRequest: hasRequestForm(r.files) };
+  }, null);
+}
 
 /** The published study a scan led to (or null). Tolerates a database that predates the weekly pipeline. */
 export async function getStudyForScan(scan: Scan): Promise<Pick<Report, 'slug' | 'title' | 'subtitle'> | null> {
