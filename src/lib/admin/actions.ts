@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/auth';
 import { PUBLIC_MEDIA, RESEARCH_FILES } from '@/lib/data';
+import { pieceContentErrors, PIECE_SERIES, type PieceContent } from '@/lib/pieces';
 
 export async function signOut() {
   try { const supabase = createClient(); await supabase.auth.signOut(); } catch { /* no session under preview bypass */ }
@@ -22,7 +23,7 @@ const accessOf = (v: string) => (v === 'open' || v === 'internal' ? v : 'request
 function revalidateAdmin() { revalidatePath('/admin', 'layout'); }
 
 function revalidateResearch() {
-  for (const p of ['/', '/research', '/research/library', '/research/weekly-scan', '/sitemap.xml']) revalidatePath(p);
+  for (const p of ['/', '/research', '/research/library', '/research/weekly-scan', '/research/professional-curiosity', '/sitemap.xml']) revalidatePath(p);
 }
 
 // ── Reports ──────────────────────────────────────────────────────────────────
@@ -138,6 +139,55 @@ export async function deleteScan(fd: FormData) {
   revalidateResearch();
   revalidateAdmin();
   redirect('/admin/scans?deleted=1');
+}
+
+// ── Professional Curiosity pieces ────────────────────────────────────────────
+export async function savePiece(fd: FormData) {
+  await requireAdmin();
+  const db = createAdminClient();
+  const id = str(fd, 'id') || null;
+  // The piece itself is kept as issued, in its own structure; the form carries it as JSON and it is checked before saving.
+  let content: PieceContent;
+  try { content = JSON.parse(str(fd, 'content')) as PieceContent; }
+  catch (e) { throw new Error(`The piece content is not valid JSON: ${e instanceof Error ? e.message : String(e)}`); }
+  const problems = pieceContentErrors(content);
+  if (problems.length) throw new Error(`The piece content cannot be saved: ${problems.join(' ')}`);
+  const title = content.headline.trim();
+  const row = {
+    slug: str(fd, 'slug') ? slugify(str(fd, 'slug')) : slugify(title),
+    title,
+    series: content.series?.trim() || PIECE_SERIES,
+    territory: str(fd, 'territory') || 'global',
+    report_id: str(fd, 'report_id') || null,
+    description: str(fd, 'description') || null,
+    published_at: str(fd, 'published_at') || new Date().toISOString().slice(0, 10),
+    evidence_date: str(fd, 'evidence_date') || null,
+    content,
+    reviewed: bool(fd, 'reviewed'),
+    published: bool(fd, 'published'),
+  };
+  if (row.published && !row.reviewed) throw new Error('A piece must be marked reviewed before it is published.');
+  const { error } = id ? await db.from('pieces').update(row).eq('id', id) : await db.from('pieces').insert(row);
+  if (error) throw new Error(error.message);
+  revalidateResearch();
+  revalidatePath(`/research/professional-curiosity/${row.slug}`);
+  revalidatePath('/research/studies/[slug]', 'page');
+  revalidateAdmin();
+  redirect('/admin/pieces?saved=1');
+}
+
+export async function deletePiece(fd: FormData) {
+  await requireAdmin();
+  const id = str(fd, 'id');
+  if (!id) return;
+  const db = createAdminClient();
+  const { data: old } = await db.from('pieces').select('share_image_path').eq('id', id).maybeSingle();
+  await db.from('pieces').delete().eq('id', id);
+  if (old?.share_image_path) await db.storage.from(PUBLIC_MEDIA).remove([old.share_image_path]).catch(() => undefined);
+  revalidateResearch();
+  revalidatePath('/research/studies/[slug]', 'page');
+  revalidateAdmin();
+  redirect('/admin/pieces?deleted=1');
 }
 
 // ── Partners ─────────────────────────────────────────────────────────────────

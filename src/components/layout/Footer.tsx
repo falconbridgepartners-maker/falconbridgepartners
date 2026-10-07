@@ -57,7 +57,8 @@ const Footer = async () => {
                         <ul className="space-y-3">
                             <li><Link href="/research" className={col}>Research capability</Link></li>
                             <li><Link href="/research/weekly-scan" className={col}>Weekly Scan</Link></li>
-                            <li><Link href="/research/library" className={col}>Research library</Link></li>
+                            <li><Link href="/research/library" className={col}>Research Library</Link></li>
+                            <li><Link href="/research/professional-curiosity" className={col}>Professional Curiosity</Link></li>
                         </ul>
                     </div>
 

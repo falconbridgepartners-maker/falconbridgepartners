@@ -913,7 +913,8 @@ export const nav = {
       children: [
         { label: 'Research capability', href: '/research' },
         { label: 'Weekly Scan', href: '/research/weekly-scan' },
-        { label: 'Library', href: '/research/library' },
+        { label: 'Research Library', href: '/research/library' },
+        { label: 'Professional Curiosity', href: '/research/professional-curiosity' },
       ],
     },
   ],

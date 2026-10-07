@@ -28,7 +28,7 @@ Running an import again is safe. Entries are matched by slug and files by slot; 
 
 ## One-time setup
 
-1. **Database.** Run `supabase/004_weekly_pipeline.sql`, then `supabase/005_scan_signal.sql`, in the Supabase SQL editor.
+1. **Database.** Run `supabase/004_weekly_pipeline.sql`, then `supabase/005_scan_signal.sql`, then `supabase/006_pieces.sql`, in the Supabase SQL editor.
 2. **Dropbox app.** At dropbox.com/developers/apps create an app: *Scoped access*, *Full Dropbox*. Under Permissions tick `files.metadata.read` and `files.content.read`. Under Settings add the redirect URI `https://falconbp.com/api/dropbox/callback` (and the `www.` host if the admin is used there).
 3. **Vercel.** Add `DROPBOX_APP_KEY` and `DROPBOX_APP_SECRET` (Production), then redeploy.
 4. **Connect.** In `/admin/import` choose **Connect Dropbox** and allow access. The site reads from Dropbox; it never writes.
@@ -95,10 +95,81 @@ One JSON file per week. Whoever writes it — a person, Claude or HT+ — the im
 
 - `territory`: `uae-gcc`, `south-africa`, `new-zealand`, `mauritius`, `north-carolina`, `singapore`, `global` for a study that belongs to no single territory, or `usa` for a study of the United States as a whole.
 - `week_label` uses FalconBridge's week number; `week_of` is the Monday the review period starts.
-- An entry may carry a scan, a report, or both. `files` need a report.
+- An entry may carry a scan, a report, a piece, or any combination. `files` need a report.
 - Slots and their default access: 1 User guide (pack), 2 Executive deck (pack), 3 Full research report (pack), 4 Executive summary (open), 5 Executive visual (open), 6 Reference and link audit (internal). `label` and `access` override the defaults. A slot left out is created empty and internal.
 - `extract_image` is the Executive Visual as PNG, JPEG or WebP; it is shown on the study page. `cover_image` (3:4) is optional.
 - `scan.content` carries the Weekly Signal exactly as issued, and the scan page then shows it as written: `{ "format": "weekly-signal-v1", "heading", "issue", "review_period", "briefing", "themes": [{ "title", "body", "lens", "sources" }], "lead": { … }, "watch", "audit_log": ["…"] }`. `signal` and `question` stay required (lists, the feed and search use them): give the lead topic's text and headline. Needs `supabase/005_scan_signal.sql`.
 - Pack files may be PDF, PPTX, DOCX or ZIP.
 
 The validator is `src/lib/weekly/manifest.ts`; the import screen lists every problem before anything is written.
+
+## Professional Curiosity pieces
+
+A piece is the short opinion piece we draw from an own-account study. It sits after the signal and the study in the reader's path: signal, then study, then our view. It lives at `/research/professional-curiosity/<slug>` and is listed, by territory, at `/research/professional-curiosity`.
+
+The same rule applies: a piece goes up as issued. The manifest carries its wording in its own structure and the site shows it as written.
+
+### Publishing a piece
+
+The routine step at the end of a study:
+
+1. Save a manifest with a `piece` to `W. Website Publishing`, exactly like a week's manifest. It can be a manifest of its own (the usual case, because the study is already live) or part of the study's entry.
+2. Open `/admin/import`. The entry shows `piece: new`.
+3. **Import as drafts** and open **Preview piece** to read it as a reader will, or **Import and publish**.
+
+The piece then appears in the index, the study page gains a link to it beside the Weekly Signal link, and the piece's **Request the full study** button opens the study's request form (`/research/studies/<slug>#research-pack`). The button is shown only when the study has that form.
+
+A piece can also be reviewed, linked to its study and published from **Professional Curiosity** in the admin.
+
+```json
+{
+  "version": 1,
+  "week_label": "2026-W41",
+  "prepared_by": "Claude",
+  "entries": [
+    {
+      "territory": "new-zealand",
+      "piece": {
+        "slug": "malaysia-is-not-yet-new-zealands-route-into-asean",
+        "study": "from-advice-to-actual-market-routes-new-zealand-2026",
+        "published_at": "2026-10-07",
+        "evidence_date": "2026-09-21",
+        "description": "Optional. One or two sentences for the link preview and the index.",
+        "content": {
+          "format": "professional-curiosity-v1",
+          "series": "Professional Curiosity Series",
+          "headline": "First sentence of the headline. Second sentence of the headline.",
+          "headline_accent": "Second sentence of the headline.",
+          "blocks": [
+            { "type": "paragraph", "text": "Body text. **Bold** and *italic* are kept." },
+            { "type": "stats", "items": [{ "figure": "4.9%", "label": "What the figure measures" }] },
+            { "type": "heading", "text": "A section heading" },
+            { "type": "callouts", "heading": "Optional heading", "items": [{ "title": "Optional title", "body": "Callout text" }] },
+            { "type": "questions", "heading": "Optional heading", "items": ["A question?", "Another question?"] },
+            { "type": "list", "items": ["A bullet"] },
+            { "type": "quote", "text": "A pull quote", "attribution": "Optional" }
+          ],
+          "disclaimer": "The closing disclaimer, as issued."
+        }
+      }
+    }
+  ]
+}
+```
+
+- `slug` is the piece's permanent address. Do not change it once the link has been shared.
+- `study` is the slug of the study behind the piece. Leave it out when the same entry carries the `report`.
+- `published_at` gives the byline its month and year; `evidence_date` gives it the evidence date. The byline reads “FalconBridge Partners · October 2026 · Own-account research, evidence date 21 September 2026”. To carry a byline exactly as issued instead, put it in `content.byline`.
+- `headline_accent` is the closing part of the headline set in gold. It must be the last words of `headline`.
+- Callouts and questions are numbered by the site in the order given.
+- `share_image` (optional) is a Dropbox reference to a 1200 × 630 image for the link preview. Without it the site draws one from the headline.
+- Needs `supabase/006_pieces.sql`.
+
+The validator is `src/lib/pieces.ts`.
+
+## Link previews
+
+A piece, a study and a Weekly Signal each state their own title, description and image for LinkedIn (Open Graph) and for X. Where a page has no image of its own, the site draws a 1200 × 630 card from the headline at `/og/piece/<slug>`, `/og/study/<slug>` or `/og/signal/<slug>`. A study with a cover image uses the cover; a piece with a `share_image` uses that.
+
+LinkedIn and X keep their own copy of a preview. After changing a headline or image, refresh LinkedIn's copy with its Post Inspector (linkedin.com/post-inspector) before posting the link again.
+

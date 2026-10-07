@@ -8,6 +8,7 @@
  *
  * This module is pure (no I/O) so the same validation runs in the importer and in tests.
  */
+import { validatePieceContent, type PieceContent } from '@/lib/pieces';
 
 export const MANIFEST_VERSION = 1;
 
@@ -56,7 +57,18 @@ export type ManifestReport = {
   /** Dropbox references to images: the Executive Visual as PNG/JPEG (shown on the study page) and an optional 3:4 cover. */
   extract_image?: string; cover_image?: string;
 };
-export type ManifestEntry = { territory: string; scan?: ManifestScan; report?: ManifestReport; files?: ManifestFile[] };
+/**
+ * A Professional Curiosity piece: the opinion piece drawn from a study, carried exactly as issued.
+ * Its headline is `content.headline`. The study behind it is the entry's own `report`, or `study` (a study's slug)
+ * when the piece is published on its own after the study is already live.
+ */
+export type ManifestPiece = {
+  slug: string; description?: string; published_at?: string; evidence_date?: string; study?: string;
+  /** Dropbox reference to a 1200 × 630 link-preview image. Optional: without it the site draws one from the headline. */
+  share_image?: string;
+  content: PieceContent;
+};
+export type ManifestEntry = { territory: string; scan?: ManifestScan; report?: ManifestReport; files?: ManifestFile[]; piece?: ManifestPiece };
 export type WeeklyManifest = {
   version: number; week_label: string; review_period?: { from: string; to: string }; prepared_by?: string; notes?: string;
   entries: ManifestEntry[];
@@ -107,12 +119,12 @@ export function validateManifest(input: unknown): string[] {
   if (!Array.isArray(m.entries) || m.entries.length === 0) return [...errs, 'entries must list at least one territory.'];
   if (m.entries.length > 12) errs.push('entries: at most 12 per manifest.');
 
-  const seenScan = new Set<string>(), seenReport = new Set<string>();
+  const seenScan = new Set<string>(), seenReport = new Set<string>(), seenPiece = new Set<string>();
   m.entries.forEach((e, i) => {
     const at = `entries[${i}]${isStr(e?.territory) ? ` (${e.territory})` : ''}`;
     if (!e || typeof e !== 'object') { errs.push(`${at}: not an object.`); return; }
     if (!(TERRITORY_KEYS as readonly string[]).includes(e.territory)) errs.push(`${at}: territory must be one of ${TERRITORY_KEYS.join(', ')}.`);
-    if (!e.scan && !e.report) errs.push(`${at}: needs a scan, a report, or both.`);
+    if (!e.scan && !e.report && !e.piece) errs.push(`${at}: needs a scan, a report or a piece.`);
 
     if (e.scan) {
       const s = e.scan;
@@ -136,6 +148,18 @@ export function validateManifest(input: unknown): string[] {
       if (r.published_at && !DATE.test(r.published_at)) errs.push(`${at}.report.published_at must be YYYY-MM-DD.`);
       if (r.facts && (!Array.isArray(r.facts) || r.facts.length > 3 || r.facts.some((f) => !f || !isStr(f.figure) || !isStr(f.body)))) errs.push(`${at}.report.facts: up to three {figure, body} pairs.`);
       for (const k of ['extract_image', 'cover_image'] as const) if (r[k] && !DBX_REF.test(r[k]!)) errs.push(`${at}.report.${k} must be a Dropbox id (id:…) or an absolute path.`);
+    }
+
+    if (e.piece) {
+      const p = e.piece;
+      if (!isStr(p.slug) || !SLUG.test(p.slug) || p.slug.length > 80) errs.push(`${at}.piece.slug: lower-case letters, digits and hyphens, 80 characters at most.`);
+      else if (seenPiece.has(p.slug)) errs.push(`${at}.piece.slug: "${p.slug}" is used twice.`); else seenPiece.add(p.slug);
+      if (!optStr(p.description)) errs.push(`${at}.piece.description must be text.`);
+      for (const k of ['published_at', 'evidence_date'] as const) if (p[k] && !DATE.test(p[k]!)) errs.push(`${at}.piece.${k} must be YYYY-MM-DD.`);
+      if (p.study !== undefined && p.study !== null && (!isStr(p.study) || !SLUG.test(p.study))) errs.push(`${at}.piece.study must be the slug of the study behind the piece.`);
+      if (p.study && e.report && p.study !== e.report.slug) errs.push(`${at}.piece.study names a different study from this entry's report; give one or the other.`);
+      if (p.share_image && !DBX_REF.test(p.share_image)) errs.push(`${at}.piece.share_image must be a Dropbox id (id:…) or an absolute path.`);
+      validatePieceContent(p.content, `${at}.piece.content`, errs);
     }
 
     if (e.files) {
@@ -164,12 +188,14 @@ export function parseManifest(json: string): { manifest?: WeeklyManifest; errors
 /** What the import screen shows for each territory before anything is written. */
 export type EntryPreview = {
   index: number; territory: string; scanSlug?: string; scanTitle?: string; reportSlug?: string; reportTitle?: string;
+  pieceSlug?: string; pieceTitle?: string;
   files: { slot: number; label: string; access: ManifestAccess }[];
 };
 
 export function previewEntries(m: WeeklyManifest): EntryPreview[] {
   return m.entries.map((e, index) => ({
     index, territory: e.territory, scanSlug: e.scan?.slug, scanTitle: e.scan?.title, reportSlug: e.report?.slug, reportTitle: e.report?.title,
+    pieceSlug: e.piece?.slug, pieceTitle: e.piece?.content?.headline,
     files: (e.files ?? []).slice().sort((a, b) => a.slot - b.slot).map((f) => {
       const d = SLOTS[f.slot - 1];
       return { slot: f.slot, label: f.label || d.label, access: (f.access ?? d.access) as ManifestAccess };

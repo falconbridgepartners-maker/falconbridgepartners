@@ -8,6 +8,7 @@ import { input, btn, btnGhost } from '@/components/admin/ui';
 
 const TERRITORY: Record<string, string> = {
   'uae-gcc': 'UAE / GCC', 'south-africa': 'South Africa', 'new-zealand': 'New Zealand', mauritius: 'Mauritius', 'north-carolina': 'North Carolina', singapore: 'Singapore',
+  global: 'Global', usa: 'USA',
 };
 const ACCESS: Record<string, string> = { open: 'open', request: 'in the pack', internal: 'internal' };
 const STATE: Record<string, string> = { new: 'new', draft: 'draft exists', published: 'live', none: '—' };
@@ -19,7 +20,7 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
   const [run, setRun] = useState<Run>({ busy: false, results: {} });
   const [confirmPublish, setConfirmPublish] = useState(false);
   const [overwrite, setOverwrite] = useState(false);
-  const anyLive = m.entries.some((e) => e.scanState === 'published' || e.reportState === 'published');
+  const anyLive = m.entries.some((e) => e.scanState === 'published' || e.reportState === 'published' || e.pieceState === 'published');
 
   const start = async (publish: boolean) => {
     setConfirmPublish(false);
@@ -69,10 +70,11 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
                 <div key={e.index} className="rounded-lg border border-brand-gold/15 p-4">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="text-white font-bold">{TERRITORY[e.territory] ?? e.territory}</p>
-                    <p className="text-xs text-white/45">scan: {STATE[e.scanState]} · study: {STATE[e.reportState]}</p>
+                    <p className="text-xs text-white/45">scan: {STATE[e.scanState]} · study: {STATE[e.reportState]}{e.pieceSlug ? ` · piece: ${STATE[e.pieceState]}` : ''}</p>
                   </div>
                   {e.reportTitle && <p className="text-sm text-white/75 mt-1">{e.reportTitle}</p>}
                   {e.scanTitle && <p className="text-xs text-white/45 mt-0.5">{e.scanTitle}</p>}
+                  {e.pieceTitle && <p className="text-sm text-white/75 mt-1"><span className="text-white/45">Professional Curiosity piece: </span>{e.pieceTitle}</p>}
                   {e.files.length > 0 && (
                     <p className="text-xs text-white/50 mt-2">{e.files.map((f) => `${f.label} (${ACCESS[f.access]})`).join(' · ')}</p>
                   )}
@@ -80,7 +82,7 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
                   {r && r !== 'working' && (
                     <div className={`text-xs mt-3 ${r.status === 'failed' ? 'text-red-200' : 'text-white/70'}`} role="status">
                       <p className="font-bold">
-                        {r.status === 'skipped' ? 'Skipped.' : r.status === 'failed' ? 'Failed.' : r.report?.published || r.scan?.published ? 'Published.' : 'Saved as draft.'}
+                        {r.status === 'skipped' ? 'Skipped.' : r.status === 'failed' ? 'Failed.' : r.report?.published || r.scan?.published || r.piece?.published ? 'Published.' : 'Saved as draft.'}
                         {r.detail ? ` ${r.detail}` : ''}
                       </p>
                       {r.files.length > 0 && <p className="mt-1">{r.files.map((f) => `${f.label}: ${f.status}${f.detail ? ` (${f.detail})` : ''}`).join(' · ')}</p>}
@@ -88,8 +90,12 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
                       <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
                         {r.report && <Link className="underline underline-offset-4" href={`/admin/reports/${r.report.id}`}>Edit study</Link>}
                         {r.scan && <Link className="underline underline-offset-4" href={`/admin/scans/${r.scan.id}`}>Edit scan</Link>}
+                        {r.piece && <Link className="underline underline-offset-4" href={`/admin/pieces/${r.piece.id}`}>Edit piece</Link>}
                         {r.report?.published && <a className="underline underline-offset-4" href={`/research/studies/${r.report.slug}`} target="_blank" rel="noopener">View study</a>}
                         {r.scan?.published && <a className="underline underline-offset-4" href={`/research/weekly-scan/${r.scan.slug}`} target="_blank" rel="noopener">View scan</a>}
+                        {r.piece && (r.piece.published
+                          ? <a className="underline underline-offset-4" href={`/research/professional-curiosity/${r.piece.slug}`} target="_blank" rel="noopener">View piece</a>
+                          : <a className="underline underline-offset-4" href={`/admin/pieces/${r.piece.id}/preview`} target="_blank" rel="noopener">Preview piece</a>)}
                       </p>
                     </div>
                   )}
@@ -103,7 +109,7 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
               {problems.length
                 ? `${problems.length} of ${m.entries.length} territories need attention. Run the import again to retry; files already copied are not copied twice.`
                 : run.mode === 'publish' ? `Week ${m.weekLabel ?? ''} is published: ${m.entries.length} ${m.entries.length === 1 ? 'entry' : 'entries'}.`
-                : done.every((r) => r.report?.published || r.scan?.published) ? `Week ${m.weekLabel ?? ''} is updated. The entries were already live and stay live.`
+                : done.every((r) => r.report?.published || r.scan?.published || r.piece?.published) ? `Week ${m.weekLabel ?? ''} is updated. The entries were already live and stay live.`
                 : `Week ${m.weekLabel ?? ''} is saved as drafts. Review, then publish from here or from each entry.`}
             </p>
           )}
@@ -143,8 +149,9 @@ export default function WeeklyImport({ screen }: { screen: ImportScreen }) {
     try { setPasted(await checkPastedManifest(json)); } finally { setChecking(false); }
   };
 
-  // A manifest is finished when every scan and study it names is live; those are folded away below.
-  const isImported = (m: ManifestSummary) => m.errors.length === 0 && m.entries.length > 0 && m.entries.every((e) => (e.scanState === 'published' || e.scanState === 'none') && (e.reportState === 'published' || e.reportState === 'none'));
+  // A manifest is finished when every scan, study and piece it names is live; those are folded away below.
+  const live = (s: string) => s === 'published' || s === 'none';
+  const isImported = (m: ManifestSummary) => m.errors.length === 0 && m.entries.length > 0 && m.entries.every((e) => live(e.scanState) && live(e.reportState) && live(e.pieceState));
   const pending = screen.manifests.filter((m) => !isImported(m));
   const imported = screen.manifests.filter(isImported);
 

@@ -6,14 +6,25 @@ import PageHero from '@/components/dss/PageHero';
 import Invitation from '@/components/dss/Invitation';
 import RequestReport from '@/components/dss/RequestReport';
 import { Section, Band, NextLink } from '@/components/dss/Tiles';
-import { getReportBySlug, getScanForStudy, hasGatedPack, publicMediaUrl, readerFiles, territoryName, weekText } from '@/lib/data';
+import { clip } from '@/lib/pieces';
+import { generatedImagePath, shareMetadata } from '@/lib/share';
+import { getPieceForStudy, getReportBySlug, getScanForStudy, hasGatedPack, hasRequestForm, publicMediaUrl, readerFiles, territoryName, weekText } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const s = await getReportBySlug(params.slug);
   if (!s) return {};
-  return { title: `${s.title} — FalconBridge Partners`, description: s.subtitle ?? undefined, openGraph: s.cover_path ? { images: [publicMediaUrl(s.cover_path)!] } : undefined };
+  const cover = publicMediaUrl(s.cover_path);
+  // The link preview carries this study's own title, description and image on LinkedIn and on X alike.
+  return shareMetadata({
+    pageTitle: `${s.title} — FalconBridge Partners`,
+    title: s.title,
+    description: s.subtitle ?? (s.body ? clip(s.body) : null),
+    path: `/research/studies/${s.slug}`,
+    image: cover ? { url: cover, generated: false } : { url: generatedImagePath('study', s.slug), generated: true },
+    publishedTime: s.published_at,
+  });
 }
 
 const COUNT = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six'];
@@ -29,8 +40,8 @@ export default async function StudyPage({ params }: { params: { slug: string } }
   const files = auto ? readerFiles(all) : all.filter((f) => f.access !== 'internal');
   const isOpen = (f: (typeof files)[number]) => Boolean(f.storage_path) && f.access === 'open';
   const hasOpen = files.some(isOpen);
-  const hasRequest = auto || files.some((f) => !isOpen(f));
-  const scan = await getScanForStudy(s.id);
+  const hasRequest = hasRequestForm(all);
+  const [scan, piece] = await Promise.all([getScanForStudy(s.id), getPieceForStudy(s.id)]);
   return (
     <>
       <PageHero eyebrow={`${s.kind === 'study' ? 'Public study' : s.kind === 'sample' ? 'Commissioned sample' : 'White paper'} · ${territoryName[s.territory] ?? s.territory}${s.year ? ` · ${s.year}` : ''}`} title={s.title} governing={s.subtitle ?? undefined}>
@@ -69,6 +80,7 @@ export default async function StudyPage({ params }: { params: { slug: string } }
               </div>
             ))}
             {scan && <NextLink href={`/research/weekly-scan/${scan.slug}`} label="The Weekly Signal behind this study" sub={[territoryName[scan.territory] ?? scan.territory, weekText(scan.week_label) ?? `week of ${scan.week_of}`].join(' · ')} />}
+            {piece && <NextLink href={`/research/professional-curiosity/${piece.slug}`} label="The Professional Curiosity piece on this study" sub={piece.title} />}
           </div>
         </div>
       </Section>
