@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import PageHero from '@/components/dss/PageHero';
 import Invitation from '@/components/dss/Invitation';
 import SignalAsIssued from '@/components/dss/SignalAsIssued';
@@ -26,6 +28,13 @@ export default async function ScanEntryPage({ params }: { params: { slug: string
   const svc = services.find((s) => s.key === e.service);
   const study = await getStudyForScan(e);
   const place = territoryName[e.territory] ?? e.territory;
+  // The study a signal led to is offered at the top of the page as well as at the foot, so a reader need not scroll to find it.
+  const studyCta = study && (
+    <div className="mt-8">
+      <Button href={`/research/studies/${study.slug}`} variant="primary" size="sm" icon={ArrowRight}>Read the study this signal led to</Button>
+      <p className="text-sm text-white/55 mt-3">{study.title}</p>
+    </div>
+  );
   const after = (
     <>
       {study && <div className="mt-8"><NextLink href={`/research/studies/${study.slug}`} label={`The study this signal led to: ${study.title}`} sub={study.subtitle ?? 'Read the summary and get the research pack.'} /></div>}
@@ -44,7 +53,9 @@ export default async function ScanEntryPage({ params }: { params: { slug: string
           title={c.heading}
           governing={c.review_period ? `Review period: ${c.review_period}` : undefined}
           intro={c.briefing ?? undefined}
-        />
+        >
+          {studyCta}
+        </PageHero>
         <Section>
           <SignalAsIssued content={c} />
           <div className="mt-14"><Band title="A scan frames an investigation" body={SCAN_BOUNDARY} /></div>
@@ -59,6 +70,7 @@ export default async function ScanEntryPage({ params }: { params: { slug: string
     <>
       <PageHero eyebrow={`Weekly Scan · ${place} · Week of ${e.week_of}`} title="A signal, and the question it raises" governing={e.question} intro={e.signal}>
         {e.sample && <p className="mt-6 inline-block text-[0.7rem] text-brand-gold-pale border border-brand-gold/40 rounded-full px-3 py-1">Sample — prototype placeholder</p>}
+        {studyCta}
       </PageHero>
       <Section>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
