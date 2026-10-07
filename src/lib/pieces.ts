@@ -11,8 +11,8 @@
 export const PIECE_FORMAT = 'professional-curiosity-v1';
 export const PIECE_SERIES = 'Professional Curiosity Series';
 
-/** A figure with the line that explains it. */
-export type PieceStat = { figure: string; label: string };
+/** A figure with the line that explains it. `highlight` marks the tile the piece sets apart (the finding). */
+export type PieceStat = { figure: string; label: string; highlight?: boolean };
 /** One numbered callout: an optional short title and its text. */
 export type PieceItem = { title?: string; body: string };
 
@@ -22,8 +22,10 @@ export type PieceItem = { title?: string; body: string };
  */
 export type PieceBlock =
   | { type: 'paragraph'; text: string }
+  | { type: 'lead'; text: string }       // a paragraph the piece sets larger and bold: its central finding
+  | { type: 'note'; text: string }       // a boxed aside, such as the line that explains the series
   | { type: 'heading'; text: string }
-  | { type: 'stats'; items: PieceStat[] }
+  | { type: 'stats'; items: PieceStat[]; caption?: string }   // caption: the base line printed under the tiles
   | { type: 'callouts'; heading?: string; items: PieceItem[] }
   | { type: 'questions'; heading?: string; items: string[] }
   | { type: 'list'; items: string[] }
@@ -37,12 +39,13 @@ export type PieceContent = {
   byline?: string;            // the byline as issued; composed from the dates when absent
   standfirst?: string;        // an opening line set apart from the body
   blocks: PieceBlock[];
+  request_note?: string;      // the line printed under the "Request the full study" button
   disclaimer?: string;        // the closing disclaimer, as issued
 };
 
 const isStr = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
 const optStr = (v: unknown) => v === undefined || v === null || typeof v === 'string';
-const BLOCK_TYPES = ['paragraph', 'heading', 'stats', 'callouts', 'questions', 'list', 'quote'] as const;
+const BLOCK_TYPES = ['paragraph', 'lead', 'note', 'heading', 'stats', 'callouts', 'questions', 'list', 'quote'] as const;
 
 /** Adds the problems found in a piece's content to `errs`. `at` names where it sits, for the message. */
 export function validatePieceContent(c: unknown, at: string, errs: string[]): void {
@@ -50,20 +53,21 @@ export function validatePieceContent(c: unknown, at: string, errs: string[]): vo
   if (!x || typeof x !== 'object') { errs.push(`${at}: not an object.`); return; }
   if (x.format !== PIECE_FORMAT) errs.push(`${at}.format must be "${PIECE_FORMAT}".`);
   if (!isStr(x.headline)) errs.push(`${at}.headline is required.`);
-  for (const k of ['series', 'headline_accent', 'byline', 'standfirst', 'disclaimer'] as const) if (!optStr(x[k])) errs.push(`${at}.${k} must be text.`);
+  for (const k of ['series', 'headline_accent', 'byline', 'standfirst', 'request_note', 'disclaimer'] as const) if (!optStr(x[k])) errs.push(`${at}.${k} must be text.`);
   if (isStr(x.headline) && isStr(x.headline_accent) && !x.headline.trim().endsWith(x.headline_accent.trim())) errs.push(`${at}.headline_accent must be the closing words of the headline.`);
   if (!Array.isArray(x.blocks) || x.blocks.length === 0) { errs.push(`${at}.blocks must list at least one block.`); return; }
   if (x.blocks.length > 200) errs.push(`${at}.blocks: at most 200.`);
   x.blocks.forEach((b, i) => {
     const ba = `${at}.blocks[${i}]`;
-    const blk = b as { type?: string; text?: unknown; heading?: unknown; attribution?: unknown; items?: unknown } | null;
+    const blk = b as { type?: string; text?: unknown; heading?: unknown; caption?: unknown; attribution?: unknown; items?: unknown } | null;
     if (!blk || typeof blk !== 'object' || !(BLOCK_TYPES as readonly string[]).includes(blk.type ?? '')) { errs.push(`${ba}.type must be one of ${BLOCK_TYPES.join(', ')}.`); return; }
-    if (blk.type === 'paragraph' || blk.type === 'heading' || blk.type === 'quote') {
+    if (blk.type === 'paragraph' || blk.type === 'lead' || blk.type === 'note' || blk.type === 'heading' || blk.type === 'quote') {
       if (!isStr(blk.text)) errs.push(`${ba}.text is required.`);
       if (blk.type === 'quote' && !optStr(blk.attribution)) errs.push(`${ba}.attribution must be text.`);
       return;
     }
     if (!optStr(blk.heading)) errs.push(`${ba}.heading must be text.`);
+    if (!optStr(blk.caption)) errs.push(`${ba}.caption must be text.`);
     if (!Array.isArray(blk.items) || blk.items.length === 0) { errs.push(`${ba}.items must list at least one item.`); return; }
     if (blk.items.length > 24) errs.push(`${ba}.items: at most 24.`);
     blk.items.forEach((it, j) => {

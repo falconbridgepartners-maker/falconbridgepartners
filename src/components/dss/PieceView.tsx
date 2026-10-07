@@ -32,6 +32,7 @@ export default function PieceView({ piece, study }: { piece: Piece; study: Study
               {study.canRequest && <Button href={`/research/studies/${study.slug}#research-pack`} variant="primary" size="sm" icon={ArrowRight}>Request the full study</Button>}
               <Link href={`/research/studies/${study.slug}`} className="inline-flex items-center gap-2 text-brand-gold-pale text-sm">Examine the study <ArrowRight className="w-4 h-4" /></Link>
             </div>
+            {c.request_note && <p className="text-sm text-white/50 mt-5">{c.request_note}</p>}
           </div>
         )}
         {c.disclaimer && <p className="text-sm text-white/45 whitespace-pre-line max-w-4xl border-t border-brand-gold/15 pt-6 mt-12">{c.disclaimer}</p>}

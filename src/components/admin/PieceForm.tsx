@@ -31,7 +31,7 @@ export default function PieceForm({ piece, reports = [] }: { piece?: Piece; repo
           <Field id="description" title="Link-preview description" hint="One or two sentences shown under the headline when the link is shared, and on the index. Leave blank to use the piece’s opening lines."><textarea id="description" name="description" rows={2} defaultValue={piece?.description ?? ''} className={`${input} resize-y`} /></Field>
         </div>
       </div>
-      <Field id="content" title="The piece, as issued" hint="Headline, blocks (paragraph, heading, stats, callouts, questions, list, quote) and disclaimer. The format is described in docs/WEEKLY_PIPELINE.md. It is checked when you save.">
+      <Field id="content" title="The piece, as issued" hint="Headline, blocks (paragraph, lead, note, heading, stats, callouts, questions, list, quote) and disclaimer. The format is described in docs/WEEKLY_PIPELINE.md. It is checked when you save.">
         <textarea id="content" name="content" required rows={22} spellCheck={false} defaultValue={piece ? JSON.stringify(piece.content, null, 2) : EMPTY} className={`${input} font-mono text-xs resize-y`} />
       </Field>
       <div className="tile p-5 space-y-3">

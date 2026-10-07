@@ -21,12 +21,18 @@ export function Inline({ text }: { text: string }) {
   );
 }
 
-const two = (n: number) => String(n).padStart(2, '0');
-
 function Block({ block }: { block: PieceBlock }) {
   switch (block.type) {
     case 'paragraph':
       return <p className="text-white/75 whitespace-pre-line max-w-3xl"><Inline text={block.text} /></p>;
+    case 'lead':
+      return <p className="text-xl md:text-2xl font-bold text-white leading-snug whitespace-pre-line max-w-3xl"><Inline text={block.text} /></p>;
+    case 'note':
+      return (
+        <div className="tile-ivory !border-l-4 !border-l-brand-gold p-5 md:p-6 max-w-3xl [&_strong]:!text-[#262626]">
+          <p className="text-sm md:text-[0.95rem] whitespace-pre-line"><Inline text={block.text} /></p>
+        </div>
+      );
     case 'heading':
       return <h2 className="text-2xl md:text-3xl max-w-3xl pt-4"><Inline text={block.text} /></h2>;
     case 'quote':
@@ -38,13 +44,23 @@ function Block({ block }: { block: PieceBlock }) {
       );
     case 'stats':
       return (
-        <div className={`grid grid-cols-1 gap-4 ${block.items.length === 2 ? 'sm:grid-cols-2' : block.items.length === 4 ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3'}`}>
-          {block.items.map((s, i) => (
-            <div key={i} className="tile-ivory p-6 [&_strong]:text-[#262626]">
-              <p className="governing text-3xl md:text-4xl leading-tight mb-2" style={{ color: '#262626' }}>{s.figure}</p>
-              <p className="text-sm"><Inline text={s.label} /></p>
-            </div>
-          ))}
+        <div>
+          <div className={`grid grid-cols-1 gap-4 ${block.items.length === 2 ? 'sm:grid-cols-2' : block.items.length === 4 ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3'}`}>
+            {block.items.map((s, i) => (
+              s.highlight ? (
+                <div key={i} className="tile !border-brand-gold p-6">
+                  <p className="governing text-3xl md:text-4xl leading-tight mb-2 text-white">{s.figure}</p>
+                  <p className="text-sm text-brand-gold-pale"><Inline text={s.label} /></p>
+                </div>
+              ) : (
+                <div key={i} className="tile-ivory p-6 [&_strong]:!text-[#262626]">
+                  <p className="governing text-3xl md:text-4xl leading-tight mb-2" style={{ color: '#262626' }}>{s.figure}</p>
+                  <p className="text-sm"><Inline text={s.label} /></p>
+                </div>
+              )
+            ))}
+          </div>
+          {block.caption && <p className="text-sm text-white/45 mt-3 max-w-3xl"><Inline text={block.caption} /></p>}
         </div>
       );
     case 'callouts':
@@ -53,12 +69,9 @@ function Block({ block }: { block: PieceBlock }) {
           {block.heading && <h2 className="text-2xl md:text-3xl max-w-3xl mb-6"><Inline text={block.heading} /></h2>}
           <ol className="list-none space-y-4">
             {block.items.map((c, i) => (
-              <li key={i} className="tile p-6 md:p-7 flex gap-5 md:gap-7">
-                <span className="governing text-3xl md:text-4xl leading-none shrink-0 w-10 md:w-12" aria-hidden="true">{two(i + 1)}</span>
-                <div className="min-w-0">
-                  {c.title && <h3 className="text-lg md:text-xl mb-2"><Inline text={c.title} /></h3>}
-                  <p className="text-white/75 text-[0.95rem] md:text-base whitespace-pre-line"><Inline text={c.body} /></p>
-                </div>
+              <li key={i} className="tile p-6 md:p-7">
+                <p className="label-tech !text-[0.75rem] mb-3">{i + 1}{c.title ? <> · <Inline text={c.title} /></> : null}</p>
+                <p className="text-white/75 whitespace-pre-line max-w-4xl"><Inline text={c.body} /></p>
               </li>
             ))}
           </ol>

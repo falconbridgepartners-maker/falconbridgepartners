@@ -142,13 +142,16 @@ A piece can also be reviewed, linked to its study and published from **Professio
           "headline_accent": "Second sentence of the headline.",
           "blocks": [
             { "type": "paragraph", "text": "Body text. **Bold** and *italic* are kept." },
-            { "type": "stats", "items": [{ "figure": "4.9%", "label": "What the figure measures" }] },
+            { "type": "lead", "text": "The paragraph the piece sets larger and bold." },
+            { "type": "note", "text": "A boxed aside, such as the line that explains the series." },
+            { "type": "stats", "items": [{ "figure": "4.9%", "label": "What the figure measures" }, { "figure": "0", "label": "The finding", "highlight": true }], "caption": "The base line under the tiles." },
             { "type": "heading", "text": "A section heading" },
             { "type": "callouts", "heading": "Optional heading", "items": [{ "title": "Optional title", "body": "Callout text" }] },
             { "type": "questions", "heading": "Optional heading", "items": ["A question?", "Another question?"] },
             { "type": "list", "items": ["A bullet"] },
             { "type": "quote", "text": "A pull quote", "attribution": "Optional" }
           ],
+          "request_note": "The line under the Request the full study button.",
           "disclaimer": "The closing disclaimer, as issued."
         }
       }
@@ -161,7 +164,8 @@ A piece can also be reviewed, linked to its study and published from **Professio
 - `study` is the slug of the study behind the piece. Leave it out when the same entry carries the `report`.
 - `published_at` gives the byline its month and year; `evidence_date` gives it the evidence date. The byline reads “FalconBridge Partners · October 2026 · Own-account research, evidence date 21 September 2026”. To carry a byline exactly as issued instead, put it in `content.byline`.
 - `headline_accent` is the closing part of the headline set in gold. It must be the last words of `headline`.
-- Callouts and questions are numbered by the site in the order given.
+- Callouts and questions are numbered by the site in the order given. A callout's title is shown as its label: “1 · TITLE”.
+- From an issued email, the email's own wrapper is left out: the logo, the sender's covering note, and the sign-off lines under the disclaimer.
 - `share_image` (optional) is a Dropbox reference to a 1200 × 630 image for the link preview. Without it the site draws one from the headline.
 - Needs `supabase/006_pieces.sql`.
 
