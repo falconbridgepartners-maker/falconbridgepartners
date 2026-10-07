@@ -107,7 +107,8 @@ export async function GET(_req: Request, { params }: { params: { kind: string; s
         { name: 'Gelasio', data: italic, weight: 400, style: 'italic' },
       ],
       // The address stays the same when a headline is corrected, so the image is cached for an hour, not for good.
-      headers: { 'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400' },
+      // The key is lower-case on purpose: it replaces ImageResponse's own year-long "immutable" default rather than adding to it.
+      headers: { 'cache-control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400' },
     },
   );
 }
