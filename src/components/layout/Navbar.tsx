@@ -17,8 +17,6 @@ const Navbar: React.FC = () => {
     const [menuOpen, setMenuOpen] = useState(false);
     const [openDropdown, setOpenDropdown] = useState<string | null>(null);
     const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const navRef = useRef<HTMLElement | null>(null);
-    const [barHeight, setBarHeight] = useState(0);     // mobile sheet opens below the bar
 
     useEffect(() => {
         const handleScroll = () => {
@@ -35,13 +33,6 @@ const Navbar: React.FC = () => {
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
-
-    useEffect(() => {
-        const measure = () => setBarHeight(navRef.current?.offsetHeight ?? 0);
-        measure();
-        window.addEventListener('resize', measure);
-        return () => window.removeEventListener('resize', measure);
-    }, [scrolled]);
 
     useEffect(() => {
         if (!menuOpen) return;
@@ -61,7 +52,6 @@ const Navbar: React.FC = () => {
 
     return (
         <nav
-            ref={navRef}
             className={cn(
                 "sticky top-0 z-50 w-full transition-all duration-500 bg-brand-navy/80 backdrop-blur-md border-b border-brand-gold/15",
                 scrolled ? "py-3" : "py-6",
@@ -141,10 +131,14 @@ const Navbar: React.FC = () => {
                 </div>
             </div>
 
+            {/* The nav's backdrop-filter makes it the containing block for fixed
+                children, so a `fixed` sheet is measured against the bar and collapses
+                to zero height. Anchor it to the bar instead: `top-full` starts it at
+                the bar's bottom edge and `100dvh - 100%` (100% = the bar's own height)
+                fills the rest of the viewport at either bar size. */}
             {menuOpen && (
                 <div
-                    className="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-brand-navy overflow-y-auto border-t border-brand-gold/15"
-                    style={{ top: barHeight }}
+                    className="lg:hidden absolute inset-x-0 top-full h-[calc(100dvh-100%)] z-40 bg-brand-navy overflow-y-auto overscroll-contain border-t border-brand-gold/15"
                     role="dialog"
                     aria-modal="true"
                     aria-label="Site menu"
