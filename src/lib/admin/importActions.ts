@@ -48,11 +48,16 @@ export async function loadImportScreen(): Promise<ImportScreen> {
   if (!base.configured || !base.connection.connected) return base;
   try {
     const files = (await listFolder(publishPath(), true)).filter((e) => e.tag === 'file' && /manifest.*\.json$/i.test(e.name));
-    files.sort((a, b) => (b.path > a.path ? 1 : -1));
-    for (const f of files.slice(0, 8)) {
-      const folderName = f.path.split('/').slice(-2, -1)[0] ?? f.name;
-      try { base.manifests.push(await summarise(f.path, folderName, (await downloadText(f.id)).text, f.modified)); }
-      catch (e) { base.manifests.push({ source: f.path, name: folderName, entries: [], errors: [e instanceof Error ? e.message : String(e)] }); }
+    // Newest saved first, so the manifest just written is always at the top however many weeks are on file.
+    files.sort((a, b) => ((b.modified ?? '') > (a.modified ?? '') ? 1 : (b.modified ?? '') < (a.modified ?? '') ? -1 : b.path > a.path ? 1 : -1));
+    const recent = files.slice(0, 60);
+    for (let i = 0; i < recent.length; i += 8) {
+      const batch = await Promise.all(recent.slice(i, i + 8).map(async (f) => {
+        const label = f.name.replace(/\.json$/i, '');
+        try { return await summarise(f.path, label, (await downloadText(f.id)).text, f.modified); }
+        catch (e) { return { source: f.path, name: label, entries: [], errors: [e instanceof Error ? e.message : String(e)] } as ManifestSummary; }
+      }));
+      base.manifests.push(...batch);
     }
   } catch (e) {
     base.error = e instanceof DropboxError && e.code === 'not-found'

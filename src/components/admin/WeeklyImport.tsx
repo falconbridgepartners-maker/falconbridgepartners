@@ -45,6 +45,7 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <h2 className="text-2xl">{m.weekLabel ?? m.name}</h2>
+          {m.weekLabel && m.name !== m.weekLabel && <p className="text-white/70 text-sm mt-1">{m.name}</p>}
           <p className="text-white/50 text-xs mt-1">
             {[m.reviewPeriod && `Review period ${m.reviewPeriod}`, m.preparedBy && `prepared by ${m.preparedBy}`, m.modified && `saved ${new Date(m.modified).toLocaleString('en-GB')}`].filter(Boolean).join(' · ')}
           </p>
@@ -142,6 +143,11 @@ export default function WeeklyImport({ screen }: { screen: ImportScreen }) {
     try { setPasted(await checkPastedManifest(json)); } finally { setChecking(false); }
   };
 
+  // A manifest is finished when every scan and study it names is live; those are folded away below.
+  const isImported = (m: ManifestSummary) => m.errors.length === 0 && m.entries.length > 0 && m.entries.every((e) => (e.scanState === 'published' || e.scanState === 'none') && (e.reportState === 'published' || e.reportState === 'none'));
+  const pending = screen.manifests.filter((m) => !isImported(m));
+  const imported = screen.manifests.filter(isImported);
+
   return (
     <div className="space-y-8">
       <section className="tile p-6">
@@ -166,11 +172,23 @@ export default function WeeklyImport({ screen }: { screen: ImportScreen }) {
 
       {screen.error && <p className="text-sm text-red-200 bg-red-900/20 border border-red-500/30 rounded-lg p-4" role="alert">{screen.error}</p>}
 
+      {screen.connection.connected && !screen.error && screen.manifests.length > 0 && pending.length === 0 && (
+        <p className="text-white/60 text-sm">Nothing is waiting. Every manifest in the publishing folder has been imported.</p>
+      )}
+
       {screen.connection.connected && !screen.error && screen.manifests.length === 0 && (
         <p className="text-white/60 text-sm">No manifest yet. When a week is ready, its <code>manifest.json</code> appears in a dated folder inside the publishing folder and shows up here.</p>
       )}
 
-      {screen.manifests.map((m) => <ManifestCard key={m.source} m={m} />)}
+      {pending.map((m) => <ManifestCard key={m.source} m={m} />)}
+
+      {imported.length > 0 && (
+        <details className="tile p-6">
+          <summary className="cursor-pointer text-white font-bold">Already imported ({imported.length})</summary>
+          <p className="text-sm text-white/60 mt-3 mb-5">Every entry in these manifests is live. Open one to import it again, for example after a file is replaced in Dropbox.</p>
+          <div className="space-y-6">{imported.map((m) => <ManifestCard key={m.source} m={m} />)}</div>
+        </details>
+      )}
 
       <details className="tile p-6">
         <summary className="cursor-pointer text-white font-bold">Paste a manifest instead</summary>

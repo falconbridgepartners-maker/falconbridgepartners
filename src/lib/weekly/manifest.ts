@@ -11,7 +11,7 @@
 
 export const MANIFEST_VERSION = 1;
 
-export const TERRITORY_KEYS = ['uae-gcc', 'south-africa', 'new-zealand', 'mauritius', 'north-carolina', 'singapore', 'global'] as const;
+export const TERRITORY_KEYS = ['uae-gcc', 'south-africa', 'new-zealand', 'mauritius', 'north-carolina', 'singapore', 'global', 'usa'] as const;
 export const SERVICE_KEYS = ['ceaas', 'raas', 'caas', 'emaas', 'aaas', 'none'] as const;
 export const ACCESS_KEYS = ['open', 'request', 'internal'] as const;
 
