@@ -23,6 +23,12 @@ export const siteSender = (kind: Kind) => `${NAME[kind]} <${kind}@${configuredAd
 /** The same name on the address in RESEND_FROM: used only if the site's own address is refused. */
 const sharedSender = (kind: Kind) => `${NAME[kind]} <${configuredAddress()}>`;
 
+/** Where a reader books a discovery call. DISCOVERY_CALL_URL overrides the default. */
+export const discoveryCallUrl = () => {
+  const url = (process.env.DISCOVERY_CALL_URL || '').trim();
+  return /^https:\/\/[^\s"<>]+$/.test(url) ? url : 'https://calendly.com/falconbp-research/discovery';
+};
+
 /** Where pack requests are reported, and where a reader's reply goes. */
 export const leadsAddress = () => process.env.RESEND_LEADS_EMAIL || 'info@falconbp.com';
 
