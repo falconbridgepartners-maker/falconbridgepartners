@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ACRONYMS } from '@/content/acronyms';
 
@@ -12,8 +12,31 @@ export default function Acronym({ term }: { term: string }) {
   const info = ACRONYMS[term];
   const [open, setOpen] = useState(false);
   const [more, setMore] = useState(false);
+  /** Horizontal shift and vertical flip so the popover stays inside the viewport whatever the term's position. */
+  const [shift, setShift] = useState(0);
+  const [below, setBelow] = useState(false);
   const root = useRef<HTMLSpanElement>(null);
+  const pop = useRef<HTMLSpanElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open) { setShift(0); setBelow(false); return; }
+    const place = () => {
+      const el = pop.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const margin = 12;
+      let dx = 0;
+      if (r.left - 0 < margin) dx = margin - r.left;
+      else if (r.right > window.innerWidth - margin) dx = window.innerWidth - margin - r.right;
+      if (dx) setShift((s) => s + dx);
+      if (!below && r.top < margin) setBelow(true);
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
+  }, [open, more, below]);
 
   useEffect(() => {
     if (!open) return;
@@ -43,8 +66,10 @@ export default function Acronym({ term }: { term: string }) {
       </button>
       {open && (
         <span
+          ref={pop}
           role="tooltip"
-          className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 block w-[min(24rem,88vw)] rounded-xl border border-brand-gold/40 bg-[#0d1322] p-5 text-left shadow-2xl normal-case not-italic font-normal tracking-normal"
+          style={{ transform: `translateX(calc(-50% + ${shift}px))` }}
+          className={`absolute left-1/2 ${below ? 'top-full mt-2' : 'bottom-full mb-2'} z-50 block w-[min(24rem,88vw)] rounded-xl border border-brand-gold/40 bg-[#0d1322] p-5 text-left shadow-2xl normal-case not-italic font-normal tracking-normal`}
         >
           <span className="block text-white font-bold text-sm leading-snug">{info.name}</span>
           {info.question && <span className="governing block text-brand-gold-pale text-sm leading-snug mt-2">{info.question}</span>}
