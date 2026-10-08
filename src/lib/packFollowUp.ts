@@ -24,11 +24,8 @@ export async function sendDownloadFollowUp(request: AccessRequest, report: Pick<
   if (earlier && earlier.length > 0) return 'skipped';
 
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const sent = await sendFromSite('research', (from) => resend.emails.send({
-    from, to: request.email, replyTo: leadsAddress(),
-    subject: 'Thank you for downloading the research pack',
-    html: buildDownloadFollowUpEmail({ name: request.full_name, studyTitle: report.title, bookingUrl: discoveryCallUrl(), replyTo: leadsAddress() }),
-  }));
+  const email = buildDownloadFollowUpEmail({ name: request.full_name, studyTitle: report.title, bookingUrl: discoveryCallUrl(), replyTo: leadsAddress() });
+  const sent = await sendFromSite('research', (from) => resend.emails.send({ from, to: request.email, replyTo: leadsAddress(), ...email }));
   if (sent.error) { console.error('[pack] follow-up email', sent.error); return 'failed'; }
   await db.from('access_requests').update({ followup_sent_at: new Date().toISOString() }).eq('id', request.id);
   return 'sent';
