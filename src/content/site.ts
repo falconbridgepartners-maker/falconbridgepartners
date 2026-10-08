@@ -162,7 +162,7 @@ export const services: Service[] = [
     grouping: 'External signal',
     governingQuestion:
       'What does the evidence support, what remains uncertain, and what does that mean for your decision?',
-    summary: 'Investigate a defined question through GDRS.',
+    summary: 'Investigate a defined question through our research system (GDRS).',
     intro:
       'RaaS investigates a defined question through the Global Discovery Research System (GDRS) and delivers a complete bespoke package: the investigation itself, and the means for readers to understand, challenge and apply it at the depth their decision requires.',
     columns: [
