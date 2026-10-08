@@ -904,7 +904,7 @@ export const nav = {
       href: '/decision-support-system',
       children: [
         ...services.map((s) => ({ label: `${s.acronym} · ${s.name}`, href: `/decision-support-system/${s.slug}` })),
-        { label: 'IRaaS \u00b7 Intelligence Research', href: '/bespoke-managed-services' },
+        { label: 'IRaaS \u00b7 Intelligence Research as a Service', href: '/bespoke-managed-services' },
       ],
     },
     {
