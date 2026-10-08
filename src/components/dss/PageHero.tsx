@@ -1,4 +1,5 @@
 import React from 'react';
+import { acronymize } from '@/components/dss/acronymize';
 
 interface Props {
     eyebrow?: string;
@@ -16,8 +17,8 @@ const PageHero: React.FC<Props> = ({ eyebrow, title, titleAccent, governing, int
             <div className="max-w-4xl">
                 {eyebrow && <p className="label-tech mb-5">{eyebrow}</p>}
                 <h1 className="mb-6">{title}{titleAccent ? <> <span className="text-brand-gold">{titleAccent}</span></> : null}</h1>
-                {governing && <p className="governing text-2xl md:text-[2rem] leading-snug mb-8 max-w-3xl">{governing}</p>}
-                {intro && <p className="text-white/75 text-lg md:text-xl max-w-3xl">{intro}</p>}
+                {governing && <p className="governing text-2xl md:text-[2rem] leading-snug mb-8 max-w-3xl">{acronymize(governing)}</p>}
+                {intro && <p className="text-white/75 text-lg md:text-xl max-w-3xl">{acronymize(intro)}</p>}
                 {children}
             </div>
         </div>

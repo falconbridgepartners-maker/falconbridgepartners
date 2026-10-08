@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { ArrowDown, Download } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import PageHero from '@/components/dss/PageHero';
+import { acronymize } from '@/components/dss/acronymize';
 import Invitation from '@/components/dss/Invitation';
 import RequestReport from '@/components/dss/RequestReport';
 import { Section, Band, NextLink } from '@/components/dss/Tiles';
@@ -70,13 +71,13 @@ export default async function StudyPage({ params }: { params: { slug: string } }
                 </div>
               </div>
             ) : null}
-            {s.body && <p className={`text-white/70 whitespace-pre-line ${extract || s.extract_note ? 'mt-6' : ''}`}>{s.body}</p>}
+            {s.body && <p className={`text-white/70 whitespace-pre-line ${extract || s.extract_note ? 'mt-6' : ''}`}>{acronymize(s.body)}</p>}
           </div>
           <div className="lg:col-span-5 space-y-4">
             {s.facts.map((f) => (
               <div key={f.figure} className="tile-ivory p-6">
                 <p className="governing text-2xl mb-1" style={{ color: '#262626' }}>{f.figure}</p>
-                <p className="text-sm">{f.body}</p>
+                <p className="text-sm">{acronymize(f.body)}</p>
               </div>
             ))}
             {scan && <NextLink href={`/research/weekly-scan/${scan.slug}`} label="The Weekly Signal behind this study" sub={[territoryName[scan.territory] ?? scan.territory, weekText(scan.week_label) ?? `week of ${scan.week_of}`].join(' · ')} />}

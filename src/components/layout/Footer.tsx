@@ -42,7 +42,7 @@ const Footer = async () => {
                             {services.map((s) => (
                                 <li key={s.key}><Link href={`/decision-support-system/${s.slug}`} className={col}>{s.acronym} · {s.short}</Link></li>
                             ))}
-                            <li><Link href="/bespoke-managed-services" className={col}>Bespoke Managed Services</Link></li>
+                            <li><Link href="/bespoke-managed-services" className={col}>Intelligence Research as a Service</Link></li>
                         </ul>
                     </div>
 
