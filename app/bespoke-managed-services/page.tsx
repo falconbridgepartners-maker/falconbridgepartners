@@ -2,17 +2,18 @@ import type { Metadata } from 'next';
 import PageHero from '@/components/dss/PageHero';
 import Invitation from '@/components/dss/Invitation';
 import { Section, Tile, ThreeColumns, Band, NextLink } from '@/components/dss/Tiles';
+import { acronymize } from '@/components/dss/acronymize';
 import { bespoke } from '@/content/site';
 
 export const metadata: Metadata = {
-  title: 'Bespoke Managed Services — FalconBridge Partners',
+  title: 'Intelligence Research as a Service — FalconBridge Partners',
   description: bespoke.intro,
 };
 
 export default function BespokePage() {
   return (
     <>
-      <PageHero eyebrow="A separate category" title={bespoke.heading} intro={bespoke.intro} />
+      <PageHero eyebrow="IRaaS · An emerging application" title={bespoke.heading} intro={bespoke.intro} />
       <Section>
         <ThreeColumns items={bespoke.columns} />
         <div className="mt-10"><Band title={bespoke.noteTitle} body={bespoke.note} /></div>
@@ -21,8 +22,8 @@ export default function BespokePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {bespoke.detail.map((d) => <Tile key={d.title} title={d.title} body={d.body} />)}
         </div>
-        <p className="governing text-2xl mt-12 mb-2">Intelligence Research as a Service (IRaaS)</p>
-        <p className="text-white/70 max-w-3xl">In development. Bespoke programmes sit separately from the five-service Decision Support System.</p>
+        <p className="governing text-2xl mt-12 mb-2">{acronymize('Intelligence Research as a Service (IRaaS)')}</p>
+        <p className="text-white/70 max-w-3xl">{acronymize('In development. IRaaS programmes sit separately from the five-service Decision Support System.')}</p>
       </Section>
       <Section eyebrow="Related">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
