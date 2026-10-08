@@ -34,6 +34,7 @@ export type AccessRequest = {
   consent: boolean; expires_at: string; first_opened_at: string | null; last_opened_at: string | null; open_count: number; download_count: number; created_at: string;
   /** When the "thank you, book a call" email went out after a first download (supabase/007_pack_follow_up.sql). */
   followup_sent_at?: string | null;
+  first_download_at?: string | null;
 };
 export type SiteSettings = { featured_report_id: string | null; portraits: Record<string, string> };
 export type PartnerRow = {
