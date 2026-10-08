@@ -145,9 +145,9 @@ export function buildDownloadFollowUpEmail({ name, studyTitle, bookingUrl, reply
   name: string; studyTitle: string; bookingUrl: string; replyTo: string;
 }): { subject: string; html: string; text: string } {
   const paragraphs = [
-    'Thank you for downloading the research pack. We hope it earns the time you give it.',
-    'A study answers the question it was asked. It was not written for your organisation, your market or the decision in front of you, and that is usually where the more useful conversation begins.',
-    'If you would like to test how its findings bear on your own situation, we would welcome that conversation. A discovery call takes 45 minutes, is held in confidence and carries no obligation. Its purpose is to establish what needs to be understood before your next decision.',
+    'Thank you for downloading the research pack. We have let a couple of days pass before writing, on purpose: the work is substantial, and by now most readers have been through the Executive Summary and used the full report\u2019s index to find their bearings.',
+    'There is no hurry from our side. A study answers the question it was asked; it was not written for your organisation, your market or the decision in front of you. In our experience the useful conversation starts once the findings have settled and your own questions begin to surface \u2014 usually about now, and in the days ahead.',
+    'When yours do, bring them to us. A discovery call takes 20 minutes, is held in confidence and carries no obligation. It is short on purpose: enough to establish what needs to be understood before your next decision.',
   ];
   const afterButton = 'If you would rather write, reply to this email. And if the study has missed something you know, tell us. We would rather be corrected than be comfortable.';
   const tagline = 'Sharper thinking when the decision stays with you.';
@@ -162,7 +162,7 @@ export function buildDownloadFollowUpEmail({ name, studyTitle, bookingUrl, reply
           <tr><td style="padding:30px 34px 8px;">
             <img src="${LOGO_URL}" alt="FalconBridge Partners" width="120" style="display:block;border:0;outline:none;" />
             <h1 style="margin:26px 0 10px;font-size:24px;line-height:1.3;color:#ffffff;font-weight:700;">${escapeHtml(studyTitle)}</h1>
-            <p style="margin:0 0 6px;font-family:Georgia, 'Times New Roman', serif;font-style:italic;color:${PACK.goldPale};font-size:17px;line-height:1.5;">From the study to the decision in front of you.</p>
+            <p style="margin:0 0 6px;font-family:Georgia, 'Times New Roman', serif;font-style:italic;color:${PACK.goldPale};font-size:17px;line-height:1.5;">When the reading settles, the questions surface.</p>
           </td></tr>
           <tr><td style="padding:14px 34px 6px;color:${PACK.grey};font-size:15px;line-height:1.65;">
             <p style="${p}">Dear ${escapeHtml(name)},</p>
@@ -194,5 +194,5 @@ export function buildDownloadFollowUpEmail({ name, studyTitle, bookingUrl, reply
     `--\n${studyTitle}\n${why}\nQuestions about the study: ${replyTo}\nFalconBridge Partners FZC LLC · falconbp.com`,
   ].join('\n\n');
 
-  return { subject: `Thank you for downloading “${studyTitle}”`, html, text };
+  return { subject: `Two days with “${studyTitle}”`, html, text };
 }

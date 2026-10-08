@@ -33,7 +33,7 @@ Running an import again is safe. Entries are matched by slug and files by slot; 
 3. **Vercel.** Add `DROPBOX_APP_KEY` and `DROPBOX_APP_SECRET` (Production), then redeploy.
 4. **Connect.** In `/admin/import` choose **Connect Dropbox** and allow access. The site reads from Dropbox; it never writes.
 
-Optional environment variables: `DROPBOX_PUBLISH_PATH`, `RESEND_LEADS_EMAIL` (default `info@falconbp.com`), `PACK_LINK_DAYS` (default 7), `DISCOVERY_CALL_URL` (the booking link in the download follow-up).
+Optional environment variables: `DROPBOX_PUBLISH_PATH`, `RESEND_LEADS_EMAIL` (default `info@falconbp.com`), `PACK_LINK_DAYS` (default 7), `DISCOVERY_CALL_URL` (the booking link in the download follow-up), `CRON_SECRET` (locks the daily follow-up job to Vercel's scheduler).
 
 ## Pack requests
 
@@ -43,7 +43,7 @@ A reader gives name, work email and organisation and ticks the consent line. The
 - emails the reader a link to `/research/pack/<token>`,
 - emails `info@falconbp.com`, copied to the partner(s) whose territories include the study's.
 
-When the reader comes back and downloads a document for the first time, the site emails them once more: thanks, and a link to book a discovery call (`DISCOVERY_CALL_URL`, default `https://calendly.com/falconbp-research/discovery`). A reader who takes several packs receives it once in 30 days. The send is recorded on the request (`followup_sent_at`, from `supabase/007_pack_follow_up.sql`) and shown under **Pack requests**.
+When the reader comes back and downloads a document for the first time, the moment is recorded (`first_download_at`, from `supabase/008_follow_up_timing.sql`). Forty-eight hours later a daily job (`vercel.json` → `/api/cron/pack-follow-up`, 9am Dubai) emails them once more: thanks, and a link to book a 20-minute discovery call (`DISCOVERY_CALL_URL`, default `https://calendly.com/falconbp-research/discovery`). The wait is deliberate — by then most readers have been through the summaries and their own questions have started to surface. A reader who takes several packs receives it once in 30 days. The send is recorded on the request (`followup_sent_at`, from `supabase/007_pack_follow_up.sql`); **Pack requests** shows the send, or the day it falls due.
 
 Reader emails come from `research@` on the domain in `RESEND_FROM`, as “FB Research”. Notices to the firm from the contact and research-request forms come from `website@`, as “FalconBridge Website”. The admin sign-in emails are Supabase's and keep the `RESEND_FROM` address.
 
