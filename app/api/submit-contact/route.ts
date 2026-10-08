@@ -3,6 +3,7 @@ import { Resend } from 'resend';
 import { sanitizeInput, isValidEmail, verifyTurnstile } from '@/lib/security';
 import { buildBrandedEmail } from '@/lib/emailTemplates';
 import { checkRateLimit } from '@/lib/rateLimit';
+import { sendFromSite } from '@/lib/mail';
 
 export async function POST(request: NextRequest) {
   try {
@@ -95,8 +96,8 @@ export async function POST(request: NextRequest) {
       { label: 'Decision context', value: decisionContext },
     ];
 
-    const emailResult = await resend.emails.send({
-      from: process.env.RESEND_FROM || 'noreply@notifications.falconbp.com',
+    const emailResult = await sendFromSite('website', (from) => resend.emails.send({
+      from,
       to: process.env.RESEND_CONTACT_EMAIL || 'engagement@falconbp.com',
       replyTo: email,
       subject: 'New Contact Form Submission',
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
         subtitle: 'A new confidential intake request has been submitted.',
         fields,
       }),
-    });
+    }));
 
     if (emailResult.error) {
       console.error('Resend error:', emailResult.error);

@@ -6,16 +6,12 @@ import { checkRateLimit } from '@/lib/rateLimit';
 import { createAdminClient, supabaseConfigured } from '@/lib/supabase/admin';
 import { hasGatedPack, readerFiles, territoryName, type Report } from '@/lib/data';
 import { newToken } from '@/lib/packAccess';
+import { leadsAddress, sendFromSite } from '@/lib/mail';
 
 export const dynamic = 'force-dynamic';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://falconbp.com').replace(/\/+$/, '');
-const LEADS_TO = () => process.env.RESEND_LEADS_EMAIL || 'info@falconbp.com';
-const FROM = () => {
-  const raw = process.env.RESEND_FROM || 'noreply@notifications.falconbp.com';
-  const address = (/<([^>]+)>/.exec(raw)?.[1] ?? raw).trim();
-  return `FB Research <${address}>`;
-};
+const LEADS_TO = leadsAddress;
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 
 /**
@@ -62,19 +58,19 @@ export async function POST(request: NextRequest) {
     const expires = expiresAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
     const files = readerFiles(report.files).sort((a, b) => a.sort_order - b.sort_order).map((f) => f.label);
 
-    const sent = await resend.emails.send({
-      from: FROM(), to: email, replyTo: LEADS_TO(),
+    const sent = await sendFromSite('research', (from) => resend.emails.send({
+      from, to: email, replyTo: LEADS_TO(),
       subject: `Your research pack: ${report.title}`,
       html: buildPackEmail({ name: fullName, studyTitle: report.title, link, expires, files, replyTo: LEADS_TO() }),
-    });
+    }));
     if (sent.error) { console.error('[request-pack] reader email', sent.error); return bad('The email could not be sent. Please check the address and try again.', 502); }
 
     // Tell the firm: the general address, copied to the partner(s) for the study's territory.
     try {
       const { data: partners } = await db.from('partners').select('email').eq('active', true).contains('territories', [report.territory]);
       const cc = Array.from(new Set((partners ?? []).map((p) => String(p.email || '').toLowerCase()).filter((e) => e && e !== LEADS_TO().toLowerCase())));
-      await resend.emails.send({
-        from: FROM(), to: LEADS_TO(), ...(cc.length ? { cc } : {}), replyTo: email,
+      await sendFromSite('research', (from) => resend.emails.send({
+        from, to: LEADS_TO(), ...(cc.length ? { cc } : {}), replyTo: email,
         subject: `Pack requested: ${report.title} — ${organisation}`,
         html: buildBrandedEmail({
           title: 'A research pack was requested',
@@ -86,7 +82,7 @@ export async function POST(request: NextRequest) {
           ],
           footerNote: 'The reader has been emailed a link to the pack. Reply to this message to write to them. Opens and downloads are recorded under Pack requests in the admin.',
         }),
-      });
+      }));
     } catch (e) { console.error('[request-pack] lead email', e); /* the reader already has the pack; the lead is in the admin */ }
 
     return NextResponse.json({ success: true });

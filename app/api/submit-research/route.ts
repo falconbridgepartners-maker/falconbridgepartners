@@ -3,6 +3,7 @@ import { Resend } from 'resend';
 import { sanitizeInput, isValidEmail, verifyTurnstile } from '@/lib/security';
 import { buildBrandedEmail } from '@/lib/emailTemplates';
 import { checkRateLimit } from '@/lib/rateLimit';
+import { sendFromSite } from '@/lib/mail';
 
 export async function POST(request: NextRequest) {
   try {
@@ -107,8 +108,8 @@ export async function POST(request: NextRequest) {
       ...(decisionContext ? [{ label: 'Decision context', value: decisionContext }] : []),
     ];
 
-    const emailResult = await resend.emails.send({
-      from: process.env.RESEND_FROM || 'noreply@notifications.falconbp.com',
+    const emailResult = await sendFromSite('website', (from) => resend.emails.send({
+      from,
       to: process.env.RESEND_RESEARCH_EMAIL || 'researchteam@falconbp.com',
       replyTo: email,
       subject: 'New Research Access Request - Manual Review Required',
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
         fields,
         footerNote: 'This request requires manual review before granting access.',
       }),
-    });
+    }));
 
     if (emailResult.error) {
       console.error('Resend error:', emailResult.error);
