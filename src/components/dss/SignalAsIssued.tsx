@@ -1,5 +1,6 @@
 import React from 'react';
 import type { SignalContent, SignalItem } from '@/lib/weekly/manifest';
+import { acronymize } from '@/components/dss/acronymize';
 
 /** One item of the signal: the report, then the FalconBridge Lens set apart from it, then its sources. */
 function Item({ item, lead, n }: { item: SignalItem; lead?: boolean; n?: number }) {
@@ -8,11 +9,11 @@ function Item({ item, lead, n }: { item: SignalItem; lead?: boolean; n?: number 
       <h3 className={lead ? 'text-2xl md:text-3xl mb-4' : 'text-xl md:text-2xl mb-4'}>
         {n ? <span className="governing mr-3" aria-hidden="true">{n}.</span> : null}{item.title}
       </h3>
-      <p className="text-white/75 whitespace-pre-line max-w-4xl">{item.body}</p>
+      <p className="text-white/75 whitespace-pre-line max-w-4xl">{acronymize(item.body)}</p>
       {item.lens && (
         <div className="tile-ivory p-5 md:p-6 mt-6 max-w-4xl">
           <h4 className="governing text-lg mb-2" style={{ color: '#262626' }}>FalconBridge Lens</h4>
-          <p className="text-[0.95rem] whitespace-pre-line">{item.lens}</p>
+          <p className="text-[0.95rem] whitespace-pre-line">{acronymize(item.lens)}</p>
         </div>
       )}
       {item.sources && <p className="text-white/45 text-sm mt-5">{item.sources}</p>}
@@ -44,7 +45,7 @@ export default function SignalAsIssued({ content }: { content: SignalContent }) 
       {content.watch && (
         <section aria-labelledby="signal-watch">
           <h2 id="signal-watch" className="mb-6">One to watch</h2>
-          <div className="border-l-2 border-brand-gold pl-6 md:pl-8 py-1"><p className="text-white/75 whitespace-pre-line max-w-4xl">{content.watch}</p></div>
+          <div className="border-l-2 border-brand-gold pl-6 md:pl-8 py-1"><p className="text-white/75 whitespace-pre-line max-w-4xl">{acronymize(content.watch)}</p></div>
         </section>
       )}
       {log.length > 0 && (

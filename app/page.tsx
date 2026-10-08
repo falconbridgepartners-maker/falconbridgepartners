@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import Compass from '@/components/dss/Compass';
 import Invitation from '@/components/dss/Invitation';
 import PartnerCard from '@/components/dss/PartnerCard';
+import { acronymize } from '@/components/dss/acronymize';
 import { Section, Tile, NextLink } from '@/components/dss/Tiles';
 import Image from 'next/image';
 import falconMark from '@/assets/images/falcon-mark.png';
@@ -51,7 +52,7 @@ export default async function Home() {
             </Tile>
           ))}
         </div>
-        <p className="mt-8 text-white/70 max-w-4xl">{firm.integration}</p>
+        <p className="mt-8 text-white/70 max-w-4xl">{acronymize(firm.integration)}</p>
         <p className="governing text-xl md:text-2xl mt-6 max-w-4xl">{firm.clarityLine}</p>
       </Section>
 
@@ -121,7 +122,7 @@ export default async function Home() {
               {featuredStudy.facts.map((f) => (
                 <div key={f.figure} className="border-t border-brand-gold/30 pt-4">
                   <p className="governing text-xl mb-1">{f.figure}</p>
-                  <p className="text-sm text-white/60">{f.body}</p>
+                  <p className="text-sm text-white/60">{acronymize(f.body)}</p>
                 </div>
               ))}
             </div>

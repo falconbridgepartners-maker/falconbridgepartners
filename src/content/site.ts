@@ -803,12 +803,12 @@ export const sampleScans: ScanEntry[] = [
 ];
 
 export const bespoke = {
-  heading: 'Bespoke Managed Services',
+  heading: 'Intelligence Research as a Service',
   intro: 'Client-specific services developed and operated using FalconBridge’s proprietary systems, processes and intellectual property.',
   columns: [
     {
       title: 'A separate capability',
-      body: 'Bespoke Managed Services sits outside the five-service Decision Support System. The category allows a programme to be shaped around a client’s recurring need, with an agreed mandate, human governance and use rights.',
+      body: 'Intelligence Research as a Service sits outside the five-service Decision Support System. The category allows a programme to be shaped around a client’s recurring need, with an agreed mandate, human governance and use rights.',
     },
     {
       title: 'IRaaS in development',
@@ -904,7 +904,7 @@ export const nav = {
       href: '/decision-support-system',
       children: [
         ...services.map((s) => ({ label: `${s.acronym} · ${s.name}`, href: `/decision-support-system/${s.slug}` })),
-        { label: 'Bespoke Managed Services', href: '/bespoke-managed-services' },
+        { label: 'IRaaS \u00b7 Intelligence Research', href: '/bespoke-managed-services' },
       ],
     },
     {

@@ -68,7 +68,7 @@ export default function DSSPage() {
 
       <Section eyebrow="A separate category">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <NextLink href="/bespoke-managed-services" label="Bespoke Managed Services" sub="Client-specific programmes using FBP’s systems and IP under agreed licence. Intelligence Research as a Service (IRaaS) is in development." />
+          <NextLink href="/bespoke-managed-services" label="IRaaS · Intelligence Research as a Service" sub="Client-specific programmes using FBP’s systems and IP under agreed licence. Intelligence Research as a Service (IRaaS) is in development." />
           <NextLink href="/working-with-falconbridge" label="Working with FalconBridge" sub="How an engagement is defined, agreed and completed." />
         </div>
       </Section>

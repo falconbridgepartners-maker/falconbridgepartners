@@ -1,5 +1,6 @@
 import React from 'react';
 import type { PieceBlock, PieceContent } from '@/lib/pieces';
+import { acronymize } from '@/components/dss/acronymize';
 
 const TOKEN = /(\*\*.+?\*\*|\*.+?\*|\[[^\]]+\]\((?:https?:\/\/|\/)[^)\s]+\))/g;
 
@@ -8,14 +9,14 @@ export function Inline({ text }: { text: string }) {
   return (
     <>
       {text.split(TOKEN).map((part, i) => {
-        if (part.length > 4 && part.startsWith('**') && part.endsWith('**')) return <strong key={i}>{part.slice(2, -2)}</strong>;
-        if (part.length > 2 && part.startsWith('*') && part.endsWith('*')) return <em key={i}>{part.slice(1, -1)}</em>;
+        if (part.length > 4 && part.startsWith('**') && part.endsWith('**')) return <strong key={i}>{acronymize(part.slice(2, -2))}</strong>;
+        if (part.length > 2 && part.startsWith('*') && part.endsWith('*')) return <em key={i}>{acronymize(part.slice(1, -1))}</em>;
         const link = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(part);
         if (link) {
           const external = !link[2].startsWith('/');
           return <a key={i} href={link[2]} className="text-brand-gold-pale underline underline-offset-4" {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{link[1]}</a>;
         }
-        return <React.Fragment key={i}>{part}</React.Fragment>;
+        return <React.Fragment key={i}>{acronymize(part)}</React.Fragment>;
       })}
     </>
   );
