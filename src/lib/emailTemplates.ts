@@ -145,9 +145,9 @@ export function buildDownloadFollowUpEmail({ name, studyTitle, bookingUrl, reply
   name: string; studyTitle: string; bookingUrl: string; replyTo: string;
 }): { subject: string; html: string; text: string } {
   const paragraphs = [
-    'Thank you for downloading the research pack. We have let a couple of days pass before writing, on purpose: the work is substantial, and by now most readers have been through the Executive Summary and used the full report\u2019s index to find their bearings.',
-    'There is no hurry from our side. A study answers the question it was asked; it was not written for your organisation, your market or the decision in front of you. In our experience the useful conversation starts once the findings have settled and your own questions begin to surface \u2014 usually about now, and in the days ahead.',
-    'When yours do, bring them to us. A discovery call takes 20 minutes, is held in confidence and carries no obligation. It is short on purpose: enough to establish what needs to be understood before your next decision.',
+    'Thank you for downloading the research pack. The work is substantial, and by now most readers have been through the Executive Summary and used the full report\u2019s index to find their bearings.',
+    'A study answers the question that we asked; it was not written for your organisation, your market or the decision in front of you. In our experience the useful conversation starts once the findings have settled and your own questions begin to surface \u2014 usually about now, and in the days ahead.',
+    'When yours do, bring them to us. A discovery call takes 20 minutes, is held in strictest confidence and carries no obligation. Its purpose: to establish what needs to be understood before your next decision.',
   ];
   const afterButton = 'If you would rather write, reply to this email. And if the study has missed something you know, tell us. We would rather be corrected than be comfortable.';
   const tagline = 'Sharper thinking when the decision stays with you.';
