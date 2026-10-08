@@ -157,7 +157,7 @@ export async function savePiece(fd: FormData) {
     slug: str(fd, 'slug') ? slugify(str(fd, 'slug')) : slugify(title),
     title,
     series: content.series?.trim() || PIECE_SERIES,
-    territory: str(fd, 'territory') || 'global',
+    territory: str(fd, 'territory') || 'south-africa',
     report_id: str(fd, 'report_id') || null,
     description: str(fd, 'description') || null,
     published_at: str(fd, 'published_at') || new Date().toISOString().slice(0, 10),
