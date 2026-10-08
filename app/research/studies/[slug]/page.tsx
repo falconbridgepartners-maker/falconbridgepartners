@@ -8,7 +8,7 @@ import RequestReport from '@/components/dss/RequestReport';
 import { Section, Band, NextLink } from '@/components/dss/Tiles';
 import { clip } from '@/lib/pieces';
 import { generatedImagePath, shareMetadata } from '@/lib/share';
-import { getPieceForStudy, getReportBySlug, getScanForStudy, hasGatedPack, hasRequestForm, publicMediaUrl, readerFiles, territoryName, weekText } from '@/lib/data';
+import { getPiecesForStudy, getReportBySlug, getScanForStudy, hasGatedPack, hasRequestForm, publicMediaUrl, readerFiles, territoryName, weekText } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +41,7 @@ export default async function StudyPage({ params }: { params: { slug: string } }
   const isOpen = (f: (typeof files)[number]) => Boolean(f.storage_path) && f.access === 'open';
   const hasOpen = files.some(isOpen);
   const hasRequest = hasRequestForm(all);
-  const [scan, piece] = await Promise.all([getScanForStudy(s.id), getPieceForStudy(s.id)]);
+  const [scan, pieces] = await Promise.all([getScanForStudy(s.id), getPiecesForStudy(s.id)]);
   return (
     <>
       <PageHero eyebrow={`${s.kind === 'study' ? 'Public study' : s.kind === 'sample' ? 'Commissioned sample' : 'White paper'} · ${territoryName[s.territory] ?? s.territory}${s.year ? ` · ${s.year}` : ''}`} title={s.title} governing={s.subtitle ?? undefined}>
@@ -80,7 +80,7 @@ export default async function StudyPage({ params }: { params: { slug: string } }
               </div>
             ))}
             {scan && <NextLink href={`/research/weekly-scan/${scan.slug}`} label="The Weekly Signal behind this study" sub={[territoryName[scan.territory] ?? scan.territory, weekText(scan.week_label) ?? `week of ${scan.week_of}`].join(' · ')} />}
-            {piece && <NextLink href={`/research/professional-curiosity/${piece.slug}`} label="The Professional Curiosity piece on this study" sub={piece.title} />}
+            {pieces.map((piece) => <NextLink key={piece.slug} href={`/research/professional-curiosity/${piece.slug}`} label="The Professional Curiosity piece on this study" sub={piece.title} />)}
           </div>
         </div>
       </Section>
