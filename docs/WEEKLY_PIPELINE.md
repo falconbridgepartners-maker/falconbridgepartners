@@ -28,12 +28,12 @@ Running an import again is safe. Entries are matched by slug and files by slot; 
 
 ## One-time setup
 
-1. **Database.** Run `supabase/004_weekly_pipeline.sql`, then `supabase/005_scan_signal.sql`, then `supabase/006_pieces.sql`, in the Supabase SQL editor.
+1. **Database.** Run `supabase/004_weekly_pipeline.sql`, then `supabase/005_scan_signal.sql`, then `supabase/006_pieces.sql` and `supabase/007_pack_follow_up.sql`, in the Supabase SQL editor.
 2. **Dropbox app.** At dropbox.com/developers/apps create an app: *Scoped access*, *Full Dropbox*. Under Permissions tick `files.metadata.read` and `files.content.read`. Under Settings add the redirect URI `https://falconbp.com/api/dropbox/callback` (and the `www.` host if the admin is used there).
 3. **Vercel.** Add `DROPBOX_APP_KEY` and `DROPBOX_APP_SECRET` (Production), then redeploy.
 4. **Connect.** In `/admin/import` choose **Connect Dropbox** and allow access. The site reads from Dropbox; it never writes.
 
-Optional environment variables: `DROPBOX_PUBLISH_PATH`, `RESEND_LEADS_EMAIL` (default `info@falconbp.com`), `PACK_LINK_DAYS` (default 7).
+Optional environment variables: `DROPBOX_PUBLISH_PATH`, `RESEND_LEADS_EMAIL` (default `info@falconbp.com`), `PACK_LINK_DAYS` (default 7), `DISCOVERY_CALL_URL` (the booking link in the download follow-up).
 
 ## Pack requests
 
@@ -42,6 +42,10 @@ A reader gives name, work email and organisation and ticks the consent line. The
 - records the request in `access_requests` (see **Pack requests** in the admin),
 - emails the reader a link to `/research/pack/<token>`,
 - emails `info@falconbp.com`, copied to the partner(s) whose territories include the study's.
+
+When the reader comes back and downloads a document for the first time, the site emails them once more: thanks, and a link to book a discovery call (`DISCOVERY_CALL_URL`, default `https://calendly.com/falconbp-research/discovery`). A reader who takes several packs receives it once in 30 days. The send is recorded on the request (`followup_sent_at`, from `supabase/007_pack_follow_up.sql`) and shown under **Pack requests**.
+
+Reader emails come from `research@` on the domain in `RESEND_FROM`, as “FB Research”. Notices to the firm from the contact and research-request forms come from `website@`, as “FalconBridge Website”. The admin sign-in emails are Supabase's and keep the `RESEND_FROM` address.
 
 Only a hash of the token is stored. The pack page issues each download as a signed URL that lasts two minutes. The link stops working after seven days, or at once if the study is unpublished. Opens and downloads are counted per request.
 

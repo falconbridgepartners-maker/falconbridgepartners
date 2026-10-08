@@ -44,6 +44,7 @@ export default async function PackRequests({ searchParams }: { searchParams?: { 
             <div className="md:col-span-3 text-xs text-white/50 md:text-right">
               <p>Asked {day(r.created_at)}</p>
               <p>{r.open_count > 0 ? `Opened ${day(r.first_opened_at)} · ${r.download_count} download${r.download_count === 1 ? '' : 's'}` : new Date(r.expires_at) < new Date() ? 'Link lapsed unopened' : 'Not opened yet'}</p>
+              {r.followup_sent_at && <p>Follow-up sent {day(r.followup_sent_at)}</p>}
             </div>
           </div>
         ))}

@@ -37,7 +37,15 @@ export async function recordOpen(request: AccessRequest): Promise<void> {
   await db.from('access_requests').update({ first_opened_at: request.first_opened_at ?? now, last_opened_at: now, open_count: (request.open_count ?? 0) + 1 }).eq('id', request.id);
 }
 
-export async function recordDownload(request: AccessRequest): Promise<void> {
+/**
+ * Counts a download and says whether it was the reader's first from this pack.
+ * The first is claimed in one step (count 0 → 1), so two files opened at the same moment still count one "first".
+ */
+export async function recordDownload(request: AccessRequest): Promise<{ first: boolean }> {
   const db = createAdminClient();
-  await db.from('access_requests').update({ download_count: (request.download_count ?? 0) + 1, last_opened_at: new Date().toISOString() }).eq('id', request.id);
+  const now = new Date().toISOString();
+  const { data: claimed } = await db.from('access_requests').update({ download_count: 1, last_opened_at: now }).eq('id', request.id).eq('download_count', 0).select('id');
+  if (claimed && claimed.length > 0) return { first: true };
+  await db.from('access_requests').update({ download_count: (request.download_count ?? 0) + 1, last_opened_at: now }).eq('id', request.id);
+  return { first: false };
 }

@@ -32,6 +32,8 @@ export type Piece = {
 export type AccessRequest = {
   id: string; report_id: string; full_name: string; email: string; organisation: string; role: string | null; intended_use: string | null;
   consent: boolean; expires_at: string; first_opened_at: string | null; last_opened_at: string | null; open_count: number; download_count: number; created_at: string;
+  /** When the "thank you, book a call" email went out after a first download (supabase/007_pack_follow_up.sql). */
+  followup_sent_at?: string | null;
 };
 export type SiteSettings = { featured_report_id: string | null; portraits: Record<string, string> };
 export type PartnerRow = {
