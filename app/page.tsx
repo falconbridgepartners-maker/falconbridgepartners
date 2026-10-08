@@ -146,7 +146,7 @@ export default async function Home() {
 
       {/* Professional Curiosity — the latest of our own view, so the thinking is on the page */}
       {latestPieces.length > 0 && (
-        <Section eyebrow="Professional Curiosity" title="What we made of it" intro="Opinion pieces drawn from our studies: the question, the evidence, and our view — signed and dated.">
+        <Section eyebrow="Professional Curiosity" title="What we made of it" intro="Opinion pieces drawn from our studies: the question, the evidence and our view, signed and dated.">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {latestPieces.map((p) => <PieceCard key={p.id} piece={p} />)}
           </div>
