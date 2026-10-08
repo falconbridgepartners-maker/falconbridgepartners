@@ -38,6 +38,10 @@ export default async function AboutPage() {
         <p className="text-white/45 text-sm mt-4 max-w-4xl">{origins.qualifier}</p>
       </Section>
 
+      <Section eyebrow="The moment we are built for" title="Everything supplied, except the decision">
+        <p className="governing text-xl md:text-2xl max-w-4xl leading-relaxed">The board pack is complete. The advisers have reported, the models agree with each other, and the team has answered every question it was asked. It is late, the office is quiet, and one person is still at the desk — because everything has been supplied except the one thing that cannot be. That is where our work begins.</p>
+      </Section>
+
       <Section eyebrow="The partners" title={`${founders.map((p) => p.name.split(' ')[0]).join(' and ')} ${founders.length > 1 ? 'are the founding partners' : 'is the founding partner'}.${others.length ? ` ${others.map((p) => p.name.split(' ')[0]).join(', ')} ${others.length > 1 ? 'extend' : 'extends'} the partnership into ${others.map((p) => p.locationShort).join(', ')}.` : ''}`}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {partners.map((p) => <PartnerCard key={p.slug} partner={p} full />)}
