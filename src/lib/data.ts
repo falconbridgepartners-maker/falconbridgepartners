@@ -185,14 +185,14 @@ export async function getPieceBySlug(slug: string, { includeUnpublished = false 
   }, null);
 }
 
-/** The published piece drawn from a study (or null). */
-export async function getPieceForStudy(reportId: string): Promise<Pick<Piece, 'slug' | 'title' | 'published_at'> | null> {
+/** The published pieces drawn from a study, newest first. A study may have more than one. */
+export async function getPiecesForStudy(reportId: string): Promise<Pick<Piece, 'slug' | 'title' | 'published_at'>[]> {
   return safe(async () => {
     const db = createAdminClient();
-    const { data, error } = await db.from('pieces').select('slug, title, published_at').eq('report_id', reportId).eq('published', true).order('published_at', { ascending: false }).limit(1).maybeSingle();
-    if (error) return null;
-    return (data as Pick<Piece, 'slug' | 'title' | 'published_at'>) ?? null;
-  }, null);
+    const { data, error } = await db.from('pieces').select('slug, title, published_at').eq('report_id', reportId).eq('published', true).order('published_at', { ascending: false }).order('created_at', { ascending: true });
+    if (error) return [];
+    return (data ?? []) as Pick<Piece, 'slug' | 'title' | 'published_at'>[];
+  }, []);
 }
 
 /** The published study behind a piece (or null), and whether its page carries the request form. */
