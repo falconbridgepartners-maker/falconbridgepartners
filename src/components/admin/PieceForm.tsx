@@ -1,6 +1,6 @@
 import { savePiece, deletePiece } from '@/lib/admin/actions';
 import { input, btn, btnGhost, Field, Check } from '@/components/admin/ui';
-import { TERRITORIES, type Piece } from '@/lib/data';
+import { territoryOptions, type Piece } from '@/lib/data';
 import { PIECE_FORMAT } from '@/lib/pieces';
 
 const EMPTY = JSON.stringify({ format: PIECE_FORMAT, headline: '', headline_accent: '', blocks: [{ type: 'paragraph', text: '' }], disclaimer: '' }, null, 2);
@@ -15,7 +15,7 @@ export default function PieceForm({ piece, reports = [] }: { piece?: Piece; repo
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Field id="slug" title="URL slug" hint="The piece’s address: /research/professional-curiosity/<slug>. Leave blank to generate from the headline. Do not change it once the link has been shared."><input id="slug" name="slug" defaultValue={piece?.slug} className={input} /></Field>
         <Field id="territory" title="Territory">
-          <select id="territory" name="territory" defaultValue={piece?.territory ?? 'global'} className={`${input} bg-brand-navy`}>{TERRITORIES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
+          <select id="territory" name="territory" defaultValue={piece?.territory ?? 'south-africa'} className={`${input} bg-brand-navy`}>{territoryOptions(piece?.territory).map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
         </Field>
         <Field id="published_at" title="Date" hint="The byline shows its month and year."><input id="published_at" name="published_at" type="date" defaultValue={piece?.published_at ?? new Date().toISOString().slice(0, 10)} className={input} /></Field>
         <Field id="evidence_date" title="Evidence date" hint="Shown in the byline: “Own-account research, evidence date …”."><input id="evidence_date" name="evidence_date" type="date" defaultValue={piece?.evidence_date ?? ''} className={input} /></Field>

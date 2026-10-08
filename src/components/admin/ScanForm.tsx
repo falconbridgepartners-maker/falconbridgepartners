@@ -1,6 +1,6 @@
 import { saveScan, deleteScan } from '@/lib/admin/actions';
 import { input, btn, btnGhost, Field, Check } from '@/components/admin/ui';
-import { SERVICES, TERRITORIES, type Scan } from '@/lib/data';
+import { SERVICES, territoryOptions, type Scan } from '@/lib/data';
 
 export default function ScanForm({ scan, reports = [] }: { scan?: Scan; reports?: { id: string; title: string; week_label?: string | null }[] }) {
   return (
@@ -15,7 +15,7 @@ export default function ScanForm({ scan, reports = [] }: { scan?: Scan; reports?
         <Field id="title" title="Title (internal; becomes the URL)"><input id="title" name="title" required defaultValue={scan?.title} className={input} /></Field>
         <Field id="slug" title="URL slug" hint="Leave blank to generate from the title."><input id="slug" name="slug" defaultValue={scan?.slug} className={input} /></Field>
         <Field id="territory" title="Territory">
-          <select id="territory" name="territory" defaultValue={scan?.territory ?? 'uae-gcc'} className={`${input} bg-brand-navy`}>{TERRITORIES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
+          <select id="territory" name="territory" defaultValue={scan?.territory ?? 'uae-gcc'} className={`${input} bg-brand-navy`}>{territoryOptions(scan?.territory).map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
         </Field>
         <Field id="service" title="Closest service">
           <select id="service" name="service" defaultValue={scan?.service ?? 'none'} className={`${input} bg-brand-navy`}>{SERVICES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>

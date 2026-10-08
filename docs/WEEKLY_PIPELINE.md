@@ -97,7 +97,7 @@ One JSON file per week. Whoever writes it — a person, Claude or HT+ — the im
 }
 ```
 
-- `territory`: `uae-gcc`, `south-africa`, `new-zealand`, `mauritius`, `north-carolina`, `singapore`, `global` for a study that belongs to no single territory, or `usa` for a study of the United States as a whole.
+- `territory`: `uae-gcc`, `south-africa`, `new-zealand`, `mauritius`, `north-carolina` or `singapore`. A study that crosses territories is filed under the one it sits closest to. `global` and `usa` are not in use for now: they are hidden from the filters and the admin forms, and a manifest that names one is refused. To bring one back, see `HIDDEN_TERRITORIES` in `src/lib/data.ts`.
 - `week_label` uses FalconBridge's week number; `week_of` is the Monday the review period starts.
 - An entry may carry a scan, a report, a piece, or any combination. `files` need a report.
 - Slots and their default access: 1 User guide (pack), 2 Executive deck (pack), 3 Full research report (pack), 4 Executive summary (open), 5 Executive visual (open), 6 Reference and link audit (internal). `label` and `access` override the defaults. A slot left out is created empty and internal.

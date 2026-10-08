@@ -53,7 +53,18 @@ export const territoryName: Record<string, string> = {
   // Studies about the United States as a whole, as distinct from the North Carolina territory.
   usa: 'USA',
 };
-export const TERRITORIES = Object.entries(territoryName).map(([value, label]) => ({ value, label }));
+/**
+ * Not offered for now (October 2026). Their names stay above so that anything already filed under one still reads
+ * correctly; they are left out of the public filters, the admin forms and the weekly manifest. To bring one back,
+ * take it off this list and add it to TERRITORY_KEYS in src/lib/weekly/manifest.ts.
+ */
+export const HIDDEN_TERRITORIES: readonly string[] = ['global', 'usa'];
+export const TERRITORIES = Object.entries(territoryName).filter(([value]) => !HIDDEN_TERRITORIES.includes(value)).map(([value, label]) => ({ value, label }));
+/** What an admin form offers: the territories in use, plus whatever the record already holds, so saving never moves it by accident. */
+export function territoryOptions(...current: (string | null | undefined)[]): { value: string; label: string }[] {
+  const extra = Array.from(new Set(current.filter((c): c is string => Boolean(c) && !TERRITORIES.some((t) => t.value === c))));
+  return [...TERRITORIES, ...extra.map((value) => ({ value, label: `${territoryName[value] ?? value} (not in use)` }))];
+}
 export const SERVICES = [
   { value: 'ceaas', label: 'CEaaS · Critical Evaluation' }, { value: 'raas', label: 'RaaS · Research' }, { value: 'caas', label: 'CaaS · Coaching' },
   { value: 'emaas', label: 'EMaaS · Execution Modelling' }, { value: 'aaas', label: 'AaaS · Advisory' }, { value: 'none', label: 'None / general' },

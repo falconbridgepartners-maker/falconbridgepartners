@@ -1,7 +1,7 @@
 import { saveReport, deleteReport } from '@/lib/admin/actions';
 import { input, label, btn, btnGhost, Field, Check } from '@/components/admin/ui';
 import UploadField from '@/components/admin/UploadField';
-import { publicMediaUrl, FILE_ACCESS, REPORT_KINDS, TERRITORIES, type Report, type ReportFile } from '@/lib/data';
+import { publicMediaUrl, FILE_ACCESS, REPORT_KINDS, territoryOptions, type Report, type ReportFile } from '@/lib/data';
 
 const LABELS = ['User guide', 'Executive deck', 'Full research report', 'Executive summary', 'Executive visual', 'Reference and link audit'];
 
@@ -18,7 +18,7 @@ export default function ReportForm({ report }: { report?: Report }) {
           <select id="kind" name="kind" defaultValue={report?.kind ?? 'study'} className={`${input} bg-brand-navy`}>{REPORT_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}</select>
         </Field>
         <Field id="territory" title="Territory">
-          <select id="territory" name="territory" defaultValue={report?.territory ?? 'south-africa'} className={`${input} bg-brand-navy`}>{TERRITORIES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
+          <select id="territory" name="territory" defaultValue={report?.territory ?? 'south-africa'} className={`${input} bg-brand-navy`}>{territoryOptions(report?.territory).map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
         </Field>
         <Field id="year" title="Year"><input id="year" name="year" type="number" defaultValue={report?.year ?? ''} className={input} /></Field>
         <Field id="published_at" title="Published on"><input id="published_at" name="published_at" type="date" defaultValue={report?.published_at ?? ''} className={input} /></Field>

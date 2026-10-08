@@ -1,7 +1,7 @@
 import { savePartner, deletePartner } from '@/lib/admin/actions';
 import { input, label, btn, btnGhost, Field, Check } from '@/components/admin/ui';
 import UploadField from '@/components/admin/UploadField';
-import { publicMediaUrl, TERRITORIES, type PartnerRow } from '@/lib/data';
+import { publicMediaUrl, territoryOptions, type PartnerRow } from '@/lib/data';
 
 export default function PartnerForm({ partner }: { partner?: PartnerRow }) {
   return (
@@ -39,7 +39,7 @@ export default function PartnerForm({ partner }: { partner?: PartnerRow }) {
       <div>
         <p className={label}>Territories covered (map labels)</p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 tile p-4">
-          {TERRITORIES.map((t) => (
+          {territoryOptions(...(partner?.territories ?? [])).map((t) => (
             <label key={t.value} className="flex items-center gap-2 text-sm text-white/80"><input type="checkbox" name="territories" value={t.value} defaultChecked={partner?.territories?.includes(t.value)} className="accent-[#c8a86a]" /> {t.label}</label>
           ))}
         </div>
