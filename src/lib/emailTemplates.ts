@@ -145,7 +145,7 @@ export function buildDownloadFollowUpEmail({ name, studyTitle, bookingUrl, reply
   name: string; studyTitle: string; bookingUrl: string; replyTo: string;
 }): { subject: string; html: string; text: string } {
   const paragraphs = [
-    'Thank you for downloading the research pack. The work is substantial, and by now most readers have been through the Executive Summary and used the full report\u2019s index to find their bearings.',
+    'Thank you for downloading the research pack. The work is substantial, and by now most readers have been through the Executive Summary and used the full report\u2019s index to orient themselves.',
     'A study answers the question that we asked; it was not written for your organisation, your market or the decision in front of you. In our experience the useful conversation starts once the findings have settled and your own questions begin to surface \u2014 usually about now, and in the days ahead.',
     'When yours do, bring them to us. A discovery call takes 20 minutes, is held in strictest confidence and carries no obligation. Its purpose: to establish what needs to be understood before your next decision.',
   ];
