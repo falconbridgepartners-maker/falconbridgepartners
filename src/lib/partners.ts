@@ -20,6 +20,12 @@ const builtInTerritories: Record<string, string[]> = {
 };
 const initialsOf = (name: string) => name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
+/** The built-in portrait a partner falls back to when none is uploaded. The admin shows the same image as the site. */
+export function builtInPortraitSrc(slug: string): string | null {
+  const p = builtInBySlug[slug];
+  return p ? (typeof p === 'string' ? p : p.src) : null;
+}
+
 export async function getSitePartners(): Promise<PartnerView[]> {
   const [rows, settings] = await Promise.all([getPartners(), getSiteSettings()]);
   if (rows.length > 0) {
