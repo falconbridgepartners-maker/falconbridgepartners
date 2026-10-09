@@ -79,7 +79,7 @@ export default async function Coverage() {
       <PageHead title="Coverage" sub="Every week by territory: the Weekly Signal, the study, the files in its pack and any Professional Curiosity piece." />
       <p className="text-white/55 text-sm mb-6">
         {totals.weeks} weeks · {totals.signals} signals live · {totals.studies} studies live · {totals.pieces} pieces live. A pack is complete at {packSlots} files;
-        the count shows files actually uploaded. Drafts are shown in grey.
+        the count shows files actually uploaded. Drafts are shown in grey. <Link href="/admin/coverage/links" className="text-brand-gold hover:underline">Check the cross-references</Link>.
       </p>
 
       <div className="overflow-x-auto">
