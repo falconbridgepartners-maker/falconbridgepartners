@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { LayoutDashboard, BookOpen, Radar, Users, UserRound, Settings, Globe, LogOut, DownloadCloud, Inbox, PenLine } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Radar, Users, UserRound, Settings, Globe, LogOut, DownloadCloud, Inbox, PenLine, Grid3x3 } from 'lucide-react';
 import logo from '@/assets/logos/logo.png';
 import type { AdminUser } from '@/lib/admin/auth';
 import { signOut } from '@/lib/admin/actions';
@@ -11,6 +11,7 @@ const nav = [
   { href: '/admin/scans', label: 'Weekly Scan', icon: Radar },
   { href: '/admin/pieces', label: 'Professional Curiosity', icon: PenLine },
   { href: '/admin/import', label: 'Weekly import', icon: DownloadCloud },
+  { href: '/admin/coverage', label: 'Coverage', icon: Grid3x3 },
   { href: '/admin/requests', label: 'Pack requests', icon: Inbox },
   { href: '/admin/partners', label: 'Partners', icon: Users },
   { href: '/admin/team', label: 'Team', icon: UserRound },

@@ -48,18 +48,19 @@ export const PUBLIC_MEDIA = 'public-media';
 export const RESEARCH_FILES = 'research-files';
 
 export const territoryName: Record<string, string> = {
-  'uae-gcc': 'UAE / GCC', 'south-africa': 'South Africa', 'new-zealand': 'New Zealand', mauritius: 'Mauritius', 'north-carolina': 'North Carolina', singapore: 'Singapore',
-  // Studies that belong to no single territory. It is a category for the library, not a place on the map.
-  global: 'Global',
+  'uae-gcc': 'UAE / GCC', 'south-africa': 'South Africa', 'new-zealand': 'New Zealand', mauritius: 'Mauritius', 'north-carolina': 'North Carolina',
   // Studies about the United States as a whole, as distinct from the North Carolina territory.
   usa: 'USA',
+  singapore: 'Singapore',
+  // Studies that belong to no single territory. It is a category for the library, not a place on the map.
+  global: 'Global',
 };
 /**
- * Not offered for now (October 2026). Their names stay above so that anything already filed under one still reads
- * correctly; they are left out of the public filters, the admin forms and the weekly manifest. To bring one back,
+ * Not offered for now (October 2026). The name stays above so that anything already filed under it still reads
+ * correctly; it is left out of the public filters, the admin forms and the weekly manifest. To bring it back,
  * take it off this list and add it to TERRITORY_KEYS in src/lib/weekly/manifest.ts.
  */
-export const HIDDEN_TERRITORIES: readonly string[] = ['global', 'usa'];
+export const HIDDEN_TERRITORIES: readonly string[] = ['global'];
 export const TERRITORIES = Object.entries(territoryName).filter(([value]) => !HIDDEN_TERRITORIES.includes(value)).map(([value, label]) => ({ value, label }));
 /** What an admin form offers: the territories in use, plus whatever the record already holds, so saving never moves it by accident. */
 export function territoryOptions(...current: (string | null | undefined)[]): { value: string; label: string }[] {
