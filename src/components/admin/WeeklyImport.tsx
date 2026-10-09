@@ -117,7 +117,7 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
           {anyLive && (
             <label className="flex items-start gap-3 text-sm text-white/75">
               <input type="checkbox" checked={overwrite} onChange={(ev) => setOverwrite(ev.target.checked)} className="mt-1 accent-[#c8a86a]" disabled={run.busy} />
-              <span>Replace published entries<span className="block text-[0.7rem] text-white/40">Live entries are skipped unless this is ticked. Ticking it replaces their text with the manifest’s.</span></span>
+              <span>Replace published entries<span className="block text-[0.7rem] text-white/40">Live entries are skipped unless this is ticked. Ticking it updates them with whatever the manifest gives: a slug and files add the files and leave the wording alone.</span></span>
             </label>
           )}
 
