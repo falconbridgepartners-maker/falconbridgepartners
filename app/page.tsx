@@ -5,18 +5,20 @@ import { Button } from '@/components/ui/Button';
 import Compass from '@/components/dss/Compass';
 import Invitation from '@/components/dss/Invitation';
 import PartnerCard from '@/components/dss/PartnerCard';
+import PieceCard from '@/components/dss/PieceCard';
 import { acronymize } from '@/components/dss/acronymize';
 import { Section, Tile, NextLink } from '@/components/dss/Tiles';
 import Image from 'next/image';
 import falconMark from '@/assets/images/falcon-mark.png';
 import { firm, forces, situations, humanAuthority, origins, serviceByKey } from '@/content/site';
-import { getFeaturedReport, publicMediaUrl, territoryName } from '@/lib/data';
+import { getFeaturedReport, getPublishedPieces, publicMediaUrl, territoryName } from '@/lib/data';
 import { getSitePartners } from '@/lib/partners';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const [featuredStudy, partners] = await Promise.all([getFeaturedReport(), getSitePartners()]);
+  const [featuredStudy, partners, pieces] = await Promise.all([getFeaturedReport(), getSitePartners(), getPublishedPieces()]);
+  const latestPieces = pieces.slice(0, 3);
   const founders = partners.filter((p) => p.founder);
   const others = partners.filter((p) => !p.founder);
   const cover = publicMediaUrl(featuredStudy?.cover_path);
@@ -141,6 +143,16 @@ export default async function Home() {
           </div>
         </div>
       </Section>
+
+      {/* Professional Curiosity — the latest of our own view, so the thinking is on the page */}
+      {latestPieces.length > 0 && (
+        <Section eyebrow="Professional Curiosity" title="What we made of it" intro="Opinion pieces drawn from our studies: the question, the evidence and our view, signed and dated.">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {latestPieces.map((p) => <PieceCard key={p.id} piece={p} />)}
+          </div>
+          <div className="mt-6"><NextLink href="/research/professional-curiosity" label="Professional Curiosity" sub="All pieces, by territory" /></div>
+        </Section>
+      )}
 
       {/* Partners */}
       <Section eyebrow="The partners" title="Experience with personal accountability" intro={`${founders.map((p) => p.name.split(' ')[0]).join(' and ')} ${founders.length > 1 ? 'are the founding partners' : 'is the founding partner'}.${others.length ? ` ${others.map((p) => p.name.split(' ')[0]).join(', ')} ${others.length > 1 ? 'extend' : 'extends'} the partnership into ${others.map((p) => p.locationShort).join(', ')}.` : ''}`}>

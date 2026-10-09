@@ -9,7 +9,7 @@ export const firm = {
   legalEntity: 'FalconBridge Partners FZC LLC',
   domain: 'falconbp.com',
   tagline: 'Sharper thinking when the decision stays with you',
-  subline: 'Research and strategic support for consequential business decisions.',
+  subline: 'Leaders are not short of intelligence, experience or input. They are short of someone joining it up.',
   shortDescription:
     'FalconBridge Partners provides research and strategic support for consequential business decisions, combining experienced human judgement with proprietary, AI-assisted methods.',
   standardIntroduction:
@@ -568,7 +568,7 @@ export const origins = {
   qualifier:
     'The research count is a dated statement of accumulated output. It is not a count of clients, proof of client outcomes, or a claim that every report was produced by FBP after its 2025 establishment.',
   history:
-    'Established in 2025, FalconBridge Partners brings together years of business experience, specialist expertise and professional networks through independently developed systems and intellectual property. Its origins lie in a research need identified within PRiVATi Capital, established in 2015. An initial Equity Research Tool developed into a broader approach to business research and decision support, warranting its own identity and positioning.',
+    'FalconBridge began inside a decision, not a business plan. In 2015, within PRiVATi Capital, a proposition had to be judged, and the research available answered someone else\u2019s question. The Equity Research Tool was built to answer ours. A decade of use turned the tool into a method, the method outgrew the portfolio that built it, and in 2025 it took its own name: FalconBridge Partners. The need has not changed: evidence a decision-maker can rely on, assembled for the decision actually in front of them.',
 };
 
 export interface Partner {
