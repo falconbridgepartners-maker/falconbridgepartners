@@ -13,7 +13,7 @@ import { validatePieceContent, type PieceContent } from '@/lib/pieces';
 export const MANIFEST_VERSION = 1;
 
 /** `global` and `usa` are not in use for now; see HIDDEN_TERRITORIES in src/lib/data.ts. */
-export const TERRITORY_KEYS = ['uae-gcc', 'south-africa', 'new-zealand', 'mauritius', 'north-carolina', 'singapore'] as const;
+export const TERRITORY_KEYS = ['uae-gcc', 'south-africa', 'new-zealand', 'mauritius', 'north-carolina', 'usa', 'singapore'] as const;
 export const SERVICE_KEYS = ['ceaas', 'raas', 'caas', 'emaas', 'aaas', 'none'] as const;
 export const ACCESS_KEYS = ['open', 'request', 'internal'] as const;
 
@@ -24,7 +24,7 @@ export const SLOTS = [
   { slot: 3, label: 'Full research report', access: 'request' },
   { slot: 4, label: 'Executive summary', access: 'open' },
   { slot: 5, label: 'Executive visual', access: 'open' },
-  { slot: 6, label: 'Reference and link audit', access: 'internal' },
+  { slot: 6, label: 'Reference and link audit', access: 'request' },
 ] as const;
 
 export type ManifestAccess = (typeof ACCESS_KEYS)[number];
