@@ -26,6 +26,8 @@ Each file's level is a setting on the study in `/admin/reports`: **Open download
 
 Running an import again is safe. Entries are matched by slug and files by slot; a file already copied from the same Dropbox file is not copied again. An entry that is already live is skipped unless **Replace published entries** is ticked. A study is never published while one of its files failed to copy.
 
+A study already on the site is updated only where the manifest says something. To add a document to a live study, a manifest entry with the study's `slug` and the `files` to add is enough (tick **Replace published entries**); the title, summary and facts on the site are left as they are.
+
 ## One-time setup
 
 1. **Database.** Run `supabase/004_weekly_pipeline.sql`, then `supabase/005_scan_signal.sql`, then `supabase/006_pieces.sql` and `supabase/007_pack_follow_up.sql`, in the Supabase SQL editor.
