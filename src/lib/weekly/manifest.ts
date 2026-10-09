@@ -53,7 +53,7 @@ export type ManifestScan = {
   content?: SignalContent;
 };
 export type ManifestReport = {
-  slug: string; title: string; subtitle?: string; kind?: 'study' | 'sample' | 'paper'; year?: number; published_at?: string;
+  slug: string; title?: string; subtitle?: string; kind?: 'study' | 'sample' | 'paper'; year?: number; published_at?: string;
   body?: string; facts?: { figure: string; body: string }[]; extract_note?: string; qualifier?: string;
   /** Dropbox references to images: the Executive Visual as PNG/JPEG (shown on the study page) and an optional 3:4 cover. */
   extract_image?: string; cover_image?: string;
@@ -144,7 +144,7 @@ export function validateManifest(input: unknown): string[] {
       const r = e.report;
       if (!isStr(r.slug) || !SLUG.test(r.slug) || r.slug.length > 80) errs.push(`${at}.report.slug: lower-case letters, digits and hyphens, 80 characters at most.`);
       else if (seenReport.has(r.slug)) errs.push(`${at}.report.slug: "${r.slug}" is used twice.`); else seenReport.add(r.slug);
-      if (!isStr(r.title)) errs.push(`${at}.report.title is required.`);
+      if (r.title !== undefined && !isStr(r.title)) errs.push(`${at}.report.title must be text. It can be left out for a study already on the site.`);
       if (r.kind && !['study', 'sample', 'paper'].includes(r.kind)) errs.push(`${at}.report.kind must be study, sample or paper.`);
       if (r.published_at && !DATE.test(r.published_at)) errs.push(`${at}.report.published_at must be YYYY-MM-DD.`);
       if (r.facts && (!Array.isArray(r.facts) || r.facts.length > 3 || r.facts.some((f) => !f || !isStr(f.figure) || !isStr(f.body)))) errs.push(`${at}.report.facts: up to three {figure, body} pairs.`);

@@ -72,7 +72,7 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
                     <p className="text-white font-bold">{TERRITORY[e.territory] ?? e.territory}</p>
                     <p className="text-xs text-white/45">scan: {STATE[e.scanState]} · study: {STATE[e.reportState]}{e.pieceSlug ? ` · piece: ${STATE[e.pieceState]}` : ''}</p>
                   </div>
-                  {e.reportTitle && <p className="text-sm text-white/75 mt-1">{e.reportTitle}</p>}
+                  {(e.reportTitle || e.reportSlug) && <p className="text-sm text-white/75 mt-1">{e.reportTitle ?? e.reportSlug}</p>}
                   {e.scanTitle && <p className="text-xs text-white/45 mt-0.5">{e.scanTitle}</p>}
                   {e.pieceTitle && <p className="text-sm text-white/75 mt-1"><span className="text-white/45">Professional Curiosity piece: </span>{e.pieceTitle}</p>}
                   {e.files.length > 0 && (
