@@ -3,7 +3,7 @@ import { input, label, btn, btnGhost, Field, Check } from '@/components/admin/ui
 import UploadField from '@/components/admin/UploadField';
 import { publicMediaUrl, territoryOptions, type PartnerRow } from '@/lib/data';
 
-export default function PartnerForm({ partner }: { partner?: PartnerRow }) {
+export default function PartnerForm({ partner, fallbackPortrait }: { partner?: PartnerRow; fallbackPortrait?: string | null }) {
   return (
     <form action={savePartner} className="space-y-8">
       {partner && <input type="hidden" name="id" value={partner.id} />}
@@ -22,7 +22,7 @@ export default function PartnerForm({ partner }: { partner?: PartnerRow }) {
         <div className="md:col-span-2"><Field id="emphasis" title="One-line emphasis (under the card)"><input id="emphasis" name="emphasis" defaultValue={partner?.emphasis ?? ''} className={input} /></Field></div>
       </div>
 
-      <UploadField name="portrait_path" kind="image" folder="portraits" defaultPath={partner?.portrait_path} previewUrl={publicMediaUrl(partner?.portrait_path)} label="Portrait (portrait orientation, at least 800×1000)" />
+      <UploadField name="portrait_path" kind="image" folder="portraits" defaultPath={partner?.portrait_path} previewUrl={publicMediaUrl(partner?.portrait_path) ?? fallbackPortrait ?? undefined} label="Portrait (portrait orientation, at least 800×1000)" />
 
       <div>
         <p className={label}>Profile (three paragraphs, About page)</p>

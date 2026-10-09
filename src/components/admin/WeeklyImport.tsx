@@ -72,7 +72,7 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
                     <p className="text-white font-bold">{TERRITORY[e.territory] ?? e.territory}</p>
                     <p className="text-xs text-white/45">scan: {STATE[e.scanState]} · study: {STATE[e.reportState]}{e.pieceSlug ? ` · piece: ${STATE[e.pieceState]}` : ''}</p>
                   </div>
-                  {e.reportTitle && <p className="text-sm text-white/75 mt-1">{e.reportTitle}</p>}
+                  {(e.reportTitle || e.reportSlug) && <p className="text-sm text-white/75 mt-1">{e.reportTitle ?? e.reportSlug}</p>}
                   {e.scanTitle && <p className="text-xs text-white/45 mt-0.5">{e.scanTitle}</p>}
                   {e.pieceTitle && <p className="text-sm text-white/75 mt-1"><span className="text-white/45">Professional Curiosity piece: </span>{e.pieceTitle}</p>}
                   {e.files.length > 0 && (
@@ -117,7 +117,7 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
           {anyLive && (
             <label className="flex items-start gap-3 text-sm text-white/75">
               <input type="checkbox" checked={overwrite} onChange={(ev) => setOverwrite(ev.target.checked)} className="mt-1 accent-[#c8a86a]" disabled={run.busy} />
-              <span>Replace published entries<span className="block text-[0.7rem] text-white/40">Live entries are skipped unless this is ticked. Ticking it replaces their text with the manifest’s.</span></span>
+              <span>Replace published entries<span className="block text-[0.7rem] text-white/40">Live entries are skipped unless this is ticked. Ticking it updates them with whatever the manifest gives: a slug and files add the files and leave the wording alone.</span></span>
             </label>
           )}
 

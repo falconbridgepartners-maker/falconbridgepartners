@@ -109,7 +109,7 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
   try {
     // ── What is already there ────────────────────────────────────────────────
     const [{ data: exReport }, { data: exScan }, { data: exPiece, error: pieceErr }] = await Promise.all([
-      entry.report ? db.from('reports').select('id, published, extract_path, cover_path').eq('slug', entry.report.slug).maybeSingle() : Promise.resolve({ data: null }),
+      entry.report ? db.from('reports').select('id, title, published, extract_path, cover_path').eq('slug', entry.report.slug).maybeSingle() : Promise.resolve({ data: null }),
       entry.scan ? db.from('scans').select('id, published, reviewed').eq('slug', entry.scan.slug).maybeSingle() : Promise.resolve({ data: null }),
       entry.piece ? db.from('pieces').select('id, published, share_image_path').eq('slug', entry.piece.slug).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
@@ -123,12 +123,23 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
     let reportPublished = Boolean(exReport?.published);
     if (entry.report) {
       const r = entry.report;
-      const row: Record<string, unknown> = {
-        slug: r.slug, title: r.title, subtitle: r.subtitle ?? null, kind: r.kind ?? 'study', territory: entry.territory,
-        year: r.year ?? Number(manifest.week_label.slice(0, 4)), published_at: r.published_at ?? new Date().toISOString().slice(0, 10),
-        body: r.body ?? null, facts: r.facts ?? [], extract_note: r.extract_note ?? null, qualifier: r.qualifier ?? null,
-        week_label: manifest.week_label,
-      };
+      // A new study takes every field, with defaults. An existing one is updated only where the manifest says something,
+      // so a manifest that carries just the slug and its files (adding a document, say) leaves the live wording alone.
+      const row: Record<string, unknown> = reportId
+        ? { territory: entry.territory, week_label: manifest.week_label }
+        : {
+          slug: r.slug, title: r.title, subtitle: r.subtitle ?? null, kind: r.kind ?? 'study', territory: entry.territory,
+          year: r.year ?? Number(manifest.week_label.slice(0, 4)), published_at: r.published_at ?? new Date().toISOString().slice(0, 10),
+          body: r.body ?? null, facts: r.facts ?? [], extract_note: r.extract_note ?? null, qualifier: r.qualifier ?? null,
+          week_label: manifest.week_label,
+        };
+      if (reportId) {
+        for (const key of ['title', 'subtitle', 'kind', 'year', 'published_at', 'body', 'facts', 'extract_note', 'qualifier'] as const) {
+          if (r[key] !== undefined) row[key] = r[key];
+        }
+      } else if (!r.title) {
+        throw new Error(`report: "${r.slug}" is not on the site yet, so the manifest must give its title.`);
+      }
       for (const [key, folder, column] of [['extract_image', 'extracts', 'extract_path'], ['cover_image', 'covers', 'cover_path']] as const) {
         const ref = r[key];
         if (!ref) continue;
@@ -151,7 +162,7 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
       // ── Its files ──────────────────────────────────────────────────────────
       const { data: rows } = await db.from('report_files').select('id, sort_order, storage_path, source_ref, access').eq('report_id', reportId!);
       const bySlot = new Map<number, FileRow>((rows ?? []).map((x) => [x.sort_order, x as FileRow]));
-      out.files = await Promise.all((entry.files ?? []).map((f) => copyPackFile(db, reportId!, r.title, f, bySlot.get(f.slot))));
+      out.files = await Promise.all((entry.files ?? []).map((f) => copyPackFile(db, reportId!, r.title ?? exReport?.title ?? r.slug, f, bySlot.get(f.slot))));
       // Slots the manifest leaves out are created empty and internal, so the admin form never defaults them to "in the pack".
       const named = new Set((entry.files ?? []).map((f) => f.slot));
       const missing = SLOTS.filter((s) => !named.has(s.slot) && !bySlot.has(s.slot)).map((s) => ({ report_id: reportId!, label: s.label, sort_order: s.slot, access: 'internal' }));

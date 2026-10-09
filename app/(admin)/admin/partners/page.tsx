@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Pencil } from 'lucide-react';
 import { getPartners, publicMediaUrl, territoryName } from '@/lib/data';
+import { builtInPortraitSrc } from '@/lib/partners';
 import { PageHead, Notice } from '@/components/admin/ui';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ export default async function PartnersList({ searchParams }: { searchParams?: { 
       {partners.length === 0 && <p className="tile-ivory p-4 text-sm mb-6">No partners in the database yet — the site is showing the built-in three. Run <code>supabase/002_partners.sql</code> to seed them.</p>}
       <div className="space-y-3">
         {partners.map((p) => {
-          const img = publicMediaUrl(p.portrait_path);
+          const img = publicMediaUrl(p.portrait_path) ?? builtInPortraitSrc(p.slug);
           return (
             <div key={p.id} className="tile p-4 flex items-center gap-4">
               <div className="w-12 h-14 rounded-md bg-brand-navy-dark border border-brand-gold/20 overflow-hidden shrink-0">

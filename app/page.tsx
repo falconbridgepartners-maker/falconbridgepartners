@@ -89,15 +89,15 @@ export default async function Home() {
                     return (
                       <Link key={k} href={`/decision-support-system/${s.slug}`} className="group flex items-baseline gap-4 py-2 border-b border-brand-gold/15 hover:border-brand-gold/50 transition-colors">
                         <span className="font-technical font-bold text-brand-gold-pale w-16 shrink-0">{s.acronym}</span>
-                        <span className="text-white font-bold">{s.name}</span>
-                        <span className="text-white/55 text-sm ml-auto text-right hidden md:block">{s.summary}</span>
+                        <span className="text-white font-bold flex-1 min-w-0">{s.name}</span>
+                        <span className="text-white/55 text-sm w-[46%] shrink-0 hidden md:block">{s.summary}</span>
                       </Link>
                     );
                   })}
                 </div>
               </div>
             ))}
-            <p className="text-white/60 text-sm pt-2">Experienced partners lead the work. Proprietary systems and AI assist delivery, with humans in control and involved throughout. <Link href="/bespoke-managed-services" className="text-brand-gold-pale underline underline-offset-4">Bespoke Managed Services</Link> is a separate category.</p>
+            <p className="text-white/60 text-sm pt-2">Experienced partners lead the work. Proprietary systems and AI assist delivery, with humans in control and involved throughout. <Link href="/bespoke-managed-services" className="text-brand-gold-pale underline underline-offset-4">Intelligence Research as a Service</Link> is a separate category.</p>
           </div>
         </div>
       </Section>

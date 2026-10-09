@@ -11,8 +11,8 @@ Signals and reports go up as they are. The Weekly Signal is shown exactly as iss
 | Layer | What | How a reader gets it |
 |---|---|---|
 | Open | The Weekly Scan entry; the study page with the Executive Visual and Executive Summary | On the site, no form |
-| Pack | Quick Start Guide, Executive Deck, full GDRS report | Reader completes the form on the study page; a link is emailed and works for 7 days |
-| Internal | Partner Brief, Reference Audit, internal memo, research brief, working files | Never uploaded, never shown |
+| Pack | Quick Start Guide, Executive Deck, full GDRS report, Reference and Link Audit | Reader completes the form on the study page; a link is emailed and works for 7 days |
+| Internal | Partner Brief, internal memo, research brief, working files | Never uploaded, never shown |
 
 Each file's level is a setting on the study in `/admin/reports`: **Open download**, **In the pack**, or **Internal**.
 
@@ -25,6 +25,8 @@ Each file's level is a setting on the study in `/admin/reports`: **Open download
 5. The importer copies the pack files from Dropbox into private storage and creates the scan entry and the study for each territory, linked to each other.
 
 Running an import again is safe. Entries are matched by slug and files by slot; a file already copied from the same Dropbox file is not copied again. An entry that is already live is skipped unless **Replace published entries** is ticked. A study is never published while one of its files failed to copy.
+
+A study already on the site is updated only where the manifest says something. To add a document to a live study, a manifest entry with the study's `slug` and the `files` to add is enough (tick **Replace published entries**); the title, summary and facts on the site are left as they are.
 
 ## One-time setup
 
@@ -43,13 +45,17 @@ A reader gives name, work email and organisation and ticks the consent line. The
 - emails the reader a link to `/research/pack/<token>`,
 - emails `info@falconbp.com`, copied to the partner(s) whose territories include the study's.
 
-When the reader comes back and downloads a document for the first time, the moment is recorded (`first_download_at`, from `supabase/008_follow_up_timing.sql`). Forty-eight hours later a daily job (`vercel.json` → `/api/cron/pack-follow-up`, 9am Dubai) emails them once more: thanks, and a link to book a 20-minute discovery call (`DISCOVERY_CALL_URL`, default `https://calendly.com/falconbp/discovery`). The wait is deliberate — by then most readers have been through the summaries and their own questions have started to surface. A reader who takes several packs receives it once in 30 days. The send is recorded on the request (`followup_sent_at`, from `supabase/007_pack_follow_up.sql`); **Pack requests** shows the send, or the day it falls due.
+When the reader comes back and downloads a document for the first time, the moment is recorded (`first_download_at`, from `supabase/008_follow_up_timing.sql`). Forty-eight hours later a daily job (`vercel.json` → `/api/cron/pack-follow-up`, 9am Dubai) emails them once more: thanks, and a link to book a 20-minute discovery call (`DISCOVERY_CALL_URL`, default `https://calendly.com/falconbp/discovery`). The wait is deliberate: by then most readers have been through the summaries and their own questions have started to surface. A reader who takes several packs receives it once in 30 days. The send is recorded on the request (`followup_sent_at`, from `supabase/007_pack_follow_up.sql`); **Pack requests** shows the send, or the day it falls due.
 
 Reader emails come from `research@` on the domain in `RESEND_FROM`, as “FB Research”. Notices to the firm from the contact and research-request forms come from `website@`, as “FalconBridge Website”. The admin sign-in emails are Supabase's and keep the `RESEND_FROM` address.
 
 Only a hash of the token is stored. The pack page issues each download as a signed URL that lasts two minutes. The link stops working after seven days, or at once if the study is unpublished. Opens and downloads are counted per request.
 
 Studies without uploaded pack files keep the earlier behaviour: the form emails the research team and a partner replies by hand.
+
+## Coverage
+
+`/admin/coverage` shows every week by territory: the signal, the study with its file count (6 is a full pack), and any piece, with drafts in grey and anything without a week label listed underneath. It is the place to check what a backfill has left out.
 
 ## The manifest
 
@@ -97,10 +103,10 @@ One JSON file per week. Whoever writes it — a person, Claude or HT+ — the im
 }
 ```
 
-- `territory`: `uae-gcc`, `south-africa`, `new-zealand`, `mauritius`, `north-carolina` or `singapore`. A study that crosses territories is filed under the one it sits closest to. `global` and `usa` are not in use for now: they are hidden from the filters and the admin forms, and a manifest that names one is refused. To bring one back, see `HIDDEN_TERRITORIES` in `src/lib/data.ts`.
+- `territory`: `uae-gcc`, `south-africa`, `new-zealand`, `mauritius`, `north-carolina`, `usa` or `singapore`. `usa` is for studies about the United States as a whole; `north-carolina` for the territory. A study that crosses territories is filed under the one it sits closest to. `global` is not in use for now: it is hidden from the filters and the admin forms, and a manifest that names it is refused. To bring it back, see `HIDDEN_TERRITORIES` in `src/lib/data.ts`.
 - `week_label` uses FalconBridge's week number; `week_of` is the Monday the review period starts.
 - An entry may carry a scan, a report, a piece, or any combination. `files` need a report.
-- Slots and their default access: 1 User guide (pack), 2 Executive deck (pack), 3 Full research report (pack), 4 Executive summary (open), 5 Executive visual (open), 6 Reference and link audit (internal). `label` and `access` override the defaults. A slot left out is created empty and internal.
+- Slots and their default access: 1 User guide (pack), 2 Executive deck (pack), 3 Full research report (pack), 4 Executive summary (open), 5 Executive visual (open), 6 Reference and link audit (pack). The Partner Brief is never uploaded. `label` and `access` override the defaults. A slot left out is created empty and internal.
 - `extract_image` is the Executive Visual as PNG, JPEG or WebP; it is shown on the study page. `cover_image` (3:4) is optional.
 - `scan.content` carries the Weekly Signal exactly as issued, and the scan page then shows it as written: `{ "format": "weekly-signal-v1", "heading", "issue", "review_period", "briefing", "themes": [{ "title", "body", "lens", "sources" }], "lead": { … }, "watch", "audit_log": ["…"] }`. `signal` and `question` stay required (lists, the feed and search use them): give the lead topic's text and headline. Needs `supabase/005_scan_signal.sql`.
 - Pack files may be PDF, PPTX, DOCX or ZIP.
