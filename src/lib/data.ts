@@ -43,7 +43,7 @@ export type PartnerRow = {
   sections: { title: string; body: string }[]; portrait_path: string | null; territories: string[]; founder: boolean; sort_order: number; active: boolean;
 };
 
-export type TeamMember = { id: string; slug: string; name: string; role: string; location: string | null; email: string | null; linkedin: string | null; bio: string | null; portrait_path: string | null; sort_order: number; active: boolean };
+export type TeamMember = { id: string; slug: string; name: string; role: string; short_title: string | null; location: string | null; email: string | null; linkedin: string | null; bio: string | null; portrait_path: string | null; sort_order: number; active: boolean };
 export const PUBLIC_MEDIA = 'public-media';
 export const RESEARCH_FILES = 'research-files';
 
