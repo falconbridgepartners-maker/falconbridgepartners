@@ -10,6 +10,8 @@ export default function TeamForm({ member }: { member?: TeamMember }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Field id="name" title="Name"><input id="name" name="name" required defaultValue={member?.name} className={input} /></Field>
         <Field id="role" title="Role" hint="e.g. Fractional PRO"><input id="role" name="role" required defaultValue={member?.role} className={input} /></Field>
+        <Field id="slug" title="URL slug" hint="Lower-case, hyphens. Leave blank to make one from the name."><input id="slug" name="slug" defaultValue={member?.slug ?? ''} className={input} /></Field>
+        <Field id="short_title" title="Short title (credentials)" hint="The mini CV line under the role, as on the partner cards. e.g. BCom (Hons), CA(SA)"><input id="short_title" name="short_title" defaultValue={member?.short_title ?? ''} className={input} /></Field>
         <Field id="location" title="Location"><input id="location" name="location" defaultValue={member?.location ?? ''} className={input} /></Field>
         <Field id="email" title="Email (optional)"><input id="email" name="email" type="email" defaultValue={member?.email ?? ''} className={input} /></Field>
         <Field id="linkedin" title="LinkedIn URL (optional)"><input id="linkedin" name="linkedin" defaultValue={member?.linkedin ?? ''} className={input} /></Field>

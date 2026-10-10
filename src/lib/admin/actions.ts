@@ -236,7 +236,7 @@ export async function saveTeamMember(fd: FormData) {
   if (!name) throw new Error('Name is required');
   const row = {
     slug: str(fd, 'slug') ? slugify(str(fd, 'slug')) : slugify(name),
-    name, role: str(fd, 'role') || 'Team', location: str(fd, 'location') || null, email: str(fd, 'email') || null,
+    name, role: str(fd, 'role') || 'Team', short_title: str(fd, 'short_title') || null, location: str(fd, 'location') || null, email: str(fd, 'email') || null,
     linkedin: str(fd, 'linkedin') || null, bio: str(fd, 'bio') || null, portrait_path: str(fd, 'portrait_path') || null,
     sort_order: str(fd, 'sort_order') ? Number(str(fd, 'sort_order')) : 0, active: bool(fd, 'active'),
   };
