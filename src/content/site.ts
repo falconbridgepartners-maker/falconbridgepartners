@@ -615,7 +615,7 @@ export const partners: Partner[] = [
   {
     slug: 'joel-arcus',
     name: 'Joel Arcus',
-    title: 'Co-Founder & Managing Partner (AMEA)',
+    title: 'Co-Founder & Managing Partner (EMEA)',
     location: 'UAE',
     emphasis: 'Human capital and leadership experience informing confidential coaching and strategic advisory.',
     email: firm.emails.joel,
