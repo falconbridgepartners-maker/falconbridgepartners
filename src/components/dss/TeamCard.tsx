@@ -1,29 +1,18 @@
-import { Linkedin, Mail } from 'lucide-react';
+import PartnerCard from '@/components/dss/PartnerCard';
 import { publicMediaUrl, type TeamMember } from '@/lib/data';
+import type { PartnerView } from '@/lib/partners';
 
-export default function TeamCard({ member }: { member: TeamMember }) {
-  const img = publicMediaUrl(member.portrait_path);
-  const initials = member.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-  return (
-    <article className="tile p-6 md:p-7 flex flex-col">
-      <div className="flex gap-5 items-start">
-        <div className="w-24 md:w-28 aspect-[4/5] rounded-xl bg-brand-navy-dark border border-brand-gold/30 overflow-hidden shrink-0 flex items-center justify-center">
-          {img ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={img} alt={member.name} className="w-full h-full object-cover object-top" /> : <span className="font-technical text-3xl font-bold text-brand-gold-pale">{initials}</span>}
-        </div>
-        <div className="min-w-0">
-          <h3 className="text-lg md:text-xl leading-tight">{member.name}</h3>
-          <p className="text-brand-gold-pale text-sm mt-1">{member.role}</p>
-          {member.location && <p className="text-white/50 text-sm">{member.location}</p>}
-          {member.short_title && <p className="text-white/40 text-xs mt-1">{member.short_title}</p>}
-        </div>
-      </div>
-      {member.bio && <p className="text-white/75 mt-5 text-[0.95rem]">{member.bio}</p>}
-      {(member.linkedin || member.email) && (
-        <div className="flex gap-3 mt-6 pt-5 border-t border-brand-gold/15">
-          {member.linkedin && <a href={member.linkedin} target="_blank" rel="noopener noreferrer" aria-label={`${member.name} on LinkedIn`} className="p-2.5 border border-brand-gold/30 rounded-full text-white/80 hover:bg-brand-gold hover:text-brand-navy transition-colors"><Linkedin className="w-4 h-4" /></a>}
-          {member.email && <a href={`mailto:${member.email}`} aria-label={`Email ${member.name}`} className="p-2.5 border border-brand-gold/30 rounded-full text-white/80 hover:bg-brand-gold hover:text-brand-navy transition-colors"><Mail className="w-4 h-4" /></a>}
-        </div>
-      )}
-    </article>
-  );
+/** A team member is shown with the partner card: same portrait size, same lines, same profile paragraphs. */
+export default function TeamCard({ member, full = true }: { member: TeamMember; full?: boolean }) {
+  const title = member.title ?? member.role ?? 'Team';
+  const view: PartnerView = {
+    slug: member.slug, name: member.name, title, shortTitle: member.short_title ?? title,
+    location: member.location ?? '', locationShort: member.location_short ?? member.location ?? '',
+    email: member.email, phone: member.phone, phoneLabel: member.phone_label, linkedin: member.linkedin,
+    qualification: member.qualification, emphasis: member.emphasis ?? member.bio ?? '',
+    sections: member.sections ?? [], portrait: publicMediaUrl(member.portrait_path) ?? null,
+    initials: member.name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase(),
+    territories: member.territories ?? [], founder: false,
+  };
+  return <PartnerCard partner={view} full={full} />;
 }

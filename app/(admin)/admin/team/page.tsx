@@ -22,7 +22,7 @@ export default async function TeamList({ searchParams }: { searchParams?: { save
                 {img && /* eslint-disable-next-line @next/next/no-img-element */ <img src={img} alt="" className="w-full h-full object-cover object-top" />}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-white font-bold truncate">{m.name} <span className="text-white/45 font-normal">· {m.role}</span></p>
+                <p className="text-white font-bold truncate">{m.name} <span className="text-white/45 font-normal">· {m.title ?? m.role}</span></p>
                 <p className="text-white/50 text-xs mt-1">{m.location ?? ''}{!m.active ? ' · hidden' : ''}</p>
               </div>
               <Link href={`/admin/team/${m.id}`} className="p-2.5 rounded-full border border-brand-gold/30 text-white/80 hover:bg-white/5" aria-label="Edit"><Pencil className="w-4 h-4" /></Link>

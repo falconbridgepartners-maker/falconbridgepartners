@@ -43,7 +43,13 @@ export type PartnerRow = {
   sections: { title: string; body: string }[]; portrait_path: string | null; territories: string[]; founder: boolean; sort_order: number; active: boolean;
 };
 
-export type TeamMember = { id: string; slug: string; name: string; role: string; short_title: string | null; location: string | null; email: string | null; linkedin: string | null; bio: string | null; portrait_path: string | null; sort_order: number; active: boolean };
+export type TeamMember = {
+  id: string; slug: string; name: string; title: string | null; short_title: string | null; location: string | null; location_short: string | null;
+  email: string | null; phone: string | null; phone_label: string | null; linkedin: string | null; qualification: string | null; emphasis: string | null;
+  sections: { title: string; body: string }[] | null; portrait_path: string | null; territories: string[] | null; sort_order: number; active: boolean;
+  // Kept from the first team table; title and emphasis replace them.
+  role: string | null; bio: string | null;
+};
 export const PUBLIC_MEDIA = 'public-media';
 export const RESEARCH_FILES = 'research-files';
 

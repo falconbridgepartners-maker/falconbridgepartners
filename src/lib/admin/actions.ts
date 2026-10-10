@@ -234,11 +234,20 @@ export async function saveTeamMember(fd: FormData) {
   const id = str(fd, 'id') || null;
   const name = str(fd, 'name');
   if (!name) throw new Error('Name is required');
+  const sections: { title: string; body: string }[] = [];
+  for (let i = 0; i < 3; i++) { const t = str(fd, `section_title_${i}`), b = str(fd, `section_body_${i}`); if (t || b) sections.push({ title: t, body: b }); }
+  const territories = fd.getAll('territories').map(String).filter(Boolean);
+  const title = str(fd, 'title') || 'Team';
   const row = {
     slug: str(fd, 'slug') ? slugify(str(fd, 'slug')) : slugify(name),
-    name, role: str(fd, 'role') || 'Team', short_title: str(fd, 'short_title') || null, location: str(fd, 'location') || null, email: str(fd, 'email') || null,
-    linkedin: str(fd, 'linkedin') || null, bio: str(fd, 'bio') || null, portrait_path: str(fd, 'portrait_path') || null,
+    name, title, short_title: str(fd, 'short_title') || null,
+    location: str(fd, 'location') || null, location_short: str(fd, 'location_short') || null,
+    email: str(fd, 'email') || null, phone: str(fd, 'phone') || null, phone_label: str(fd, 'phone_label') || null,
+    linkedin: str(fd, 'linkedin') || null, qualification: str(fd, 'qualification') || null, emphasis: str(fd, 'emphasis') || null,
+    sections, portrait_path: str(fd, 'portrait_path') || null, territories,
     sort_order: str(fd, 'sort_order') ? Number(str(fd, 'sort_order')) : 0, active: bool(fd, 'active'),
+    // The first team table's columns, kept in step.
+    role: title, bio: str(fd, 'emphasis') || null,
   };
   const { error } = id ? await db.from('team_members').update(row).eq('id', id) : await db.from('team_members').insert(row);
   if (error) throw new Error(error.message);
