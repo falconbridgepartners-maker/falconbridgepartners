@@ -4,14 +4,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { buildDownloadFollowUpEmail } from '@/lib/emailTemplates';
 import { discoveryCallUrl, leadsAddress, sendFromSite } from '@/lib/mail';
 import type { AccessRequest, Report } from '@/lib/data';
-import { WAIT_HOURS, isSendDay } from '@/lib/followUpTiming';
+import { dueCutoffAt, isSendDay } from '@/lib/followUpTiming';
 
 /** A reader who takes several packs is written to once in this many days, not once per study. */
 const QUIET_DAYS = 30;
 
 /**
  * The follow-up a reader receives after first downloading from a pack: thanks, and a link to book a discovery
- * call. Sent by the daily job (sendDueFollowUps) once the first download is WAIT_HOURS old — by then most
+ * call. Sent by the daily job (sendDueFollowUps) once the first download is WAIT_BUSINESS_DAYS business days old — by then most
  * readers have been through the summaries and their own questions have started to surface.
  *
  * Sent only to readers who agreed on the pack form that we may contact them about the study.
@@ -38,7 +38,7 @@ const STALE_DAYS = 10;
 
 /**
  * The daily sweep behind /api/cron/pack-follow-up: every request whose first download (first_download_at,
- * supabase/008_follow_up_timing.sql) is WAIT_HOURS old, with consent and no follow-up yet, gets the email.
+ * supabase/008_follow_up_timing.sql) is WAIT_BUSINESS_DAYS business days old, with consent and no follow-up yet, gets the email.
  * Nothing goes on a Saturday or Sunday (Dubai time); the Monday run catches up. Unpublished studies are passed over, and a first download more than STALE_DAYS old is never written to —
  * so a send held back by the 30-day rule, or a pause in the job, cannot surface weeks later as a stale email.
  * Until 008 is run there is nothing to sweep, and no email goes at all.
@@ -47,7 +47,7 @@ export async function sendDueFollowUps(): Promise<{ sent: number; skipped: numbe
   const out = { sent: 0, skipped: 0, failed: 0 };
   if (!isSendDay(new Date())) return out;
   const db = createAdminClient();
-  const due = new Date(Date.now() - WAIT_HOURS * 3_600_000).toISOString();
+  const due = dueCutoffAt(new Date()).toISOString();
   const { data: rows, error } = await db.from('access_requests').select('*').is('followup_sent_at', null).eq('consent', true).lte('first_download_at', due).gte('first_download_at', new Date(Date.now() - STALE_DAYS * 86_400_000).toISOString()).order('first_download_at', { ascending: true }).limit(100);
   if (error) { console.error('[pack] follow-up sweep', error); return out; }
   const requests = (rows ?? []) as AccessRequest[];
