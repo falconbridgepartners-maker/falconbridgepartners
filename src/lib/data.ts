@@ -116,6 +116,14 @@ export async function getReportBySlug(slug: string, { includeUnpublished = false
   }, null);
 }
 
+/** How many of the most recent public studies take turns on the home page and the research index. */
+const ROTATION_SIZE = 12;
+
+/**
+ * The study shown on the home page and the research index. A study pinned in Site settings, or flagged
+ * "featured" on its own form, is shown every time. Otherwise the most recent public studies take turns,
+ * one a day (Dubai time), so the page is the same all day and a shared link lands on what was shown.
+ */
 export async function getFeaturedReport(): Promise<Report | null> {
   return safe(async () => {
     const db = createAdminClient();
@@ -124,8 +132,16 @@ export async function getFeaturedReport(): Promise<Report | null> {
       const { data } = await db.from('reports').select('*').eq('id', s.featured_report_id).eq('published', true).maybeSingle();
       if (data) return data as Report;
     }
-    const { data } = await db.from('reports').select('*').eq('published', true).order('featured', { ascending: false }).order('published_at', { ascending: false }).limit(1).maybeSingle();
-    return (data as Report) ?? null;
+    const { data: pinned } = await db.from('reports').select('*').eq('published', true).eq('featured', true).order('published_at', { ascending: false }).limit(1).maybeSingle();
+    if (pinned) return pinned as Report;
+    const { data: recent } = await db.from('reports').select('*').eq('published', true).eq('kind', 'study').order('published_at', { ascending: false }).limit(ROTATION_SIZE);
+    const pool = (recent ?? []) as Report[];
+    if (pool.length === 0) {
+      const { data } = await db.from('reports').select('*').eq('published', true).order('published_at', { ascending: false }).limit(1).maybeSingle();
+      return (data as Report) ?? null;
+    }
+    const dubaiDay = Math.floor((Date.now() + 4 * 3_600_000) / 86_400_000);
+    return pool[dubaiDay % pool.length];
   }, null);
 }
 

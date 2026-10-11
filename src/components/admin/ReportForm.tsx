@@ -70,7 +70,7 @@ export default function ReportForm({ report }: { report?: Report }) {
 
       <div className="tile p-5 space-y-3">
         <Check name="published" title="Published" defaultChecked={report?.published} hint="Unpublished reports are hidden from the library, the sitemap and the study page." />
-        <Check name="featured" title="Featured on Home and Research" defaultChecked={report?.featured} />
+        <Check name="featured" title="Featured on Home and Research" hint="Pins this study. Unticked, the recent studies take turns, one a day." defaultChecked={report?.featured} />
       </div>
 
       <div className="flex items-center gap-3">
