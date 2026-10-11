@@ -105,7 +105,7 @@ export default async function ServicePage({ params }: { params: { slug: string }
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <NextLink href="/research/weekly-scan" label="Weekly Signal" sub="A development in each territory, turned into a question worth testing." />
           <NextLink href="/research/library" label="Research library" sub="Public studies with the research pack available to readers." />
-          <NextLink href="/research/professional-curiosity" label="Professional Curiosity" sub="Opinion drawn from the studies, in the firm\u2019s own voice." />
+          <NextLink href="/research/professional-curiosity" label="Professional Curiosity" sub="Opinion drawn from the studies, in the firm’s own voice." />
         </div>
       </Section>
 

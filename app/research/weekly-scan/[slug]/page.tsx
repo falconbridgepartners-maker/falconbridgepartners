@@ -59,7 +59,7 @@ export default async function ScanEntryPage({ params }: { params: { slug: string
   const after = (
     <>
       {study && <div className="mt-8"><NextLink href={`/research/studies/${study.slug}`} label={`The study this signal led to: ${study.title}`} sub={study.subtitle ?? 'Read the summary and get the research pack.'} /></div>}
-      {pieces.map((piece) => <div key={piece.slug} className="mt-5"><NextLink href={`/research/professional-curiosity/${piece.slug}`} label={`The Professional Curiosity piece on that study: ${piece.title}`} sub="Opinion drawn from the study, in the firm's own voice." /></div>)}
+      {pieces.map((piece) => <div key={piece.slug} className="mt-5"><NextLink href={`/research/professional-curiosity/${piece.slug}`} label={`The Professional Curiosity piece on that study: ${piece.title}`} sub="Opinion drawn from the study, in the firm’s own voice." /></div>)}
       <SignalLinks earlier={earlier} later={later} sameWeek={sameWeek} />
       {svc && <div className="mt-8"><NextLink href={`/decision-support-system/${svc.slug}`} label={`${svc.acronym} · ${svc.name}`} sub="The service closest to this question." /></div>}
       <TerritoryLine territory={e.territory} index={{ href: '/research/weekly-scan', label: 'All Weekly Signals' }} />
