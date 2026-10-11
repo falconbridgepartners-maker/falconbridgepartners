@@ -4,12 +4,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { buildDownloadFollowUpEmail } from '@/lib/emailTemplates';
 import { discoveryCallUrl, leadsAddress, sendFromSite } from '@/lib/mail';
 import type { AccessRequest, Report } from '@/lib/data';
+import { WAIT_HOURS, isSendDay } from '@/lib/followUpTiming';
 
 /** A reader who takes several packs is written to once in this many days, not once per study. */
 const QUIET_DAYS = 30;
-
-/** How long after the first download the follow-up goes: time to read the summaries, not time to go cold. */
-const WAIT_HOURS = 48;
 
 /**
  * The follow-up a reader receives after first downloading from a pack: thanks, and a link to book a discovery
@@ -36,17 +34,18 @@ export async function sendDownloadFollowUp(request: AccessRequest, report: Pick<
 }
 
 /** A first download older than this is left alone: the moment for the email has passed. */
-const STALE_DAYS = 7;
+const STALE_DAYS = 10;
 
 /**
  * The daily sweep behind /api/cron/pack-follow-up: every request whose first download (first_download_at,
  * supabase/008_follow_up_timing.sql) is WAIT_HOURS old, with consent and no follow-up yet, gets the email.
- * Unpublished studies are passed over, and a first download more than STALE_DAYS old is never written to —
+ * Nothing goes on a Saturday or Sunday (Dubai time); the Monday run catches up. Unpublished studies are passed over, and a first download more than STALE_DAYS old is never written to —
  * so a send held back by the 30-day rule, or a pause in the job, cannot surface weeks later as a stale email.
  * Until 008 is run there is nothing to sweep, and no email goes at all.
  */
 export async function sendDueFollowUps(): Promise<{ sent: number; skipped: number; failed: number }> {
   const out = { sent: 0, skipped: 0, failed: 0 };
+  if (!isSendDay(new Date())) return out;
   const db = createAdminClient();
   const due = new Date(Date.now() - WAIT_HOURS * 3_600_000).toISOString();
   const { data: rows, error } = await db.from('access_requests').select('*').is('followup_sent_at', null).eq('consent', true).lte('first_download_at', due).gte('first_download_at', new Date(Date.now() - STALE_DAYS * 86_400_000).toISOString()).order('first_download_at', { ascending: true }).limit(100);

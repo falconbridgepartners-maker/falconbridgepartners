@@ -40,7 +40,7 @@ export async function recordOpen(request: AccessRequest): Promise<void> {
 /**
  * Counts a download and says whether it was the reader's first from this pack.
  * The first is claimed in one step (count 0 → 1), so two files opened at the same moment still count one "first".
- * The first download starts the follow-up clock (first_download_at); the daily job sends the email 48 hours later.
+ * The first download starts the follow-up clock (first_download_at); the daily job sends the email 72 hours later, on a weekday.
  */
 export async function recordDownload(request: AccessRequest): Promise<{ first: boolean }> {
   const db = createAdminClient();
