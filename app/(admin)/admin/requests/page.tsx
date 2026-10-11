@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PageHead } from '@/components/admin/ui';
 import type { AccessRequest } from '@/lib/data';
+import { followUpDueAt } from '@/lib/followUpTiming';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -45,7 +46,7 @@ export default async function PackRequests({ searchParams }: { searchParams?: { 
               <p>Asked {day(r.created_at)}</p>
               <p>{r.open_count > 0 ? `Opened ${day(r.first_opened_at)} · ${r.download_count} download${r.download_count === 1 ? '' : 's'}` : new Date(r.expires_at) < new Date() ? 'Link lapsed unopened' : 'Not opened yet'}</p>
               {r.followup_sent_at && <p>Follow-up sent {day(r.followup_sent_at)}</p>}
-              {!r.followup_sent_at && r.first_download_at && <p>Follow-up due {day(new Date(new Date(r.first_download_at).getTime() + 48 * 3_600_000).toISOString())}</p>}
+              {!r.followup_sent_at && r.first_download_at && <p>Follow-up due {day(followUpDueAt(r.first_download_at).toISOString())}</p>}
             </div>
           </div>
         ))}

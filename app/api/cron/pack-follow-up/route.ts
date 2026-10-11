@@ -6,7 +6,7 @@ export const maxDuration = 60;
 
 /**
  * The daily job behind the download follow-up (vercel.json schedules it; 0 5 * * * is 9am in Dubai).
- * It emails every reader whose first download is 48 hours old and who has had no follow-up yet.
+ * It emails every reader whose first download is 72 hours old and who has had no follow-up yet, Monday to Friday only.
  * Vercel calls it with CRON_SECRET when that variable is set; anyone else is turned away.
  */
 export async function GET(req: Request) {
