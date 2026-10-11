@@ -1,14 +1,16 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import PageHero from '@/components/dss/PageHero';
 import Invitation from '@/components/dss/Invitation';
 import SignalAsIssued from '@/components/dss/SignalAsIssued';
 import { Section, Tile, Band, NextLink } from '@/components/dss/Tiles';
-import { getScanBySlug, getStudyForScan, territoryName, weekText } from '@/lib/data';
+import { getPiecesForStudy, getPublishedScans, getScanBySlug, getStudyForScan, territoryName, weekText } from '@/lib/data';
 import { generatedImagePath, shareMetadata } from '@/lib/share';
+import { neighbourScans, sameWeekScans, territoryPath } from '@/lib/related';
+import { SignalLinks, TerritoryLine } from '@/components/dss/RelatedResearch';
+import { JsonLd, articleLd, breadcrumbLd } from '@/lib/seo';
 import { services } from '@/content/site';
 
 export const dynamic = 'force-dynamic';
@@ -21,20 +23,32 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const place = territoryName[e.territory] ?? e.territory;
   // The link preview carries this signal's own title, description and image on LinkedIn and on X alike.
   const share = { path: `/research/weekly-scan/${e.slug}`, image: { url: generatedImagePath('signal', e.slug), generated: true }, publishedTime: e.week_of };
+  const when = weekText(e.week_label) ?? `week of ${e.week_of}`;
   if (e.content) {
-    const title = `${e.content.heading} · ${weekText(e.week_label) ?? `week of ${e.week_of}`}`;
-    return shareMetadata({ ...share, pageTitle: `${title} — FalconBridge Partners`, title, description: e.content.lead?.title ?? e.question });
+    // Each signal's own lead topic names the page, so no two territories or weeks share a title.
+    const lead = e.content.lead?.title ?? e.question;
+    const title = `${lead} · ${place} Weekly Signal, ${when}`;
+    return shareMetadata({ ...share, pageTitle: `${title} — FalconBridge Partners`, title: lead, description: e.content.lead?.body ?? e.signal });
   }
-  const title = `${place} · Week of ${e.week_of} — Weekly Scan`;
-  return shareMetadata({ ...share, pageTitle: `${title} — FalconBridge Partners`, title, description: e.question });
+  const title = `${e.question} · ${place} Weekly Scan, ${when}`;
+  return shareMetadata({ ...share, pageTitle: `${title} — FalconBridge Partners`, title: e.question, description: e.signal });
 }
 
 export default async function ScanEntryPage({ params }: { params: { slug: string } }) {
   const e = await getScanBySlug(params.slug);
   if (!e) notFound();
   const svc = services.find((s) => s.key === e.service);
-  const study = await getStudyForScan(e);
+  const [study, inTerritory, all] = await Promise.all([getStudyForScan(e), getPublishedScans(e.territory), getPublishedScans()]);
+  const pieces = study && e.report_id ? await getPiecesForStudy(e.report_id) : [];
+  const { earlier, later } = neighbourScans(inTerritory, e);
+  const sameWeek = sameWeekScans(all, e);
   const place = territoryName[e.territory] ?? e.territory;
+  const when = weekText(e.week_label) ?? `week of ${e.week_of}`;
+  const lead = e.content?.lead?.title ?? e.question;
+  const ld = [
+    breadcrumbLd([{ name: 'Research', path: '/research' }, { name: 'Weekly Signal', path: '/research/weekly-scan' }, { name: place, path: territoryPath(e.territory) }, { name: lead, path: `/research/weekly-scan/${e.slug}` }]),
+    articleLd({ headline: lead, description: e.content?.lead?.body ?? e.signal, path: `/research/weekly-scan/${e.slug}`, image: generatedImagePath('signal', e.slug), published: e.week_of, section: `Weekly Signal · ${place} · ${when}` }),
+  ];
   // The study a signal led to is offered at the top of the page as well as at the foot, so a reader need not scroll to find it.
   const studyCta = study && (
     <div className="mt-8">
@@ -45,8 +59,10 @@ export default async function ScanEntryPage({ params }: { params: { slug: string
   const after = (
     <>
       {study && <div className="mt-8"><NextLink href={`/research/studies/${study.slug}`} label={`The study this signal led to: ${study.title}`} sub={study.subtitle ?? 'Read the summary and get the research pack.'} /></div>}
+      {pieces.map((piece) => <div key={piece.slug} className="mt-5"><NextLink href={`/research/professional-curiosity/${piece.slug}`} label={`The Professional Curiosity piece on that study: ${piece.title}`} sub="Opinion drawn from the study, in the firm's own voice." /></div>)}
+      <SignalLinks earlier={earlier} later={later} sameWeek={sameWeek} />
       {svc && <div className="mt-8"><NextLink href={`/decision-support-system/${svc.slug}`} label={`${svc.acronym} · ${svc.name}`} sub="The service closest to this question." /></div>}
-      <p className="text-sm text-white/45 mt-8"><Link href="/research/weekly-scan" className="text-brand-gold-pale underline underline-offset-4">All scan entries</Link></p>
+      <TerritoryLine territory={e.territory} index={{ href: '/research/weekly-scan', label: 'All Weekly Signals' }} />
     </>
   );
 
@@ -55,6 +71,7 @@ export default async function ScanEntryPage({ params }: { params: { slug: string
     const c = e.content;
     return (
       <>
+        <JsonLd data={ld} />
         <PageHero
           eyebrow={['Weekly Signal', place, weekText(e.week_label) ?? `Week of ${e.week_of}`].join(' · ')}
           title={c.heading}
@@ -75,6 +92,7 @@ export default async function ScanEntryPage({ params }: { params: { slug: string
 
   return (
     <>
+      <JsonLd data={ld} />
       <PageHero eyebrow={`Weekly Scan · ${place} · Week of ${e.week_of}`} title="A signal, and the question it raises" governing={e.question} intro={e.signal}>
         {e.sample && <p className="mt-6 inline-block text-[0.7rem] text-brand-gold-pale border border-brand-gold/40 rounded-full px-3 py-1">Sample — prototype placeholder</p>}
         {studyCta}

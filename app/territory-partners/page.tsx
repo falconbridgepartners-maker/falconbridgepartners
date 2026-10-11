@@ -3,6 +3,7 @@ import ContactForm from '@/components/dss/ContactForm';
 import { territoryPartners } from '@/content/site';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/territory-partners' },
   title: 'Territory partners — FalconBridge Partners',
   description: territoryPartners.intro,
 };

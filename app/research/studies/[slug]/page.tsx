@@ -9,7 +9,11 @@ import RequestReport from '@/components/dss/RequestReport';
 import { Section, Band, NextLink } from '@/components/dss/Tiles';
 import { clip } from '@/lib/pieces';
 import { generatedImagePath, shareMetadata } from '@/lib/share';
-import { getPiecesForStudy, getReportBySlug, getScanForStudy, hasGatedPack, hasRequestForm, publicMediaUrl, readerFiles, territoryName, weekText } from '@/lib/data';
+import { getPiecesForStudy, getPublishedReports, getReportBySlug, getScanForStudy, hasGatedPack, hasRequestForm, publicMediaUrl, readerFiles, territoryName, weekText } from '@/lib/data';
+import { otherStudies, territoryPath } from '@/lib/related';
+import { StudyLinks, TerritoryLine } from '@/components/dss/RelatedResearch';
+import { JsonLd, articleLd, breadcrumbLd } from '@/lib/seo';
+import { services } from '@/content/site';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,9 +46,18 @@ export default async function StudyPage({ params }: { params: { slug: string } }
   const isOpen = (f: (typeof files)[number]) => Boolean(f.storage_path) && f.access === 'open';
   const hasOpen = files.some(isOpen);
   const hasRequest = hasRequestForm(all);
-  const [scan, pieces] = await Promise.all([getScanForStudy(s.id), getPiecesForStudy(s.id)]);
+  const [scan, pieces, published] = await Promise.all([getScanForStudy(s.id), getPiecesForStudy(s.id), getPublishedReports()]);
+  const siblings = otherStudies(published, s);
+  const place = territoryName[s.territory] ?? s.territory;
+  const raas = services.find((x) => x.key === 'raas');
+  const cover = publicMediaUrl(s.cover_path);
+  const ld = [
+    breadcrumbLd([{ name: 'Research', path: '/research' }, { name: 'Research library', path: '/research/library' }, { name: place, path: territoryPath(s.territory) }, { name: s.title, path: `/research/studies/${s.slug}` }]),
+    articleLd({ headline: s.title, description: s.subtitle ?? (s.body ? clip(s.body) : null), path: `/research/studies/${s.slug}`, image: cover ?? generatedImagePath('study', s.slug), published: s.published_at, section: `${s.kind === 'study' ? 'Public study' : s.kind === 'sample' ? 'Commissioned sample' : 'White paper'} · ${place}` }),
+  ];
   return (
     <>
+      <JsonLd data={ld} />
       <PageHero eyebrow={`${s.kind === 'study' ? 'Public study' : s.kind === 'sample' ? 'Commissioned sample' : 'White paper'} · ${territoryName[s.territory] ?? s.territory}${s.year ? ` · ${s.year}` : ''}`} title={s.title} governing={s.subtitle ?? undefined}>
         {hasRequest && (
           <div className="mt-2">
@@ -104,6 +117,11 @@ export default async function StudyPage({ params }: { params: { slug: string } }
         {hasRequest && <div id="research-pack" className="scroll-mt-32"><RequestReport studyTitle={s.title} slug={s.slug} auto={auto} packFiles={auto ? files.map((f) => f.label) : []} /></div>}
         {!auto && !hasOpen && hasRequest && <p className="text-sm text-white/45 mt-4">Direct downloads are added as each element is released.</p>}
         {s.qualifier && <div className="mt-10"><Band title="The sample demonstrates the work" body={s.qualifier} /></div>}
+      </Section>
+      <Section eyebrow="Around this study">
+        <StudyLinks studies={siblings} heading={`Other studies on ${place}`} />
+        {raas && <div className="mt-8"><NextLink href={`/decision-support-system/${raas.slug}`} label={`${raas.acronym} · ${raas.name}`} sub="How a study like this is commissioned: a question of your own, answered as a complete research package." /></div>}
+        <TerritoryLine territory={s.territory} index={{ href: '/research/library', label: 'The research library' }} />
       </Section>
       <Invitation compact />
     </>

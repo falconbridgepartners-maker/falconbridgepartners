@@ -6,6 +6,7 @@ import { acronymize } from '@/components/dss/acronymize';
 import { bespoke } from '@/content/site';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/bespoke-managed-services' },
   title: 'Intelligence Research as a Service — FalconBridge Partners',
   description: bespoke.intro,
 };

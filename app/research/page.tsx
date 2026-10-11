@@ -6,10 +6,12 @@ import Invitation from '@/components/dss/Invitation';
 import TerritoryMap from '@/components/dss/TerritoryMap';
 import { Section, Tile, ThreeColumns, Band, NextLink } from '@/components/dss/Tiles';
 import { research, serviceByKey, firm } from '@/content/site';
-import { getFeaturedReport, publicMediaUrl, territoryName } from '@/lib/data';
+import { getFeaturedReport, publicMediaUrl, territoryName, TERRITORIES } from '@/lib/data';
+import { territoryPath } from '@/lib/related';
 import { getSitePartners } from '@/lib/partners';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/research' },
   title: 'Research — FalconBridge Partners',
   description: 'Research that readers can examine: a substantive investigation delivered with the means to navigate, discuss and challenge its findings.',
 };
@@ -45,6 +47,10 @@ export default async function ResearchPage() {
           <NextLink href="/research/library" label="Research Library" sub="Public studies, commissioned samples and papers, available to readers." />
           <NextLink href="/research/professional-curiosity" label="Professional Curiosity" sub="Opinion pieces drawn from our studies" />
         </div>
+        <p className="text-sm text-white/45 mt-8">
+          By territory:{' '}
+          {TERRITORIES.map((t, i) => <span key={t.value}>{i > 0 ? ' · ' : ''}<Link href={territoryPath(t.value)} className="text-brand-gold-pale underline underline-offset-4">{t.label}</Link></span>)}
+        </p>
       </Section>
 
       <Section eyebrow="Research in practice" title="Depth that the reader can examine">

@@ -5,6 +5,7 @@ import { Section, Tile, Band } from '@/components/dss/Tiles';
 import { firm, workingWith } from '@/content/site';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/working-with-falconbridge' },
   title: 'Working with FalconBridge — FalconBridge Partners',
   description: workingWith.intro,
 };

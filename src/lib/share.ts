@@ -28,6 +28,7 @@ export function shareMetadata(s: ShareInput): Metadata {
   return {
     title: s.pageTitle,
     description,
+    alternates: { canonical: s.path },
     openGraph: {
       type: 'article', siteName: SITE_NAME, title: s.title, description, url: s.path, images: [image],
       ...(s.publishedTime ? { publishedTime: s.publishedTime } : {}),

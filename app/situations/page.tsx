@@ -7,6 +7,7 @@ import { Section, Band } from '@/components/dss/Tiles';
 import { firm, situations, workingWith } from '@/content/site';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/situations' },
   title: 'Who we serve — FalconBridge Partners',
   description: 'A proposition to substantiate, a proposition to evaluate, a decision to own, a direction to make workable. The situation defines the starting point.',
 };

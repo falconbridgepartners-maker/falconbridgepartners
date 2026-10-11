@@ -8,6 +8,7 @@ import { getPublishedPieces, TERRITORIES } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
+  alternates: { canonical: '/research/professional-curiosity' },
   title: 'Professional Curiosity — FalconBridge Partners',
   description: 'Opinion pieces drawn from our studies.',
 };

@@ -6,10 +6,11 @@ import ReportCard from '@/components/dss/ReportCard';
 import { Section, Band } from '@/components/dss/Tiles';
 import { research } from '@/content/site';
 import WeekFilter from '@/components/dss/WeekFilter';
-import { getPublishedReports, REPORT_KINDS, TERRITORIES, weekOptions } from '@/lib/data';
+import { getPublishedReports, REPORT_KINDS, TERRITORIES, territoryName, weekOptions } from '@/lib/data';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
+  alternates: { canonical: '/research/library' },
   title: 'Research library — FalconBridge Partners',
   description: 'Public studies, commissioned samples and papers, available to readers with the research package.',
 };
@@ -37,6 +38,7 @@ export default async function LibraryPage({ searchParams }: { searchParams?: { t
           <WeekFilter weeks={weeks} current={w} basePath="/research/library" params={{ territory: t, kind: k }} />
           <p className="text-sm text-white/45">{reports.length} {reports.length === 1 ? 'study' : 'studies'}{w || t || k ? ' in this selection' : ''}</p>
         </div>
+        {t && <p className="text-sm text-white/45 mb-6"><Link href={`/research/territories/${t}`} className="text-brand-gold-pale underline underline-offset-4">All research on {territoryName[t] ?? t}: signals, studies and pieces</Link></p>}
         {reports.length === 0 ? <p className="text-white/60">Nothing published for this selection yet.</p> : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">{reports.map((r) => <ReportCard key={r.id} report={r} />)}</div>
         )}

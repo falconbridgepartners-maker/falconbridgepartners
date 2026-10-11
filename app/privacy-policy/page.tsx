@@ -1,6 +1,13 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import heroBg from '@/assets/images/how-we-work.png';
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy — FalconBridge Partners',
+  description: 'How FalconBridge Partners collects, uses and protects personal information across falconbp.com, the research packs and the firm\u2019s engagements.',
+  alternates: { canonical: '/privacy-policy' },
+};
 
 export default function PrivacyPolicyPage() {
     return (

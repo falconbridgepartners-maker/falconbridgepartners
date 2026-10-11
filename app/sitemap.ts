@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getPublishedScans, getPublishedReports, getPublishedPieces } from '@/lib/data';
+import { getPublishedScans, getPublishedReports, getPublishedPieces, TERRITORIES } from '@/lib/data';
 import { services, situations } from '@/content/site';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://falconbp.com';
@@ -11,9 +11,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const staticRoutes = [
     '', '/decision-support-system', '/situations', '/research', '/research/weekly-scan', '/research/library', '/research/professional-curiosity',
-    '/bespoke-managed-services', '/about', '/working-with-falconbridge', '/contact', '/terms-of-engagement', '/privacy-policy',
+    '/bespoke-managed-services', '/about', '/working-with-falconbridge', '/territory-partners', '/contact', '/terms-of-engagement', '/privacy-policy',
     ...services.map((s) => `/decision-support-system/${s.slug}`),
     ...situations.map((s) => `/situations/${s.slug}`),
+    ...TERRITORIES.map((t) => `/research/territories/${t.value}`),
   ];
   const entries: MetadataRoute.Sitemap = staticRoutes.map((p) => ({ url: `${SITE_URL}${p}`, lastModified: now, changeFrequency: 'monthly' }));
   const scans = await getPublishedScans();

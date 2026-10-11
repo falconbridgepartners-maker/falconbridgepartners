@@ -7,6 +7,7 @@ import { Section, Tile, Band, NextLink } from '@/components/dss/Tiles';
 import { firm, forces, humanAuthority, serviceByKey } from '@/content/site';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/decision-support-system' },
   title: 'Decision Support System — FalconBridge Partners',
   description: 'Five services, available independently: Critical Evaluation, Research, Coaching, Execution Modelling and Advisory. Enter where the need arises and combine services by choice.',
 };
