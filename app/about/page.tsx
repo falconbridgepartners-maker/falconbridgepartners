@@ -85,7 +85,7 @@ export default async function AboutPage() {
 
       <Section eyebrow="Where to go next">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <NextLink href="/decision-support-system" label="The Decision Support System\u2122" sub="Five services, available independently: Critical Evaluation, Research, Coaching, Execution Modelling and Advisory." />
+          <NextLink href="/decision-support-system" label="The Decision Support System™" sub="Five services, available independently: Critical Evaluation, Research, Coaching, Execution Modelling and Advisory." />
           <NextLink href="/situations" label="Who we serve" sub="A proposition to advance or evaluate, a decision to own, a direction to make workable." />
           <NextLink href="/research" label="The research" sub="The Weekly Signal, the public studies and the Professional Curiosity pieces." />
         </div>

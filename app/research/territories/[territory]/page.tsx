@@ -41,7 +41,7 @@ export default async function TerritoryPage({ params }: { params: { territory: s
         eyebrow={`Research · ${name}`}
         title={name}
         governing={`${signals.length} Weekly Signal${signals.length === 1 ? '' : 's'} · ${reports.length} stud${reports.length === 1 ? 'y' : 'ies'} · ${pieces.length} piece${pieces.length === 1 ? '' : 's'}`}
-        intro={`Everything FalconBridge has published on ${name}: the Weekly Signal each week, the studies those signals led to and the Professional Curiosity pieces drawn from them. Findings and the firm's interpretation are kept visibly apart throughout.`}
+        intro={`Everything FalconBridge has published on ${name}: the Weekly Signal each week, the studies those signals led to and the Professional Curiosity pieces drawn from them. Findings and the firm’s interpretation are kept visibly apart throughout.`}
       />
 
       {signals.length > 0 && (
