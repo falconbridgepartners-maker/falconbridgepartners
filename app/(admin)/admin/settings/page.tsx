@@ -16,9 +16,9 @@ export default async function SettingsPage({ searchParams }: { searchParams?: { 
       <PageHead title="Site settings" sub="What the home page features, and the partner portraits." />
       <Notice q={searchParams} />
       <form action={saveSettings} className="space-y-8">
-        <Field id="featured_report_id" title="Featured report (Home and Research)">
+        <Field id="featured_report_id" title="Featured report (Home and Research)" hint="Pin one study here, or tick Featured on its own form. With neither, the recent studies take turns, one a day.">
           <select id="featured_report_id" name="featured_report_id" defaultValue={settings.featured_report_id ?? ''} className={`${input} bg-brand-navy`}>
-            <option value="">Most recent published report</option>
+            <option value="">Take turns: the twelve most recent studies, one a day</option>
             {list.map((r) => <option key={r.id} value={r.id}>{r.title}{r.published ? '' : ' (draft)'}</option>)}
           </select>
         </Field>
