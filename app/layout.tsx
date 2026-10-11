@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import SiteChrome from '@/components/layout/SiteChrome';
+import { JsonLd, organizationLd, websiteLd } from '@/lib/seo';
 import '@/index.css';
 
 const title = 'FalconBridge Partners — Sharper thinking when the decision stays with you';
@@ -25,7 +26,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="alternate" type="application/rss+xml" title="FalconBridge Weekly Signal" href="https://falconbp.com/research/weekly-scan/rss.xml" />
+      </head>
       <body className="bg-brand-navy text-brand-grey font-primary antialiased overflow-x-clip">
+        <JsonLd data={[organizationLd(), websiteLd()]} />
         <div className="app-wrapper">
           <div className="grain-overlay"></div>
           <SiteChrome><Navbar /></SiteChrome>

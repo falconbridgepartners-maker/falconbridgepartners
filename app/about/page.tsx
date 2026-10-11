@@ -10,6 +10,7 @@ import { getTeam } from '@/lib/data';
 import TeamCard from '@/components/dss/TeamCard';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/about' },
   title: 'About — FalconBridge Partners',
   description: firm.shortDescription,
 };
@@ -80,6 +81,14 @@ export default async function AboutPage() {
           {trustAndUse.map((t) => <Band key={t.title} title={t.title} body={t.body} />)}
         </div>
         <p className="governing text-xl md:text-2xl mt-10">{trustLine}</p>
+      </Section>
+
+      <Section eyebrow="Where to go next">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <NextLink href="/decision-support-system" label="The Decision Support System\u2122" sub="Five services, available independently: Critical Evaluation, Research, Coaching, Execution Modelling and Advisory." />
+          <NextLink href="/situations" label="Who we serve" sub="A proposition to advance or evaluate, a decision to own, a direction to make workable." />
+          <NextLink href="/research" label="The research" sub="The Weekly Signal, the public studies and the Professional Curiosity pieces." />
+        </div>
       </Section>
 
       <Invitation />

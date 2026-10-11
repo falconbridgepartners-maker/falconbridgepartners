@@ -12,7 +12,7 @@ export function generateStaticParams() {
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
   const s = situations.find((x) => x.slug === params.slug);
   if (!s) return {};
-  return { title: `${s.title} — FalconBridge Partners`, description: s.audience };
+  return { title: `${s.title} — FalconBridge Partners`, description: s.audience, alternates: { canonical: `/situations/${s.slug}` } };
 }
 
 export default function SituationPage({ params }: { params: { slug: string } }) {

@@ -5,6 +5,7 @@ import { Linkedin, Phone } from 'lucide-react';
 import logo from '@/assets/logos/logo.png';
 import { firm, services, situations } from '@/content/site';
 import { getSitePartners } from '@/lib/partners';
+import { TERRITORIES } from '@/lib/data';
 
 const col = "text-white/55 hover:text-white transition-colors text-sm";
 
@@ -59,6 +60,10 @@ const Footer = async () => {
                             <li><Link href="/research/weekly-scan" className={col}>Weekly Scan</Link></li>
                             <li><Link href="/research/library" className={col}>Research Library</Link></li>
                             <li><Link href="/research/professional-curiosity" className={col}>Professional Curiosity</Link></li>
+                        </ul>
+                        <h4 className="label-tech mt-8 mb-6">By territory</h4>
+                        <ul className="space-y-3">
+                            {TERRITORIES.map((t) => <li key={t.value}><Link href={`/research/territories/${t.value}`} className={col}>{t.label}</Link></li>)}
                         </ul>
                     </div>
 

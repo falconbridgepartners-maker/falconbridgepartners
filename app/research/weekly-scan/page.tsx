@@ -10,6 +10,7 @@ import { getPublishedScans, territoryName, weekOptions, weekText } from '@/lib/d
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
+  alternates: { canonical: '/research/weekly-scan' },
   title: 'Weekly Scan — FalconBridge Partners',
   description: 'Systematic territorial scans identify significant developments. The FalconBridge Lens turns selected signals into decision-relevant questions.',
 };
@@ -43,6 +44,7 @@ export default async function WeeklyScanPage({ searchParams }: { searchParams?: 
         {hasSamples && (
           <div className="tile-ivory p-4 mb-8 text-sm"><strong>Prototype note.</strong> Entries marked “sample” are placeholders showing the structure of a scan entry. They are replaced by real scans before launch.</div>
         )}
+        {filter && <p className="text-sm text-white/45 mb-6"><Link href={`/research/territories/${filter}`} className="text-brand-gold-pale underline underline-offset-4">All research on {territoryName[filter] ?? filter}: signals, studies and pieces</Link></p>}
         {scans.length === 0 && <p className="text-white/60">No scan entries for this selection yet.</p>}
         <div className="grid grid-cols-1 gap-5">
           {scans.map((e) => (

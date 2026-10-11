@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import React from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
@@ -15,6 +16,8 @@ import { getFeaturedReport, getPublishedPieces, publicMediaUrl, territoryName } 
 import { getSitePartners } from '@/lib/partners';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = { alternates: { canonical: '/' } };
 
 export default async function Home() {
   const [featuredStudy, partners, pieces] = await Promise.all([getFeaturedReport(), getSitePartners(), getPublishedPieces()]);

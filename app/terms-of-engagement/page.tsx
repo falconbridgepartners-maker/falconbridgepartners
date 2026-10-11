@@ -3,7 +3,7 @@ import Image from 'next/image';
 import heroBg from '@/assets/images/how-we-work.png';
 import { firm } from '@/content/site';
 
-export const metadata = { title: 'Terms of Engagement — FalconBridge Partners' };
+export const metadata = { title: 'Terms of Engagement — FalconBridge Partners', description: 'The terms on which FalconBridge Partners is engaged: what the firm does and does not do, scope and change, evidence and its limits, human judgement and supporting technology.', alternates: { canonical: '/terms-of-engagement' } };
 
 const LAST_UPDATED = '22 September 2026';
 
