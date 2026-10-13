@@ -190,7 +190,7 @@ LinkedIn and X keep their own copy of a preview. After changing a headline or im
 
 ## Automatic import job
 
-`/api/cron/weekly-import` (scheduled daily at 04:00 UTC, 08:00 Dubai, in `vercel.json`) reads the publishing folder in Dropbox, sweeps every manifest entry it has not handled and publishes the clean ones that are new to the site.
+`/api/cron/weekly-import` (scheduled daily at 04:00 and 10:00 UTC, 08:00 and 14:00 Dubai, in `vercel.json`; Vercel Pro) reads the publishing folder in Dropbox, sweeps every manifest entry it has not handled and publishes the clean ones that are new to the site.
 
 - Needs `CRON_SECRET` (already set for the follow-up job). Call it with `Authorization: Bearer <CRON_SECRET>`; add `?dry=1` to sweep and report without publishing.
 - Only entries whose scan, study and piece slugs are not on the site are published. Anything already there, live or taken down, is left alone.
