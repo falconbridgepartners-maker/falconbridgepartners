@@ -1,5 +1,6 @@
 import React from 'react';
 import type { SignalContent, SignalItem } from '@/lib/weekly/manifest';
+import { isFooterLine } from '@/lib/weekly/sweep';
 import { acronymize } from '@/components/dss/acronymize';
 
 /** One item of the signal: the report, then the FalconBridge Lens set apart from it, then its sources. */
@@ -27,7 +28,8 @@ function Item({ item, lead, n }: { item: SignalItem; lead?: boolean; n?: number 
  */
 export default function SignalAsIssued({ content }: { content: SignalContent }) {
   const themes = content.themes ?? [];
-  const log = content.audit_log ?? [];
+  // The email wrapper's footer lines are not part of the issued log.
+  const log = (content.audit_log ?? []).filter((l) => !isFooterLine(l));
   return (
     <div className="space-y-14">
       {themes.length > 0 && (

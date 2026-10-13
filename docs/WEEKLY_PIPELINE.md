@@ -187,3 +187,14 @@ A piece, a study and a Weekly Signal each state their own title, description and
 
 LinkedIn and X keep their own copy of a preview. After changing a headline or image, refresh LinkedIn's copy with its Post Inspector (linkedin.com/post-inspector) before posting the link again.
 
+
+## Automatic import job
+
+`/api/cron/weekly-import` (scheduled daily at 04:00 UTC, 08:00 Dubai, in `vercel.json`) reads the publishing folder in Dropbox, sweeps every manifest entry it has not handled and publishes the clean ones that are new to the site.
+
+- Needs `CRON_SECRET` (already set for the follow-up job). Call it with `Authorization: Bearer <CRON_SECRET>`; add `?dry=1` to sweep and report without publishing.
+- Only entries whose scan, study and piece slugs are not on the site are published. Anything already there, live or taken down, is left alone.
+- An entry with any sweep finding (`src/lib/weekly/sweep.ts`: garbled text, phone numbers, email wrapper text, cut-off figures, missing sections, week mismatch) is held and listed in the response. The rest of the manifest still goes.
+- A manifest revision is marked handled in `import_log` (source `auto:<file id>@<rev>`) once no entry failed. Saving a new revision of the file makes it eligible again.
+- Email footer lines are dropped from the audit log on import and hidden on the page.
+- The sweep checks form, not truth. Figures and attributions are still source-checked by a person before the manifest is saved.
