@@ -1,5 +1,12 @@
 {
   "crons": [
-    { "path": "/api/cron/pack-follow-up", "schedule": "0 5 * * *" }
+    {
+      "path": "/api/cron/pack-follow-up",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-import",
+      "schedule": "0 4 * * *"
+    }
   ]
 }
