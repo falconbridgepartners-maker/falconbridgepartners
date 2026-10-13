@@ -14,6 +14,7 @@ import { siteSender } from '@/lib/mail';
  */
 const RECENT_DAYS = 10;
 const TO = 'jessica@falconbp.com';
+const CC = 'joel@falconbp.com'; // Joel is copied so he sees each email arrive in his own inbox
 const FROM_DISPLAY = 'Joel Arcus <joel@falconbp.com>';
 const SITE = 'https://falconbp.com';
 
@@ -60,7 +61,7 @@ export async function announcePublished(): Promise<AnnounceResult> {
     const html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#222"><p>Hi Jessica,</p><p>${items.length === 1 ? 'This page is' : 'These pages are'} now live on falconbp.com, ready to use in your posts.</p><h3 style="margin:18px 0 6px">${m.heading}</h3>${items
       .map((i) => `<p style="margin:0 0 14px"><strong>${esc(i.territory)}</strong>: ${esc(i.title)}<br>Slug: <code>${esc(i.slug)}</code><br><a href="${i.url}">${i.url}</a></p>`).join('')}<p>Joel</p></div>`;
 
-    const send = (from: string) => resend.emails.send({ from, to: TO, replyTo: 'joel@falconbp.com', subject: m.subject, text, html });
+    const send = (from: string) => resend.emails.send({ from, to: TO, cc: CC, replyTo: 'joel@falconbp.com', subject: m.subject, text, html });
     // From Joel's own address if the mail service accepts it; otherwise from the site's address, with replies still going to Joel.
     let res = await send(FROM_DISPLAY);
     if (res.error) { console.error('[announce] joel@ refused:', res.error); res = await send(siteSender('website')); }
