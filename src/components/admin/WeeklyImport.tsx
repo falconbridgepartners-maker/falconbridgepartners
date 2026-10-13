@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { checkPastedManifest, disconnectDropbox, importOne, type ImportScreen, type ManifestSummary } from '@/lib/admin/importActions';
+import { announceNewlyPublished, checkPastedManifest, disconnectDropbox, importOne, type ImportScreen, type ManifestSummary } from '@/lib/admin/importActions';
 import type { ImportResult } from '@/lib/weekly/import';
 import { input, btn, btnGhost } from '@/components/admin/ui';
 
@@ -13,7 +13,7 @@ const TERRITORY: Record<string, string> = {
 const ACCESS: Record<string, string> = { open: 'open', request: 'in the pack', internal: 'internal' };
 const STATE: Record<string, string> = { new: 'new', draft: 'draft exists', published: 'live', none: '—' };
 
-type Run = { busy: boolean; mode?: 'draft' | 'publish'; results: Record<number, ImportResult | 'working'> };
+type Run = { busy: boolean; mode?: 'draft' | 'publish'; note?: string; results: Record<number, ImportResult | 'working'> };
 
 function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
   const router = useRouter();
@@ -33,7 +33,15 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
       catch (err) { res = { territory: e.territory, status: 'failed', detail: err instanceof Error ? err.message : 'The request did not complete.', files: [], warnings: [] }; }
       setRun((r) => ({ ...r, results: { ...r.results, [e.index]: res } }));
     }
-    setRun((r) => ({ ...r, busy: false }));
+    // Once the whole run is done, tell Jessica about anything newly live. A failure here never undoes the import.
+    let note: string | undefined;
+    if (publish) {
+      try {
+        const a = await announceNewlyPublished();
+        note = a.failed.length ? `Email to Jessica not sent: ${a.failed.join(' ')}` : a.sent.length ? `Email sent to Jessica: ${a.sent.join(', ')}.` : undefined;
+      } catch { note = 'Email to Jessica not sent.'; }
+    }
+    setRun((r) => ({ ...r, busy: false, note }));
     router.refresh();
   };
 
@@ -111,6 +119,7 @@ function ManifestCard({ m, pasted }: { m: ManifestSummary; pasted?: string }) {
                 : run.mode === 'publish' ? `Week ${m.weekLabel ?? ''} is published: ${m.entries.length} ${m.entries.length === 1 ? 'entry' : 'entries'}.`
                 : done.every((r) => r.report?.published || r.scan?.published || r.piece?.published) ? `Week ${m.weekLabel ?? ''} is updated. The entries were already live and stay live.`
                 : `Week ${m.weekLabel ?? ''} is saved as drafts. Review, then publish from here or from each entry.`}
+              {run.note ? ` ${run.note}` : ''}
             </p>
           )}
 

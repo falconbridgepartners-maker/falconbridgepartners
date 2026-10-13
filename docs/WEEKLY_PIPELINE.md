@@ -198,3 +198,10 @@ LinkedIn and X keep their own copy of a preview. After changing a headline or im
 - A manifest revision is marked handled in `import_log` (source `auto:<file id>@<rev>`) once no entry failed. Saving a new revision of the file makes it eligible again.
 - Email footer lines are dropped from the audit log on import and hidden on the page.
 - The sweep checks form, not truth. Figures and attributions are still source-checked by a person before the manifest is saved.
+
+## Email to Jessica after an upload
+
+After each publish run, `announcePublished()` (`src/lib/weekly/announce.ts`) emails jessica@falconbp.com one message per kind that has new live pages: Weekly Signals, research packs, Professional Curiosity pieces. Each lists title, territory, slug and link. It is sent through Resend from Joel Arcus <joel@falconbp.com> if the mail service accepts that address, otherwise from the site's address with replies to joel@falconbp.com.
+
+- Triggered by the end of an "Import and publish" run on /admin/import and at the end of the automatic import job.
+- Each item is announced once (recorded in `import_log`, source `announced:<kind>:<slug>`), and only items created in the last 10 days are considered.

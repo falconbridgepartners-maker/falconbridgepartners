@@ -1,4 +1,5 @@
 'use server';
+import { announcePublished } from '@/lib/weekly/announce';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/admin/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -98,6 +99,13 @@ export async function importOne(source: string, index: number, opts: { publish: 
   if (result.scan) revalidatePath(`/research/weekly-scan/${result.scan.slug}`);
   revalidatePath('/admin', 'layout');
   return result;
+}
+
+/** Called by the import screen once a run has finished: tells Jessica about anything newly live (see weekly/announce.ts). */
+export async function announceNewlyPublished(): Promise<{ sent: string[]; failed: string[] }> {
+  await requireAdmin();
+  const r = await announcePublished();
+  return { sent: r.sent.map((x) => `${x.count} ${x.kind}${x.count === 1 ? '' : 's'}`), failed: r.failed };
 }
 
 export async function disconnectDropbox(): Promise<void> {
