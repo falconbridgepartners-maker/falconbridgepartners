@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Invitation from '@/components/dss/Invitation';
 import PieceView from '@/components/dss/PieceView';
+import EmailPiece from '@/components/dss/EmailPiece';
 import { Section } from '@/components/dss/Tiles';
 import { NextLink } from '@/components/dss/Tiles';
 import { PieceLinks, TerritoryLine } from '@/components/dss/RelatedResearch';
@@ -43,6 +44,7 @@ export default async function PiecePage({ params }: { params: { slug: string } }
     <>
       <JsonLd data={ld} />
       <PieceView piece={p} study={study} />
+      <div className="container-editorial pt-2"><EmailPiece slug={p.slug} /></div>
       <Section eyebrow="Around this piece">
         {scan && <NextLink href={`/research/weekly-scan/${scan.slug}`} label="The Weekly Signal that started it" sub={[territoryName[scan.territory] ?? scan.territory, weekText(scan.week_label) ?? `week of ${scan.week_of}`, scan.question].join(' · ')} />}
         <PieceLinks pieces={siblings} heading="More Professional Curiosity" />

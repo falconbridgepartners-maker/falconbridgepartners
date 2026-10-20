@@ -196,3 +196,43 @@ export function buildDownloadFollowUpEmail({ name, studyTitle, bookingUrl, reply
 
   return { subject: `Three days with “${studyTitle}”`, html, text };
 }
+
+/**
+ * A Professional Curiosity piece sent to someone by a reader of the site. The email carries only the piece:
+ * its headline, its summary and a link. Nothing the sender types appears in it except the recipient's own name,
+ * so the form cannot be used to send arbitrary text.
+ */
+export function buildPieceShareEmail({ name, headline, summary, link, replyTo }: {
+  name: string; headline: string; summary: string; link: string; replyTo: string;
+}): { subject: string; html: string; text: string } {
+  const intro = 'A reader of falconbp.com thought you would want to see this opinion piece from FalconBridge Partners.';
+  const why = 'You are receiving this because someone entered your address on falconbp.com to send you this piece. You have not been added to any list and we will not write again.';
+  const html = `
+  <div style="margin:0;padding:0;background:${PACK.charcoal};font-family:Arial, 'Helvetica Neue', sans-serif;color:${PACK.grey};">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${PACK.charcoal};padding:36px 18px;">
+      <tr><td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:${PACK.tile};border:1px solid rgba(200,168,106,0.25);border-radius:14px;overflow:hidden;">
+          <tr><td style="padding:30px 34px 8px;">
+            <img src="${LOGO_URL}" alt="FalconBridge Partners" width="120" style="display:block;border:0;outline:none;" />
+            <p style="margin:26px 0 0;color:${PACK.goldPale};font-size:12px;letter-spacing:0.08em;text-transform:uppercase;">Professional Curiosity</p>
+            <h1 style="margin:10px 0 10px;font-size:24px;line-height:1.3;color:#ffffff;font-weight:700;">${escapeHtml(headline)}</h1>
+          </td></tr>
+          <tr><td style="padding:14px 34px 6px;color:${PACK.grey};font-size:15px;line-height:1.65;">
+            <p style="margin:0 0 16px;">${escapeHtml(name)}, ${escapeHtml(intro.charAt(0).toLowerCase() + intro.slice(1))}</p>
+            ${summary ? `<p style="margin:0 0 20px;font-family:Georgia, 'Times New Roman', serif;font-style:italic;color:${PACK.ivory};font-size:16px;line-height:1.6;">${escapeHtml(summary)}</p>` : ''}
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 22px;"><tr><td style="border-radius:999px;background:${PACK.gold};">
+              <a href="${link}" style="display:inline-block;padding:13px 28px;color:${PACK.charcoal};font-size:15px;font-weight:700;text-decoration:none;">Read the piece</a>
+            </td></tr></table>
+          </td></tr>
+          <tr><td style="padding:18px 34px 26px;border-top:1px solid rgba(200,168,106,0.18);font-size:12px;color:${PACK.grey};line-height:1.65;">
+            ${escapeHtml(why)} Questions: <a href="mailto:${escapeHtml(replyTo)}" style="color:${PACK.goldPale};">${escapeHtml(replyTo)}</a>.
+            If the button does not work, paste this address into your browser:<br /><span style="color:${PACK.goldPale};word-break:break-all;">${link}</span>
+          </td></tr>
+        </table>
+        <p style="margin:18px 0 0;color:rgba(184,189,200,0.6);font-size:11px;">FalconBridge Partners FZC LLC · falconbp.com</p>
+      </td></tr>
+    </table>
+  </div>`;
+  const text = [`${name}, ${intro.charAt(0).toLowerCase() + intro.slice(1)}`, '', headline, ...(summary ? ['', summary] : []), '', `Read the piece: ${link}`, '', why, `Questions: ${replyTo}`].join('\n');
+  return { subject: `Professional Curiosity: ${headline}`, html, text };
+}
