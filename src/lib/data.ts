@@ -28,6 +28,8 @@ export type Scan = {
 export type Piece = {
   id: string; slug: string; title: string; series: string; territory: string; report_id: string | null; description: string | null;
   published_at: string | null; evidence_date: string | null; content: PieceContent; share_image_path: string | null; reviewed: boolean; published: boolean;
+  /** The piece's week: its study's week, or the week of its date when it has no study. Worked out on read, never stored. */
+  week_label?: string | null;
 };
 export type AccessRequest = {
   id: string; report_id: string; full_name: string; email: string; organisation: string; role: string | null; intended_use: string | null;
@@ -203,22 +205,22 @@ export const hasRequestForm = (files: ReportFile[] | undefined) =>
 export async function getPublishedPieces(territory?: string): Promise<Piece[]> {
   return safe(async () => {
     const db = createAdminClient();
-    let q = db.from('pieces').select('*').eq('published', true).order('published_at', { ascending: false }).order('created_at', { ascending: false });
+    let q = db.from('pieces').select('*, report:reports(week_label)').eq('published', true).order('published_at', { ascending: false }).order('created_at', { ascending: false });
     if (territory) q = q.eq('territory', territory);
     const { data, error } = await q;
     if (error) return [];
-    return (data ?? []) as Piece[];
+    return (data ?? []).map(withPieceWeek);
   }, []);
 }
 
 export async function getPieceBySlug(slug: string, { includeUnpublished = false } = {}): Promise<Piece | null> {
   return safe(async () => {
     const db = createAdminClient();
-    let q = db.from('pieces').select('*').eq('slug', slug);
+    let q = db.from('pieces').select('*, report:reports(week_label)').eq('slug', slug);
     if (!includeUnpublished) q = q.eq('published', true);
     const { data, error } = await q.maybeSingle();
     if (error) return null;
-    return (data as Piece) ?? null;
+    return data ? withPieceWeek(data) : null;
   }, null);
 }
 
@@ -262,6 +264,24 @@ export async function getScanForStudy(reportId: string): Promise<Pick<Scan, 'slu
     if (error) return null;
     return (data as Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'>) ?? null;
   }, null);
+}
+
+/** FalconBridge week label for a date: ISO 8601 weeks (Week 1 of 2026 began Monday 29 Dec 2025). "2026-10-19" → "2026-W43". */
+export function weekLabelForDate(iso: string | null | undefined): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+  if (!m) return null;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day); // the Thursday of this week decides its year
+  const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
+  const week = Math.ceil(((d.getTime() - yearStart) / 86_400_000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+/** A piece row with its study's week attached; the joined study is dropped. */
+function withPieceWeek(row: Record<string, unknown>): Piece {
+  const { report, ...rest } = row as Piece & { report?: { week_label?: string | null } | null };
+  return { ...rest, week_label: report?.week_label || weekLabelForDate(rest.published_at) };
 }
 
 /** The weeks present in a set of rows, newest first, as filter options. */
