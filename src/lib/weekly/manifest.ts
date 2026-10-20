@@ -12,7 +12,10 @@ import { validatePieceContent, type PieceContent } from '@/lib/pieces';
 
 export const MANIFEST_VERSION = 1;
 
-/** `global` and `usa` are not in use for now; see HIDDEN_TERRITORIES in src/lib/data.ts. */
+/**
+ * `usa` is USA (National), the national scan; `north-carolina` is the state scan. The scan team's register calls them
+ * `usa` and `usanc` (split 20 Oct 2026). `global` is not in use for now; see HIDDEN_TERRITORIES in src/lib/data.ts.
+ */
 export const TERRITORY_KEYS = ['uae-gcc', 'south-africa', 'new-zealand', 'mauritius', 'north-carolina', 'usa', 'singapore'] as const;
 export const SERVICE_KEYS = ['ceaas', 'raas', 'caas', 'emaas', 'aaas', 'none'] as const;
 export const ACCESS_KEYS = ['open', 'request', 'internal'] as const;
