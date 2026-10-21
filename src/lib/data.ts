@@ -16,6 +16,8 @@ export type Report = {
   published_at: string | null; cover_path: string | null; extract_path: string | null; extract_note: string | null; qualifier: string | null;
   body: string | null; facts: { figure: string; body: string }[]; featured: boolean; published: boolean; files?: ReportFile[];
   week_label?: string | null;
+  /** The GDRS report name as issued (e.g. "From Pump Price to Budget"), shown as a label above the title. */
+  report_title?: string | null;
 };
 export type Scan = {
   id: string; slug: string; title: string; territory: string; service: string; week_of: string; signal: string; question: string;

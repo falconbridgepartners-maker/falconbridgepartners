@@ -55,6 +55,8 @@ export async function saveReport(fd: FormData) {
     featured: bool(fd, 'featured'),
     published: bool(fd, 'published'),
     week_label: str(fd, 'week_label') || null,
+    // Sent only when set or being cleared, so saving works before 011_report_title.sql has been run.
+    ...(str(fd, 'report_title') ? { report_title: str(fd, 'report_title') } : str(fd, 'had_report_title') ? { report_title: null } : {}),
   };
   let reportId = id;
   if (id) {

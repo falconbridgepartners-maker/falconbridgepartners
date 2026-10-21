@@ -132,9 +132,11 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
           year: r.year ?? Number(manifest.week_label.slice(0, 4)), published_at: r.published_at ?? new Date().toISOString().slice(0, 10),
           body: r.body ?? null, facts: r.facts ?? [], extract_note: r.extract_note ?? null, qualifier: r.qualifier ?? null,
           week_label: manifest.week_label,
+          // Only sent when given, so a database without the column (before 011_report_title.sql) still imports.
+          ...(r.report_title ? { report_title: r.report_title } : {}),
         };
       if (reportId) {
-        for (const key of ['title', 'subtitle', 'kind', 'year', 'published_at', 'body', 'facts', 'extract_note', 'qualifier'] as const) {
+        for (const key of ['title', 'report_title', 'subtitle', 'kind', 'year', 'published_at', 'body', 'facts', 'extract_note', 'qualifier'] as const) {
           if (r[key] !== undefined) row[key] = r[key];
         }
       } else if (!r.title) {
