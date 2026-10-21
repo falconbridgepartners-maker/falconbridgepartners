@@ -58,7 +58,7 @@ export default async function StudyPage({ params }: { params: { slug: string } }
   return (
     <>
       <JsonLd data={ld} />
-      <PageHero eyebrow={`${s.kind === 'study' ? 'Public study' : s.kind === 'sample' ? 'Commissioned sample' : 'White paper'} · ${territoryName[s.territory] ?? s.territory}${s.year ? ` · ${s.year}` : ''}`} title={s.title} governing={s.subtitle ?? undefined}>
+      <PageHero eyebrow={`${s.kind === 'study' ? 'Public study' : s.kind === 'sample' ? 'Commissioned sample' : 'White paper'} · ${territoryName[s.territory] ?? s.territory}${s.year ? ` · ${s.year}` : ''}${s.report_title ? ` · ${s.report_title}` : ''}`} title={s.title} governing={s.subtitle ?? undefined}>
         {hasRequest && (
           <div className="mt-2">
             <Button href="#research-pack" variant="primary" size="sm" icon={ArrowDown}>{auto ? 'Get the research pack' : 'Request the full report'}</Button>

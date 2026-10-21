@@ -13,6 +13,7 @@ export default function ReportForm({ report }: { report?: Report }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Field id="title" title="Title"><input id="title" name="title" required defaultValue={report?.title} className={input} /></Field>
         <Field id="slug" title="URL slug" hint="Leave blank to generate from the title."><input id="slug" name="slug" defaultValue={report?.slug} className={input} /></Field>
+        <div className="md:col-span-2"><Field id="report_title" title="Report name (as issued)" hint="The GDRS report name, e.g. From Pump Price to Budget. Shown as a small label above the title. The title itself is the Executive Visual headline."><input id="report_title" name="report_title" defaultValue={report?.report_title ?? ''} className={input} />{report?.report_title ? <input type="hidden" name="had_report_title" value="1" /> : null}</Field></div>
         <div className="md:col-span-2"><Field id="subtitle" title="Subtitle"><input id="subtitle" name="subtitle" defaultValue={report?.subtitle ?? ''} className={input} /></Field></div>
         <Field id="kind" title="Type">
           <select id="kind" name="kind" defaultValue={report?.kind ?? 'study'} className={`${input} bg-brand-navy`}>{REPORT_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}</select>
