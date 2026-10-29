@@ -12,7 +12,7 @@ import { validatePieceContent, type PieceContent } from '@/lib/pieces';
 
 export const MANIFEST_VERSION = 1;
 
-/** `global` and `usa` are not in use for now; see HIDDEN_TERRITORIES in src/lib/data.ts. */
+/** The territories the weekly manifest may name. `global` is a library category, not a territory; see HIDDEN_TERRITORIES in src/lib/data.ts. */
 export const TERRITORY_KEYS = ['uae-gcc', 'south-africa', 'new-zealand', 'mauritius', 'north-carolina', 'usa', 'singapore'] as const;
 export const SERVICE_KEYS = ['ceaas', 'raas', 'caas', 'emaas', 'aaas', 'none'] as const;
 export const ACCESS_KEYS = ['open', 'request', 'internal'] as const;

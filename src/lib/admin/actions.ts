@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/auth';
 import { PUBLIC_MEDIA, RESEARCH_FILES } from '@/lib/data';
 import { pieceContentErrors, PIECE_SERIES, type PieceContent } from '@/lib/pieces';
+import { fulfilReservations } from '@/lib/packReservations';
 
 export async function signOut() {
   try { const supabase = createClient(); await supabase.auth.signOut(); } catch { /* no session under preview bypass */ }
@@ -80,6 +81,14 @@ export async function saveReport(fd: FormData) {
     else await db.from('report_files').insert(payload);
   }
   if (row.featured) await db.from('site_settings').update({ featured_report_id: reportId }).eq('id', 1);
+  // A week placeholder edited by hand into a study with its pack stops being a placeholder, and reserved readers are sent the pack.
+  if (row.published) {
+    const packIn = labels.some((_, i) => str(fd, `file_path_${i}`) && accessOf(str(fd, `file_access_${i}`)) === 'request');
+    if (packIn) {
+      await db.from('reports').update({ placeholder: false, placeholder_status: null }).eq('id', reportId!).eq('placeholder', true);
+      try { await fulfilReservations(reportId!); } catch (e) { console.error('[admin] reserved packs', e); }
+    }
+  }
   revalidateResearch();
   revalidatePath(`/research/studies/${row.slug}`);
   revalidateAdmin();

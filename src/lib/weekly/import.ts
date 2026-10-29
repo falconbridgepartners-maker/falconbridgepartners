@@ -5,6 +5,8 @@ import { PUBLIC_MEDIA, RESEARCH_FILES, territoryName, thumbPathOf } from '@/lib/
 import { download } from '@/lib/dropbox';
 import { SLOTS, type ManifestEntry, type ManifestFile, type WeeklyManifest } from '@/lib/weekly/manifest';
 import { PIECE_SERIES } from '@/lib/pieces';
+import { fulfilReservations } from '@/lib/packReservations';
+import { placeholderSlug } from '@/lib/weekly/placeholders';
 
 export type ImportOptions = { publish: boolean; overwritePublished: boolean; adminEmail: string; source?: string };
 export type ImportFileResult = { slot: number; label: string; access: string; status: 'copied' | 'unchanged' | 'failed'; detail?: string };
@@ -108,34 +110,53 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
 
   try {
     // ── What is already there ────────────────────────────────────────────────
-    const [{ data: exReport }, { data: exScan }, { data: exPiece, error: pieceErr }] = await Promise.all([
+    // eslint-disable-next-line prefer-const
+    let [{ data: exReport }, { data: exScan }, { data: exPiece, error: pieceErr }] = await Promise.all([
       entry.report ? db.from('reports').select('id, title, published, extract_path, cover_path').eq('slug', entry.report.slug).maybeSingle() : Promise.resolve({ data: null }),
       entry.scan ? db.from('scans').select('id, published, reviewed').eq('slug', entry.scan.slug).maybeSingle() : Promise.resolve({ data: null }),
       entry.piece ? db.from('pieces').select('id, published, share_image_path').eq('slug', entry.piece.slug).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
     if (entry.piece && pieceErr) throw new Error(`piece: ${pieceErr.message}. If the pieces table does not exist yet, run supabase/006_pieces.sql.`);
+
+    // ── A week placeholder for this territory (src/lib/weekly/placeholders.ts) ──
+    // Made on Monday at <year>-week-<nn>-<territory> so posts could link to it. The study takes that row over: same id,
+    // same address, every field from the manifest. The manifest's own report slug is not used; the week address stays.
+    let placeholder: { id: string; slug: string } | null = null;
+    if (entry.report && !exReport) {
+      const weekSlug = placeholderSlug(manifest.week_label, entry.territory);
+      const { data: ph } = await db.from('reports').select('id, slug, title, published, extract_path, cover_path, placeholder').eq('slug', weekSlug).maybeSingle();
+      if (ph?.placeholder) {
+        placeholder = { id: ph.id, slug: ph.slug };
+        if (ph.slug !== entry.report.slug) out.warnings.push(`study: published at the week address /research/studies/${ph.slug} (the manifest slug "${entry.report.slug}" is not used).`);
+      } else if (ph) {
+        // The week address already carries a study (an earlier import took the placeholder over): a re-run updates it.
+        exReport = ph;
+      }
+    }
     if (!opts.overwritePublished && (exReport?.published || exScan?.published || exPiece?.published)) {
       return { ...out, status: 'skipped', detail: 'Already published. Tick “Replace published entries” to import over it.' };
     }
 
     // ── The study ────────────────────────────────────────────────────────────
-    let reportId: string | null = exReport?.id ?? null;
+    let reportId: string | null = exReport?.id ?? placeholder?.id ?? null;
     let reportPublished = Boolean(exReport?.published);
     if (entry.report) {
       const r = entry.report;
       // A new study takes every field, with defaults. An existing one is updated only where the manifest says something,
       // so a manifest that carries just the slug and its files (adding a document, say) leaves the live wording alone.
-      const row: Record<string, unknown> = reportId
+      // A placeholder being taken over counts as new: it has no wording of its own worth keeping.
+      const row: Record<string, unknown> = exReport
         ? { territory: entry.territory, week_label: manifest.week_label }
         : {
-          slug: r.slug, title: r.title, subtitle: r.subtitle ?? null, kind: r.kind ?? 'study', territory: entry.territory,
+          ...(placeholder ? {} : { slug: r.slug }),
+          title: r.title, subtitle: r.subtitle ?? null, kind: r.kind ?? 'study', territory: entry.territory,
           year: r.year ?? Number(manifest.week_label.slice(0, 4)), published_at: r.published_at ?? new Date().toISOString().slice(0, 10),
           body: r.body ?? null, facts: r.facts ?? [], extract_note: r.extract_note ?? null, qualifier: r.qualifier ?? null,
           week_label: manifest.week_label,
           // Only sent when given, so a database without the column (before 011_report_title.sql) still imports.
           ...(r.report_title ? { report_title: r.report_title } : {}),
         };
-      if (reportId) {
+      if (exReport) {
         for (const key of ['title', 'report_title', 'subtitle', 'kind', 'year', 'published_at', 'body', 'facts', 'extract_note', 'qualifier'] as const) {
           if (r[key] !== undefined) row[key] = r[key];
         }
@@ -177,11 +198,16 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
     if (opts.publish && failed.length) out.warnings.push(`Not published: ${failed.length} file${failed.length === 1 ? '' : 's'} could not be copied.`);
 
     if (entry.report && reportId && mayPublish && !reportPublished) {
-      const { error } = await db.from('reports').update({ published: true }).eq('id', reportId);
+      // A placeholder stops being one here: the page becomes the study, and readers who reserved the pack are sent it.
+      const { error } = await db.from('reports').update(placeholder ? { published: true, placeholder: false, placeholder_status: null } : { published: true }).eq('id', reportId);
       if (error) throw new Error(`report: ${error.message}`);
       reportPublished = true;
+      if (placeholder) {
+        try { const f = await fulfilReservations(reportId); if (f.sent || f.failed) out.warnings.push(`Reserved packs: ${f.sent} sent${f.failed ? `, ${f.failed} failed` : ''}.`); }
+        catch (e) { out.warnings.push(`Reserved packs could not be sent: ${e instanceof Error ? e.message : String(e)}`); }
+      }
     }
-    if (entry.report && reportId) out.report = { id: reportId, slug: entry.report.slug, published: reportPublished };
+    if (entry.report && reportId) out.report = { id: reportId, slug: placeholder?.slug ?? entry.report.slug, published: reportPublished };
 
     // ── The scan entry ───────────────────────────────────────────────────────
     if (entry.scan) {
