@@ -98,8 +98,9 @@ export async function closeStalePlaceholders(): Promise<{ closed: string[]; noti
   if (error) { out.failed.push(error.message); return out; }
   for (const r of (rows ?? []) as Array<PlaceholderRow & { files?: { storage_path: string | null }[] }>) {
     if ((r.files ?? []).some((f) => f.storage_path)) continue; // the pack has started to arrive: leave it to the importer
-    const { error: upErr } = await db.from('reports').update({ placeholder_status: 'no-study' }).eq('id', r.id);
+    const { data: claimed, error: upErr } = await db.from('reports').update({ placeholder_status: 'no-study' }).eq('id', r.id).eq('placeholder', true).eq('placeholder_status', 'pending').select('id');
     if (upErr) { out.failed.push(`${r.slug}: ${upErr.message}`); continue; }
+    if (!claimed || claimed.length === 0) continue; // another run closed it, or the study arrived
     out.closed.push(r.slug);
     try { out.notified += await closeReservations(r); } catch (e) { out.failed.push(`${r.slug}: ${e instanceof Error ? e.message : String(e)}`); }
   }

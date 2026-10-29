@@ -218,6 +218,13 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
         open_questions: s.open_questions ?? [], week_label: manifest.week_label, sample: false,
       };
       if (reportId) row.report_id = reportId;
+      else {
+        // A signal with no study in this entry is linked to its week's study page (a placeholder, or the study it became),
+        // so the signal page points to where the pack will be. Only if the scan is not already linked elsewhere.
+        const { data: wk } = await db.from('reports').select('id').eq('slug', placeholderSlug(manifest.week_label, entry.territory)).maybeSingle();
+        const { data: cur } = exScan ? await db.from('scans').select('report_id').eq('id', exScan.id).maybeSingle() : { data: null };
+        if (wk && !cur?.report_id) row.report_id = wk.id;
+      }
       // The Weekly Signal as issued. Left untouched on re-import when the manifest carries none.
       if (s.content) row.content = s.content;
       let scanPublished = Boolean(exScan?.published);
