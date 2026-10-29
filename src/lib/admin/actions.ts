@@ -85,8 +85,9 @@ export async function saveReport(fd: FormData) {
   if (row.published) {
     const packIn = labels.some((_, i) => str(fd, `file_path_${i}`) && accessOf(str(fd, `file_access_${i}`)) === 'request');
     if (packIn) {
-      await db.from('reports').update({ placeholder: false, placeholder_status: null }).eq('id', reportId!).eq('placeholder', true);
-      try { await fulfilReservations(reportId!); } catch (e) { console.error('[admin] reserved packs', e); }
+      const { data: was } = await db.from('reports').update({ placeholder: false, placeholder_status: null }).eq('id', reportId!).eq('placeholder', true).select('id');
+      // fulfilReservations only sends to readers still waiting; anyone told "no study" on Thursday is closed and never emailed.
+      if (was && was.length) { try { await fulfilReservations(reportId!); } catch (e) { console.error('[admin] reserved packs', e); } }
     }
   }
   revalidateResearch();
