@@ -18,6 +18,16 @@ export type Report = {
   week_label?: string | null;
   /** The GDRS report name as issued (e.g. "From Pump Price to Budget"), shown as a label above the title. */
   report_title?: string | null;
+  /**
+   * A week placeholder (supabase/012_week_placeholders.sql): a page made on Monday at /research/studies/<year>-week-<nn>-<territory>
+   * before the study exists. It says "on its way" and takes reservations; the importer turns it into the study.
+   */
+  placeholder?: boolean;
+  placeholder_status?: 'pending' | 'no-study' | null;
+};
+export type PackReservation = {
+  id: string; report_id: string; full_name: string; email: string; organisation: string | null; consent: boolean; created_at: string;
+  fulfilled_at: string | null; access_request_id: string | null; closed_at: string | null;
 };
 export type Scan = {
   id: string; slug: string; title: string; territory: string; service: string; week_of: string; signal: string; question: string;
@@ -95,12 +105,19 @@ const safe = async <T,>(fn: () => Promise<T>, fallback: T): Promise<T> => {
   try { return await fn(); } catch (e) { console.error('[data]', e); return fallback; }
 };
 
+/** True for a week placeholder that is still waiting for its study, or closed without one. */
+export const isPlaceholder = (r: Pick<Report, 'placeholder'>) => Boolean(r.placeholder);
+
+/**
+ * The published studies, newest first. Week placeholders are left out: they are reachable at their own address
+ * (a post links there) but are not studies yet, so they never appear in the library, the sitemap or "other studies".
+ */
 export async function getPublishedReports(): Promise<Report[]> {
   return safe(async () => {
     const db = createAdminClient();
     const { data, error } = await db.from('reports').select('*').eq('published', true).order('published_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []) as Report[];
+    return ((data ?? []) as Report[]).filter((r) => !isPlaceholder(r));
   }, []);
 }
 
@@ -136,11 +153,11 @@ export async function getFeaturedReport(): Promise<Report | null> {
     }
     const { data: pinned } = await db.from('reports').select('*').eq('published', true).eq('featured', true).order('published_at', { ascending: false }).limit(1).maybeSingle();
     if (pinned) return pinned as Report;
-    const { data: recent } = await db.from('reports').select('*').eq('published', true).eq('kind', 'study').order('published_at', { ascending: false }).limit(ROTATION_SIZE);
-    const pool = (recent ?? []) as Report[];
+    const { data: recent } = await db.from('reports').select('*').eq('published', true).eq('kind', 'study').order('published_at', { ascending: false }).limit(ROTATION_SIZE + 6);
+    const pool = ((recent ?? []) as Report[]).filter((r) => !isPlaceholder(r)).slice(0, ROTATION_SIZE);
     if (pool.length === 0) {
-      const { data } = await db.from('reports').select('*').eq('published', true).order('published_at', { ascending: false }).limit(1).maybeSingle();
-      return (data as Report) ?? null;
+      const { data } = await db.from('reports').select('*').eq('published', true).order('published_at', { ascending: false }).limit(6);
+      return ((data ?? []) as Report[]).find((r) => !isPlaceholder(r)) ?? null;
     }
     const dubaiDay = Math.floor((Date.now() + 4 * 3_600_000) / 86_400_000);
     return pool[dubaiDay % pool.length];
@@ -263,6 +280,18 @@ export async function getScanForStudy(reportId: string): Promise<Pick<Scan, 'slu
     const { data, error } = await db.from('scans').select('slug, question, week_of, territory, week_label').eq('report_id', reportId).eq('published', true).order('week_of', { ascending: false }).limit(1).maybeSingle();
     if (error) return null;
     return (data as Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'>) ?? null;
+  }, null);
+}
+
+export type ScanLink = Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'>;
+
+/** The published Weekly Signal for a territory in a week (or null): what a week placeholder points to before it has a study. */
+export async function getScanForWeek(weekLabel: string, territory: string): Promise<ScanLink | null> {
+  return safe(async () => {
+    const db = createAdminClient();
+    const { data, error } = await db.from('scans').select('slug, question, week_of, territory, week_label').eq('week_label', weekLabel).eq('territory', territory).eq('published', true).order('week_of', { ascending: false }).limit(1).maybeSingle();
+    if (error) return null;
+    return (data as ScanLink) ?? null;
   }, null);
 }
 

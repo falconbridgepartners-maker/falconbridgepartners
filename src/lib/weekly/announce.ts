@@ -40,10 +40,10 @@ export async function announcePublished(): Promise<AnnounceResult> {
 
   for (const kind of Object.keys(META) as Kind[]) {
     const m = META[kind];
-    const sel = kind === 'study' ? 'slug, title, territory, kind' : 'slug, title, territory';
+    const sel = kind === 'study' ? 'slug, title, territory, kind, placeholder' : 'slug, title, territory';
     const { data, error } = await db.from(m.table).select(sel).eq('published', true).gte('created_at', since).order('created_at', { ascending: true });
     if (error) { out.failed.push(`${m.heading}: ${error.message}`); continue; }
-    let rows = ((data ?? []) as unknown as Array<{ slug: string; title: string; territory: string; kind?: string }>).filter((r) => r.kind !== 'sample');
+    let rows = ((data ?? []) as unknown as Array<{ slug: string; title: string; territory: string; kind?: string; placeholder?: boolean }>).filter((r) => r.kind !== 'sample' && !r.placeholder); // week placeholders are announced by their own Monday email
     if (!rows.length) continue;
     const { data: done } = await db.from('import_log').select('source').in('source', rows.map((r) => `announced:${kind}:${r.slug}`));
     const had = new Set((done ?? []).map((d) => d.source as string));

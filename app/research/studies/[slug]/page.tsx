@@ -9,7 +9,8 @@ import RequestReport from '@/components/dss/RequestReport';
 import { Section, Band, NextLink } from '@/components/dss/Tiles';
 import { clip } from '@/lib/pieces';
 import { generatedImagePath, shareMetadata } from '@/lib/share';
-import { getPiecesForStudy, getPublishedReports, getReportBySlug, getScanForStudy, hasGatedPack, hasRequestForm, publicMediaUrl, readerFiles, territoryName, weekText } from '@/lib/data';
+import ReservePack from '@/components/dss/ReservePack';
+import { getPiecesForStudy, getPublishedReports, getReportBySlug, getScanForStudy, getScanForWeek, hasGatedPack, hasRequestForm, isPlaceholder, publicMediaUrl, readerFiles, territoryName, weekText } from '@/lib/data';
 import { otherStudies, territoryPath } from '@/lib/related';
 import { StudyLinks, TerritoryLine } from '@/components/dss/RelatedResearch';
 import { JsonLd, articleLd, breadcrumbLd } from '@/lib/seo';
@@ -21,6 +22,23 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const s = await getReportBySlug(params.slug);
   if (!s) return {};
   const cover = publicMediaUrl(s.cover_path);
+  if (isPlaceholder(s)) {
+    // A week placeholder: a real link preview for the post, but kept out of search until the study lands.
+    const place = territoryName[s.territory] ?? s.territory;
+    const week = weekText(s.week_label) ?? 'this week';
+    const closed = s.placeholder_status === 'no-study';
+    return {
+      ...shareMetadata({
+        pageTitle: `${place} · ${week} — FalconBridge Partners`,
+        title: closed ? `No study for ${place} this week` : `The ${place} study for ${week} is on its way`,
+        description: closed ? 'No study was commissioned from this week’s signals. The Weekly Signal is on the site.' : 'Leave your name and email and the full research pack is emailed to you the moment the study is published.',
+        path: `/research/studies/${s.slug}`,
+        image: { url: generatedImagePath('study', s.slug), generated: true },
+        publishedTime: s.published_at,
+      }),
+      robots: { index: false, follow: true },
+    };
+  }
   // The link preview carries this study's own title, description and image on LinkedIn and on X alike.
   return shareMetadata({
     pageTitle: `${s.title} — FalconBridge Partners`,
@@ -34,9 +52,68 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 
 const COUNT = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six'];
 
+/**
+ * A week placeholder (src/lib/weekly/placeholders.ts): the page exists from Monday so a post can link to it; the study
+ * arrives later. Until then it says "on its way" and takes a reservation — or, once closed, that no study was produced that week.
+ */
+async function PlaceholderPage({ s }: { s: NonNullable<Awaited<ReturnType<typeof getReportBySlug>>> }) {
+  const place = territoryName[s.territory] ?? s.territory;
+  const week = weekText(s.week_label) ?? 'this week';
+  const closed = s.placeholder_status === 'no-study';
+  const [scan, published] = await Promise.all([s.week_label ? getScanForWeek(s.week_label, s.territory) : Promise.resolve(null), getPublishedReports()]);
+  const siblings = otherStudies(published, s);
+  const raas = services.find((x) => x.key === 'raas');
+  const ld = breadcrumbLd([{ name: 'Research', path: '/research' }, { name: 'Research library', path: '/research/library' }, { name: place, path: territoryPath(s.territory) }, { name: `${place} · ${week}`, path: `/research/studies/${s.slug}` }]);
+  return (
+    <>
+      <JsonLd data={ld} />
+      <PageHero
+        eyebrow={`Public study · ${place} · ${week}`}
+        title={closed ? `No study for ${place} this week` : `The ${place} study for ${week} is on its way`}
+        governing={closed
+          ? 'A study is commissioned only when a week’s signals point to a question worth the work. This week they did not.'
+          : 'The research is done fresh each week. The pack is released the moment the study is complete — usually within a few days of the Weekly Signal.'}
+      >
+        {!closed && (
+          <div className="mt-2">
+            <Button href="#research-pack" variant="primary" size="sm" icon={ArrowDown}>Send me the pack when it lands</Button>
+          </div>
+        )}
+      </PageHero>
+      <Section>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-7">
+            <p className="text-white/70">
+              {closed
+                ? `Every week the Weekly Signal for ${place} is scanned for a question that deserves a full Global Discovery Research System (GDRS) study. For ${week} the signals were read and recorded, and no study was commissioned. The signal itself is on the site; the library holds every ${place} study published so far.`
+                : `Each week the Weekly Signal for ${place} is read for the one question that deserves a full Global Discovery Research System (GDRS) study. When the study for ${week} is published, this page becomes it: the Executive Summary and Executive Visual open to all, and the full pack — the guide, the executive deck, the full report and the reference audit — behind a short form. Leave your name and email now and the pack is emailed to you the moment it lands.`}
+            </p>
+            {!closed && (
+              <div id="research-pack" className="scroll-mt-32 mt-8"><ReservePack slug={s.slug} place={place} weekText={week} /></div>
+            )}
+          </div>
+          <div className="lg:col-span-5 space-y-4">
+            {scan
+              ? <NextLink href={`/research/weekly-scan/${scan.slug}`} label={closed ? 'The Weekly Signal for this week' : 'The Weekly Signal behind this study'} sub={[territoryName[scan.territory] ?? scan.territory, weekText(scan.week_label) ?? `week of ${scan.week_of}`].join(' · ')} />
+              : <div className="tile p-6"><p className="label-tech mb-1">The Weekly Signal</p><p className="text-sm text-white/55">The signal for {place}, {week}, is published on Monday. It will be linked here.</p></div>}
+            <NextLink href={`/research/library?territory=${s.territory}`} label={`Every ${place} study so far`} sub="Open the research library" />
+          </div>
+        </div>
+      </Section>
+      <Section eyebrow="Around this study">
+        <StudyLinks studies={siblings} heading={`Other studies on ${place}`} />
+        {raas && <div className="mt-8"><NextLink href={`/decision-support-system/${raas.slug}`} label={`${raas.acronym} · ${raas.name}`} sub="How a study like this is commissioned: a question of your own, answered as a complete research package." /></div>}
+        <TerritoryLine territory={s.territory} index={{ href: '/research/library', label: 'The research library' }} />
+      </Section>
+      <Invitation compact />
+    </>
+  );
+}
+
 export default async function StudyPage({ params }: { params: { slug: string } }) {
   const s = await getReportBySlug(params.slug);
   if (!s) notFound();
+  if (isPlaceholder(s)) return <PlaceholderPage s={s} />;
   const extract = publicMediaUrl(s.extract_path);
   const all = s.files ?? [];
   // With uploaded pack files behind the form, the pack is emailed automatically and only real files are listed.

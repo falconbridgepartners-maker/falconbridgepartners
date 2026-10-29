@@ -30,7 +30,7 @@ A study already on the site is updated only where the manifest says something. T
 
 ## One-time setup
 
-1. **Database.** Run `supabase/004_weekly_pipeline.sql`, then `supabase/005_scan_signal.sql`, then `supabase/006_pieces.sql` and `supabase/007_pack_follow_up.sql`, in the Supabase SQL editor.
+1. **Database.** Run `supabase/004_weekly_pipeline.sql`, then `005_scan_signal.sql`, `006_pieces.sql`, `007_pack_follow_up.sql`, `008_follow_up_timing.sql`, `011_report_title.sql` and `012_week_placeholders.sql`, in the Supabase SQL editor.
 2. **Dropbox app.** At dropbox.com/developers/apps create an app: *Scoped access*, *Full Dropbox*. Under Permissions tick `files.metadata.read` and `files.content.read`. Under Settings add the redirect URI `https://falconbp.com/api/dropbox/callback` (and the `www.` host if the admin is used there).
 3. **Vercel.** Add `DROPBOX_APP_KEY` and `DROPBOX_APP_SECRET` (Production), then redeploy.
 4. **Connect.** In `/admin/import` choose **Connect Dropbox** and allow access. The site reads from Dropbox; it never writes.
@@ -52,6 +52,22 @@ Reader emails come from `research@` on the domain in `RESEND_FROM`, as “FB Res
 Only a hash of the token is stored. The pack page issues each download as a signed URL that lasts two minutes. The link stops working after seven days, or at once if the study is unpublished. Opens and downloads are counted per request.
 
 Studies without uploaded pack files keep the earlier behaviour: the form emails the research team and a partner replies by hand.
+
+## Week placeholders and reserved packs
+
+Every Monday at 8am Dubai (`vercel.json` → `/api/cron/weekly-placeholders`, `0 4 * * 1`, locked to `CRON_SECRET`) the site makes one placeholder study page per territory — UAE / GCC, South Africa, New Zealand, Mauritius, North Carolina and USA — at a predictable address, named by week rather than by content:
+
+`/research/studies/2026-week-44-new-zealand`
+
+The week is the ISO 8601 week in Dubai time (Week 1 of 2026 began Monday 29 December 2025). Jessica's Weekly Signal posts link to these addresses before the study exists. The same job emails her the six addresses, with the Weekly Signal link for each territory once the signal is in (`import_log` source `announced:week:<label>` keeps it to one email a week). `?week=2026-W45` runs it for another week; `?dry=1` only reports.
+
+Until the pack lands the page says the study is **on its way** and takes a name and email (`/api/reserve-pack` → `pack_reservations`, from `supabase/012_week_placeholders.sql`; one reservation per email per page). The reader is emailed at once that the pack follows when it lands, with the Weekly Signal link if the signal is published. Open reservations show at the top of **Pack requests** in the admin.
+
+When the week's import publishes the study for that territory, the importer takes the placeholder row over — same id, same week address; the manifest's report slug is not used — and every reservation becomes an ordinary pack request: an `access_requests` row with its own expiring link, and the pack email with the opening line "the pack you reserved has landed". From there the pack page, the download count and the three-business-day follow-up work as for any request. The daily follow-up job also sends any reserved pack whose study was published another way (the admin form, say), so nothing is left waiting.
+
+A placeholder still without a file ten days after its Monday closes as **no study this week**: the page says a study is commissioned only when the signals point to a question worth the work, points to the Weekly Signal, and each reservation is emailed once with the same. Placeholders never appear in the library, the sitemap, the featured rotation or "other studies", and carry `noindex` until they become the study.
+
+A study published at the week address is updated on re-import by that address, so running the week again is still safe.
 
 ## Coverage
 
