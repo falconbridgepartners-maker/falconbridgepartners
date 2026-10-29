@@ -65,11 +65,11 @@ Until the pack lands the page says the study is **on its way** and takes a name 
 
 When the week's import publishes the study for that territory, the importer takes the placeholder row over — same id, same week address; the manifest's report slug is not used — and every reservation becomes an ordinary pack request: an `access_requests` row with its own expiring link, and the pack email with the opening line "the pack you reserved has landed". From there the pack page, the download count and the three-business-day follow-up work as for any request. The daily follow-up job also sends any reserved pack whose study was published another way (the admin form, say), so nothing is left waiting.
 
-A placeholder still without a file ten days after its Monday closes as **no study this week**: the page says a study is commissioned only when the signals point to a question worth the work, points to the Weekly Signal, and each reservation is emailed once with the same. Placeholders never appear in the library, the sitemap, the featured rotation or "other studies", and carry `noindex` until they become the study.
+Thursday at 12:00 Dubai (`vercel.json` → `/api/cron/close-placeholders`, `0 8 * * 4`, locked to `CRON_SECRET`) every placeholder still without its pack is closed: the page says nothing in that week's Weekly Signal was worth a full study and none will appear, links the signal, and everyone waiting for the pack is emailed once to say the same. If a study arrives after that, the weekly run imports it at the same week address and the page becomes the study, but nobody is emailed. Placeholders never appear in the library, the sitemap, the featured rotation or "other studies", and carry `noindex` until they become the study.
 
 A study published at the week address is updated on re-import by that address, so running the week again is still safe. Manifests should give the study the week address as its `report.slug` (`2026-week-44-new-zealand`), so the weekly run checks the right page.
 
-Reserved packs are sent, and empty placeholders closed, by the importer when it publishes and by the daily job (`/api/cron/pack-follow-up`, 9am Dubai). Each reservation is claimed before its email goes, so two jobs running at once never email the same reader twice.
+Reserved packs are sent by the importer when it publishes and by the daily job (`/api/cron/pack-follow-up`, 9am Dubai). Each reservation is claimed before its email goes, so two jobs running at once never email the same reader twice.
 
 ## Coverage
 
