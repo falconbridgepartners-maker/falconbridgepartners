@@ -274,16 +274,16 @@ export function buildNoStudyEmail({ name, territory, weekText, signalUrl, librar
 }): { subject: string; html: string; text: string } {
   const heading = `${territory} · ${weekText}`;
   const paragraphs = [
-    `You reserved the research pack for ${territory} in ${weekText}. We only commission a study when a week's signals point to a question worth the work, and this week they did not, so no pack was produced.`,
+    `You asked for the research pack for ${territory}, ${weekText}. Every week we read the Weekly Signal for one question worth a full Global Discovery Research System (GDRS) study. This week nothing in the signal was worth researching in that depth, so there is no study for ${territory} this week and no pack will follow.`,
     signalUrl
-      ? 'The Weekly Signal for that week is on the site; it carries what we saw and why it did not become a study.'
+      ? 'The Weekly Signal itself is on the site, with everything we saw that week.'
       : 'The research library carries every study published so far, including earlier weeks for this territory.',
-    `Your details are kept only for this reservation. Reserve again on any week's page and the pack follows when it lands.`,
+    'Thank you for your interest. Next week’s signal brings a new question, and you can ask for that week’s pack on its page.',
   ];
   const { html, text } = buildShortEmail({
     heading, strap: 'No study this week.', name, paragraphs,
     button: signalUrl ? { label: 'Read the Weekly Signal', url: signalUrl } : { label: 'Open the research library', url: libraryUrl },
     why: 'You are receiving this because you reserved this research pack on falconbp.com and agreed that we may contact you about the study. We send it once.', replyTo,
   });
-  return { subject: `No study this week: ${territory}, ${weekText}`, html, text };
+  return { subject: `No research pack this week: ${territory}, ${weekText}`, html, text };
 }
