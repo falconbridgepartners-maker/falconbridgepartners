@@ -263,13 +263,16 @@ export async function getStudyForPiece(piece: Pick<Piece, 'report_id'>): Promise
   }, null);
 }
 
-/** The published study a scan led to (or null). Tolerates a database that predates the weekly pipeline. */
-export async function getStudyForScan(scan: Scan): Promise<Pick<Report, 'slug' | 'title' | 'subtitle'> | null> {
+/** The published study a scan led to (or null). A week placeholder still waiting is returned with `pending`; one closed without a study is not returned. */
+export async function getStudyForScan(scan: Scan): Promise<(Pick<Report, 'slug' | 'title' | 'subtitle'> & { pending?: boolean }) | null> {
   if (!scan.report_id) return null;
   return safe(async () => {
     const db = createAdminClient();
-    const { data } = await db.from('reports').select('slug, title, subtitle').eq('id', scan.report_id!).eq('published', true).maybeSingle();
-    return (data as Pick<Report, 'slug' | 'title' | 'subtitle'>) ?? null;
+    const { data } = await db.from('reports').select('*').eq('id', scan.report_id!).eq('published', true).maybeSingle();
+    const r = data as Report | null;
+    if (!r) return null;
+    if (r.placeholder) return r.placeholder_status === 'pending' ? { slug: r.slug, title: r.title, subtitle: r.subtitle, pending: true } : null;
+    return { slug: r.slug, title: r.title, subtitle: r.subtitle };
   }, null);
 }
 

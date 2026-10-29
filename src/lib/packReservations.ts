@@ -64,6 +64,9 @@ export async function fulfilReservations(reportId: string): Promise<{ sent: numb
   const files = readerFiles(report.files).sort((a, b) => a.sort_order - b.sort_order).map((f) => f.label);
   for (const r of (rows ?? []) as PackReservation[]) {
     if (!r.consent) { out.skipped++; continue; }
+    // Claim the reservation first, so a second job running at the same moment cannot email the same reader.
+    const { data: claimed } = await db.from('pack_reservations').update({ fulfilled_at: new Date().toISOString() }).eq('id', r.id).is('fulfilled_at', null).is('closed_at', null).select('id');
+    if (!claimed || claimed.length === 0) { out.skipped++; continue; }
     try {
       const { token, hash, expiresAt } = newToken();
       const { data: ar, error: insErr } = await db.from('access_requests').insert({
@@ -78,9 +81,13 @@ export async function fulfilReservations(reportId: string): Promise<{ sent: numb
         html: buildPackEmail({ name: r.full_name, studyTitle: report.title, link: `${SITE}/research/pack/${token}`, expires, files, replyTo: leadsAddress(), reserved: true }),
       }));
       if (sent.error) throw new Error(String((sent.error as { message?: string }).message ?? 'send failed'));
-      await db.from('pack_reservations').update({ fulfilled_at: new Date().toISOString(), access_request_id: ar.id }).eq('id', r.id);
+      await db.from('pack_reservations').update({ access_request_id: ar.id }).eq('id', r.id);
       out.sent++;
-    } catch (e) { console.error('[reservations] fulfil', r.email, e); out.failed++; }
+    } catch (e) {
+      console.error('[reservations] fulfil', r.email, e); out.failed++;
+      // Release the claim so the next run tries again.
+      await db.from('pack_reservations').update({ fulfilled_at: null }).eq('id', r.id);
+    }
   }
   if (out.sent) {
     try {
@@ -117,12 +124,14 @@ export async function closeReservations(report: ReportLite): Promise<number> {
   const signalUrl = await signalUrlFor(report);
   let n = 0;
   for (const r of list) {
+    // Claim first: a reservation is closed, and its reader emailed, once.
+    const { data: claimed } = await db.from('pack_reservations').update({ closed_at: new Date().toISOString() }).eq('id', r.id).is('fulfilled_at', null).is('closed_at', null).select('id');
+    if (!claimed || claimed.length === 0) continue;
     if (process.env.RESEND_API_KEY && r.consent) {
       const mail = buildNoStudyEmail({ name: r.full_name, territory: placeOf(report), weekText: weekOf(report), signalUrl, libraryUrl: `${SITE}/research/library`, replyTo: leadsAddress() });
       const sent = await sendFromSite('research', (from) => resend().emails.send({ from, to: r.email, replyTo: leadsAddress(), ...mail }));
-      if (sent.error) { console.error('[reservations] close', r.email, sent.error); continue; }
+      if (sent.error) { console.error('[reservations] close', r.email, sent.error); await db.from('pack_reservations').update({ closed_at: null }).eq('id', r.id); continue; }
     }
-    await db.from('pack_reservations').update({ closed_at: new Date().toISOString() }).eq('id', r.id);
     n++;
   }
   return n;

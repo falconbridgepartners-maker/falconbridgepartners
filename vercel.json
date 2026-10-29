@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/weekly-placeholders",
-      "schedule": "0 4 * * 1"
+      "schedule": "0 5 * * 1"
     },
     {
       "path": "/api/cron/weekly-import",

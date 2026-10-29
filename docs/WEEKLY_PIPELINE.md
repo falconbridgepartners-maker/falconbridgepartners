@@ -55,11 +55,11 @@ Studies without uploaded pack files keep the earlier behaviour: the form emails 
 
 ## Week placeholders and reserved packs
 
-Every Monday at 8am Dubai (`vercel.json` → `/api/cron/weekly-placeholders`, `0 4 * * 1`, locked to `CRON_SECRET`) the site makes one placeholder study page per territory — UAE / GCC, South Africa, New Zealand, Mauritius, North Carolina and USA — at a predictable address, named by week rather than by content:
+Every Monday at 9am Dubai, after the 08:10 weekly run has published the signals (`vercel.json` → `/api/cron/weekly-placeholders`, `0 5 * * 1`, locked to `CRON_SECRET`), the site makes one placeholder study page per territory — UAE / GCC, South Africa, New Zealand, Mauritius, North Carolina and USA — at a predictable address, named by week rather than by content:
 
 `/research/studies/2026-week-44-new-zealand`
 
-The week is the ISO 8601 week in Dubai time (Week 1 of 2026 began Monday 29 December 2025). Jessica's Weekly Signal posts link to these addresses before the study exists. The same job emails her the six addresses, with the Weekly Signal link for each territory once the signal is in (`import_log` source `announced:week:<label>` keeps it to one email a week). `?week=2026-W45` runs it for another week; `?dry=1` only reports.
+The week is the ISO 8601 week in Dubai time (Week 1 of 2026 began Monday 29 December 2025). Jessica's Weekly Signal posts link to these addresses before the study exists. The same job emails her the six addresses, with the Weekly Signal link for each territory whose signal is in (`import_log` source `announced:week:<label>` keeps it to one email a week). `?week=2026-W45` runs it for another week; `?dry=1` only reports.
 
 Until the pack lands the page says the study is **on its way** and takes a name and email (`/api/reserve-pack` → `pack_reservations`, from `supabase/012_week_placeholders.sql`; one reservation per email per page). The reader is emailed at once that the pack follows when it lands, with the Weekly Signal link if the signal is published. Open reservations show at the top of **Pack requests** in the admin.
 
@@ -67,7 +67,9 @@ When the week's import publishes the study for that territory, the importer take
 
 A placeholder still without a file ten days after its Monday closes as **no study this week**: the page says a study is commissioned only when the signals point to a question worth the work, points to the Weekly Signal, and each reservation is emailed once with the same. Placeholders never appear in the library, the sitemap, the featured rotation or "other studies", and carry `noindex` until they become the study.
 
-A study published at the week address is updated on re-import by that address, so running the week again is still safe.
+A study published at the week address is updated on re-import by that address, so running the week again is still safe. Manifests should give the study the week address as its `report.slug` (`2026-week-44-new-zealand`), so the weekly run checks the right page.
+
+Reserved packs are sent, and empty placeholders closed, by the importer when it publishes and by the daily job (`/api/cron/pack-follow-up`, 9am Dubai). Each reservation is claimed before its email goes, so two jobs running at once never email the same reader twice.
 
 ## Coverage
 
