@@ -112,7 +112,7 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
     // ── What is already there ────────────────────────────────────────────────
     // eslint-disable-next-line prefer-const
     let [{ data: exReport }, { data: exScan }, { data: exPiece, error: pieceErr }] = await Promise.all([
-      entry.report ? db.from('reports').select('id, title, published, extract_path, cover_path').eq('slug', entry.report.slug).maybeSingle() : Promise.resolve({ data: null }),
+      entry.report ? db.from('reports').select('id, slug, title, published, extract_path, cover_path, placeholder').eq('slug', entry.report.slug).maybeSingle() : Promise.resolve({ data: null }),
       entry.scan ? db.from('scans').select('id, published, reviewed').eq('slug', entry.scan.slug).maybeSingle() : Promise.resolve({ data: null }),
       entry.piece ? db.from('pieces').select('id, published, share_image_path').eq('slug', entry.piece.slug).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
@@ -122,7 +122,12 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
     // Made on Monday at <year>-week-<nn>-<territory> so posts could link to it. The study takes that row over: same id,
     // same address, every field from the manifest. The manifest's own report slug is not used; the week address stays.
     let placeholder: { id: string; slug: string } | null = null;
-    if (entry.report && !exReport) {
+    if (exReport?.placeholder) {
+      // The manifest names the week address itself (2026-week-45-usa): that row is the placeholder, not a study.
+      // Take it over like any other placeholder, or it stays "on its way" with the study's wording on it.
+      placeholder = { id: exReport.id, slug: exReport.slug };
+      exReport = null;
+    } else if (entry.report && !exReport) {
       const weekSlug = placeholderSlug(manifest.week_label, entry.territory);
       const { data: ph } = await db.from('reports').select('id, slug, title, published, extract_path, cover_path, placeholder').eq('slug', weekSlug).maybeSingle();
       if (ph?.placeholder) {
