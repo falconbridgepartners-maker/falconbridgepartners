@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import PageHero from '@/components/dss/PageHero';
 import PieceBody from '@/components/dss/PieceBody';
 import { Section } from '@/components/dss/Tiles';
-import type { Piece, Report } from '@/lib/data';
+import { weekText, type Piece, type Report } from '@/lib/data';
 import { headlineParts, pieceByline, PIECE_SERIES } from '@/lib/pieces';
 
 type Study = (Pick<Report, 'slug' | 'title' | 'subtitle'> & { canRequest: boolean }) | null;
@@ -18,7 +18,7 @@ export default function PieceView({ piece, study }: { piece: Piece; study: Study
   const { lead, accent } = headlineParts(c);
   return (
     <>
-      <PageHero eyebrow={c.series?.trim() || piece.series || PIECE_SERIES} title={lead} titleAccent={accent ?? undefined}>
+      <PageHero eyebrow={[c.series?.trim() || piece.series || PIECE_SERIES, weekText(piece.week_label)].filter(Boolean).join(' · ')} title={lead} titleAccent={accent ?? undefined}>
         <p className="text-sm md:text-base text-white/60">{pieceByline(piece)}</p>
       </PageHero>
       <Section className="!pt-4 md:!pt-6">

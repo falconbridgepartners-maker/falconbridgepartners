@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { territoryName, type Piece } from '@/lib/data';
+import { territoryName, weekText, type Piece } from '@/lib/data';
 import { headlineParts, monthYear, pieceSummary } from '@/lib/pieces';
 
-/** Tile for the Professional Curiosity index: territory and month, the headline as issued, and its opening lines. */
+/** Tile for the Professional Curiosity index: territory and week (month when no week is known), the headline as issued, and its opening lines. */
 export default function PieceCard({ piece }: { piece: Piece }) {
   const place = territoryName[piece.territory] ?? piece.territory;
-  const when = monthYear(piece.published_at);
+  const when = weekText(piece.week_label) ?? monthYear(piece.published_at);
   const { lead, accent } = headlineParts(piece.content);
   const summary = pieceSummary(piece);
   return (
