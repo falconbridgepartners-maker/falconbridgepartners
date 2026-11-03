@@ -55,10 +55,12 @@ export async function GET(req: Request) {
         const slugs = { scan: raw.scan?.slug, report: raw.report?.slug, piece: raw.piece?.slug };
         const [a, b, c] = await Promise.all([
           slugs.scan ? db.from('scans').select('id').eq('slug', slugs.scan).maybeSingle() : { data: null },
-          slugs.report ? db.from('reports').select('id').eq('slug', slugs.report).maybeSingle() : { data: null },
+          slugs.report ? db.from('reports').select('id, placeholder').eq('slug', slugs.report).maybeSingle() : { data: null },
           slugs.piece ? db.from('pieces').select('id').eq('slug', slugs.piece).maybeSingle() : { data: null },
         ]);
-        if (a.data || b.data || c.data) { row.status = 'already on the site, left alone'; continue; }
+        // A week placeholder at the study's address is waiting for this study, so it does not count as already there.
+        const reportThere = Boolean(b.data && !(b.data as { placeholder?: boolean }).placeholder);
+        if (a.data || reportThere || c.data) { row.status = 'already on the site, left alone'; continue; }
 
         const { entry, findings } = sweepEntry(raw, manifest.week_label);
         if (findings.length) { row.status = 'HELD'; row.findings = findings satisfies Finding[]; continue; }

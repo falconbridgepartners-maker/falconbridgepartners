@@ -13,14 +13,26 @@ import { closeReservations } from '@/lib/packReservations';
  * /research/studies/<year>-week-<nn>-<territory>. Jessica's Weekly Signal posts link there. Until the pack lands the
  * page says "on its way" and takes a reader's name and email (see packReservations.ts). When the week's import
  * publishes the study, the importer takes the placeholder row over (same id, same address) and the reservations
- * are sent the pack. A placeholder still empty NO_STUDY_AFTER_DAYS after its Monday closes as "no study this week".
+ * are sent the pack. A placeholder still empty when its week ends closes as "no study this week".
  */
 
 /** The territories that get a placeholder each week. Singapore is not yet live (October 2026). */
 export const PLACEHOLDER_TERRITORIES: readonly string[] = TERRITORY_KEYS.filter((t) => t !== 'singapore');
 
-/** A placeholder with no pack this many days after its Monday is closed: the week's studies are published by Wednesday. */
-export const NO_STUDY_AFTER_DAYS = 10;
+/**
+ * A placeholder with no pack once its week is over (the following Monday, Dubai time) is closed as "no study this week".
+ * Counted from the week in its label, not from when the row was made, so a placeholder made late for an earlier week
+ * (`?week=2026-W44` run on a Thursday) still closes when that week ends and never says "on its way" into the next one.
+ */
+export const weekEnded = (weekLabel: string | null | undefined, now: Date = new Date()) => {
+  const m = /^(\d{4})-W(\d{2})$/.exec(weekLabel ?? '');
+  if (!m) return false;
+  const year = Number(m[1]);
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const firstMonday = jan4.getTime() - ((jan4.getUTCDay() || 7) - 1) * 86_400_000;
+  const nextMonday = firstMonday + Number(m[2]) * 7 * 86_400_000; // Monday after the week, 00:00 Dubai = 20:00 UTC the day before
+  return now.getTime() >= nextMonday - DUBAI_OFFSET_MS;
+};
 
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://falconbp.com').replace(/\/+$/, '');
 const DUBAI_OFFSET_MS = 4 * 3_600_000;
@@ -86,17 +98,17 @@ export async function createWeekPlaceholders(weekLabel = isoWeekOf().label): Pro
 }
 
 /**
- * Closes placeholders that never received a study: NO_STUDY_AFTER_DAYS after creation and still without an uploaded file.
+ * Closes placeholders that never received a study: their week is over (weekEnded) and no file was uploaded.
  * The page then says no study was produced that week and points to the Weekly Signal; each reservation is emailed once.
  */
 export async function closeStalePlaceholders(): Promise<{ closed: string[]; notified: number; failed: string[] }> {
   const out = { closed: [] as string[], notified: 0, failed: [] as string[] };
   const db = createAdminClient();
-  const before = new Date(Date.now() - NO_STUDY_AFTER_DAYS * 86_400_000).toISOString();
   const { data: rows, error } = await db.from('reports').select('id, slug, title, territory, week_label, placeholder, placeholder_status, created_at, files:report_files(storage_path)')
-    .eq('placeholder', true).eq('placeholder_status', 'pending').lte('created_at', before);
+    .eq('placeholder', true).eq('placeholder_status', 'pending');
   if (error) { out.failed.push(error.message); return out; }
   for (const r of (rows ?? []) as Array<PlaceholderRow & { files?: { storage_path: string | null }[] }>) {
+    if (!weekEnded(r.week_label)) continue; // the week is still running: the study may land any day
     if ((r.files ?? []).some((f) => f.storage_path)) continue; // the pack has started to arrive: leave it to the importer
     const { data: claimed, error: upErr } = await db.from('reports').update({ placeholder_status: 'no-study' }).eq('id', r.id).eq('placeholder', true).eq('placeholder_status', 'pending').select('id');
     if (upErr) { out.failed.push(`${r.slug}: ${upErr.message}`); continue; }
