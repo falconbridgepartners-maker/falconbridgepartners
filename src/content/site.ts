@@ -49,7 +49,9 @@ export const firm = {
   phoneUS: { display: '+1 919 537 5026', href: 'tel:+19195375026', label: 'North Carolina' },
   environmentLine: 'We are usually engaged when the decision is consequential, the timeline is compressed and the signal is noisy.',
   clarityQuote: 'Our clients are not looking for opinions. They are looking for clarity they can trust.',
-  emails: { general: 'info@falconbp.com', quincy: 'quincy@falconbp.com', joel: 'joel@falconbp.com', wayne: 'wayne@falconbp.com' },
+  // Partner addresses were removed from public listings (partners' decision, Nov 2026).
+  // Public enquiries route through the contact form and the general address only.
+  emails: { general: 'info@falconbp.com' },
 };
 
 export const forces = [
@@ -577,7 +579,7 @@ export interface Partner {
   title: string;
   location: string;
   emphasis: string;
-  email: string;
+  email: string | null;
   linkedin?: string;
   qualification?: string;
   image?: 'joel' | 'quincy' | 'wayne';
@@ -592,7 +594,7 @@ export const partners: Partner[] = [
     title: 'Co-Founder & Managing Partner (Global)',
     location: 'Remote',
     emphasis: 'Corporate finance, strategy and private capital experience informing research and decision analysis.',
-    email: firm.emails.quincy,
+    email: null,
     linkedin: 'https://www.linkedin.com/in/quincy-jc-beukes/',
     qualification: 'MBA (Cum Laude) · ELP · AMP · ChBP (SA)',
     image: 'quincy',
@@ -618,7 +620,7 @@ export const partners: Partner[] = [
     title: 'Co-Founder & Managing Partner (EMEA)',
     location: 'UAE',
     emphasis: 'Human capital and leadership experience informing confidential coaching and strategic advisory.',
-    email: firm.emails.joel,
+    email: null,
     linkedin: 'https://www.linkedin.com/in/joelarcus/',
     qualification: 'ICF ACC · CPQC (Positive Intelligence)',
     image: 'joel',
@@ -644,7 +646,7 @@ export const partners: Partner[] = [
     title: 'Managing Partner (North America)',
     location: 'Based in North Carolina, USA',
     emphasis: 'Global CEO and operations executive with experience across North America, Africa and Asia.',
-    email: firm.emails.wayne,
+    email: null,
     linkedin: 'https://www.linkedin.com/in/wayne-loraine-grews/',
     qualification: 'BS Marketing (Cum Laude), Quincy University (USA)',
     image: 'wayne',
