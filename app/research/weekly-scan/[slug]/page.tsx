@@ -52,13 +52,13 @@ export default async function ScanEntryPage({ params }: { params: { slug: string
   // The study a signal led to is offered at the top of the page as well as at the foot, so a reader need not scroll to find it.
   const studyCta = study && (
     <div className="mt-8">
-      <Button href={`/research/studies/${study.slug}`} variant="primary" size="sm" icon={ArrowRight}>Read the study this signal led to</Button>
-      <p className="text-sm text-white/55 mt-3">{study.title}</p>
+      <Button href={`/research/studies/${study.slug}${study.pending ? '#research-pack' : ''}`} variant="primary" size="sm" icon={ArrowRight}>{study.pending ? 'Get the study\u2019s pack when it lands' : 'Read the study this signal led to'}</Button>
+      <p className="text-sm text-white/55 mt-3">{study.pending ? 'The study from this week\u2019s signals is being written. Leave your email and the pack follows the moment it is published.' : study.title}</p>
     </div>
   );
   const after = (
     <>
-      {study && <div className="mt-8"><NextLink href={`/research/studies/${study.slug}`} label={`The study this signal led to: ${study.title}`} sub={study.subtitle ?? 'Read the summary and get the research pack.'} /></div>}
+      {study && <div className="mt-8"><NextLink href={`/research/studies/${study.slug}`} label={study.pending ? 'This week\u2019s study is on its way' : `The study this signal led to: ${study.title}`} sub={study.pending ? 'Reserve the research pack and it is emailed to you when the study is published.' : study.subtitle ?? 'Read the summary and get the research pack.'} /></div>}
       {pieces.map((piece) => <div key={piece.slug} className="mt-5"><NextLink href={`/research/professional-curiosity/${piece.slug}`} label={`The Professional Curiosity piece on that study: ${piece.title}`} sub="Opinion drawn from the study, in the firm’s own voice." /></div>)}
       <SignalLinks earlier={earlier} later={later} sameWeek={sameWeek} />
       {svc && <div className="mt-8"><NextLink href={`/decision-support-system/${svc.slug}`} label={`${svc.acronym} · ${svc.name}`} sub="The service closest to this question." /></div>}

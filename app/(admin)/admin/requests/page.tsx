@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PageHead } from '@/components/admin/ui';
-import type { AccessRequest } from '@/lib/data';
+import type { AccessRequest, PackReservation } from '@/lib/data';
 import { followUpDueAt } from '@/lib/followUpTiming';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +17,12 @@ export default async function PackRequests({ searchParams }: { searchParams?: { 
   const { data, error } = await q;
   const rows = (data ?? []) as unknown as Row[];
   const opened = rows.filter((r) => r.open_count > 0).length;
+  // Readers waiting on a week placeholder (supabase/012_week_placeholders.sql). Each becomes a request above when the pack lands.
+  type Waiting = PackReservation & { report: { id: string; title: string; slug: string; week_label: string | null; territory: string } | null };
+  let wq = db.from('pack_reservations').select('*, report:reports(id, title, slug, week_label, territory)').is('fulfilled_at', null).is('closed_at', null).order('created_at', { ascending: false }).limit(200);
+  if (searchParams?.report) wq = wq.eq('report_id', searchParams.report);
+  const { data: wdata } = await wq;
+  const waiting = (wdata ?? []) as unknown as Waiting[];
   return (
     <>
       <PageHead title="Pack requests" sub="Everyone who asked for a research pack, newest first." />
@@ -27,7 +33,27 @@ export default async function PackRequests({ searchParams }: { searchParams?: { 
           {searchParams?.report && <> · <Link href="/admin/requests" className="underline underline-offset-4">show all studies</Link></>}
         </p>
       )}
-      {!error && rows.length === 0 && <p className="text-white/55">No one has asked for a pack yet. Requests appear here the moment a reader completes the form on a study page.</p>}
+      {waiting.length > 0 && (
+        <div className="mb-8">
+          <p className="label-tech mb-3">Waiting for a pack to land · {waiting.length}</p>
+          <div className="space-y-2">
+            {waiting.map((w) => (
+              <div key={w.id} className="tile p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-baseline border-brand-gold/40">
+                <div className="md:col-span-4 min-w-0">
+                  <p className="text-white font-bold truncate">{w.full_name}</p>
+                  {w.organisation && <p className="text-white/60 text-sm truncate">{w.organisation}</p>}
+                  <a href={`mailto:${w.email}`} className="text-brand-gold-pale text-sm underline underline-offset-4 break-all">{w.email}</a>
+                </div>
+                <div className="md:col-span-5 min-w-0">
+                  {w.report ? <Link href={`/research/studies/${w.report.slug}`} className="text-white/80 text-sm hover:text-white">{w.report.week_label ? `${w.report.week_label} · ` : ''}{w.report.title}</Link> : <span className="text-white/40 text-sm">Page removed</span>}
+                </div>
+                <div className="md:col-span-3 text-xs text-white/50 md:text-right"><p>Reserved {day(w.created_at)}</p><p>Pack sent automatically when the study is published</p></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {!error && rows.length === 0 && waiting.length === 0 && <p className="text-white/55">No one has asked for a pack yet. Requests appear here the moment a reader completes the form on a study page.</p>}
       <div className="space-y-3">
         {rows.map((r) => (
           <div key={r.id} className="tile p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-baseline">

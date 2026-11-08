@@ -101,11 +101,18 @@ export function buildBrandedEmail({
 // ── Research pack link (sent to the reader) ──────────────────────────────────
 const PACK = { charcoal: '#262626', tile: '#2e2e2e', ivory: '#F4F2EC', gold: '#C8A86A', goldPale: '#E3CE98', grey: '#B8BDC8' };
 
-/** The email a reader receives after completing the pack form: one button, the file list, the expiry date. */
-export function buildPackEmail({ name, studyTitle, link, expires, files, replyTo }: {
-  name: string; studyTitle: string; link: string; expires: string; files: string[]; replyTo: string;
+/**
+ * The email a reader receives after completing the pack form: one button, the file list, the expiry date.
+ * With `reserved`, the same email goes to a reader who asked for the pack before it existed: the opening line says it has landed.
+ */
+export function buildPackEmail({ name, studyTitle, link, expires, files, replyTo, reserved = false }: {
+  name: string; studyTitle: string; link: string; expires: string; files: string[]; replyTo: string; reserved?: boolean;
 }) {
   const items = files.map((f) => `<tr><td style="padding:7px 0;color:${PACK.ivory};font-size:15px;line-height:1.5;border-bottom:1px solid rgba(200,168,106,0.18);">${escapeHtml(f)}</td></tr>`).join('');
+  const strap = reserved ? 'The research pack you reserved has landed.' : 'The research pack you asked for.';
+  const opening = reserved
+    ? `${escapeHtml(name)}, the study is published and your pack is ready. The link below opens a page with each document. It works until ${escapeHtml(expires)}.`
+    : `${escapeHtml(name)}, the pack is ready. The link below opens a page with each document. It works until ${escapeHtml(expires)}.`;
   return `
   <div style="margin:0;padding:0;background:${PACK.charcoal};font-family:Arial, 'Helvetica Neue', sans-serif;color:${PACK.grey};">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${PACK.charcoal};padding:36px 18px;">
@@ -114,10 +121,10 @@ export function buildPackEmail({ name, studyTitle, link, expires, files, replyTo
           <tr><td style="padding:30px 34px 8px;">
             <img src="${LOGO_URL}" alt="FalconBridge Partners" width="120" style="display:block;border:0;outline:none;" />
             <h1 style="margin:26px 0 10px;font-size:24px;line-height:1.3;color:#ffffff;font-weight:700;">${escapeHtml(studyTitle)}</h1>
-            <p style="margin:0 0 6px;font-family:Georgia, 'Times New Roman', serif;font-style:italic;color:${PACK.goldPale};font-size:17px;line-height:1.5;">The research pack you asked for.</p>
+            <p style="margin:0 0 6px;font-family:Georgia, 'Times New Roman', serif;font-style:italic;color:${PACK.goldPale};font-size:17px;line-height:1.5;">${strap}</p>
           </td></tr>
           <tr><td style="padding:14px 34px 6px;color:${PACK.grey};font-size:15px;line-height:1.65;">
-            <p style="margin:0 0 16px;">${escapeHtml(name)}, the pack is ready. The link below opens a page with each document. It works until ${escapeHtml(expires)}.</p>
+            <p style="margin:0 0 16px;">${opening}</p>
             <table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 22px;"><tr><td style="border-radius:999px;background:${PACK.gold};">
               <a href="${link}" style="display:inline-block;padding:13px 28px;color:${PACK.charcoal};font-size:15px;font-weight:700;text-decoration:none;">Open the research pack</a>
             </td></tr></table>
@@ -195,4 +202,88 @@ export function buildDownloadFollowUpEmail({ name, studyTitle, bookingUrl, reply
   ].join('\n\n');
 
   return { subject: `Three days with “${studyTitle}”`, html, text };
+}
+
+// ── Week placeholders: the two short emails around a reservation ─────────────
+
+/** One short branded email: a strap line, a few paragraphs, an optional button. `html` and `text` say the same thing. */
+function buildShortEmail({ heading, strap, name, paragraphs, button, closing, why, replyTo }: {
+  heading: string; strap: string; name: string; paragraphs: string[]; button?: { label: string; url: string }; closing?: string; why: string; replyTo: string;
+}): { html: string; text: string } {
+  const p = 'margin:0 0 16px;';
+  const html = `
+  <div style="margin:0;padding:0;background:${PACK.charcoal};font-family:Arial, 'Helvetica Neue', sans-serif;color:${PACK.grey};">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${PACK.charcoal};padding:36px 18px;">
+      <tr><td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:${PACK.tile};border:1px solid rgba(200,168,106,0.25);border-radius:14px;overflow:hidden;">
+          <tr><td style="padding:30px 34px 8px;">
+            <img src="${LOGO_URL}" alt="FalconBridge Partners" width="120" style="display:block;border:0;outline:none;" />
+            <h1 style="margin:26px 0 10px;font-size:24px;line-height:1.3;color:#ffffff;font-weight:700;">${escapeHtml(heading)}</h1>
+            <p style="margin:0 0 6px;font-family:Georgia, 'Times New Roman', serif;font-style:italic;color:${PACK.goldPale};font-size:17px;line-height:1.5;">${escapeHtml(strap)}</p>
+          </td></tr>
+          <tr><td style="padding:14px 34px 6px;color:${PACK.grey};font-size:15px;line-height:1.65;">
+            <p style="${p}">Dear ${escapeHtml(name)},</p>
+            ${paragraphs.map((t) => `<p style="${p}">${escapeHtml(t)}</p>`).join('\n            ')}
+            ${button ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 22px;"><tr><td style="border-radius:999px;background:${PACK.gold};">
+              <a href="${button.url}" style="display:inline-block;padding:13px 28px;color:${PACK.charcoal};font-size:15px;font-weight:700;text-decoration:none;">${escapeHtml(button.label)}</a>
+            </td></tr></table>` : ''}
+            ${closing ? `<p style="${p}">${escapeHtml(closing)}</p>` : ''}
+            <p style="margin:0 0 14px;">With kind regards,<br />FalconBridge Partners</p>
+          </td></tr>
+          <tr><td style="padding:18px 34px 26px;border-top:1px solid rgba(200,168,106,0.18);font-size:12px;color:${PACK.grey};line-height:1.65;">
+            ${escapeHtml(why)}
+            Questions about the study: <a href="mailto:${escapeHtml(replyTo)}" style="color:${PACK.goldPale};">${escapeHtml(replyTo)}</a>.
+            ${button ? `If the button does not work, paste this address into your browser:<br /><span style="color:${PACK.goldPale};word-break:break-all;">${button.url}</span>` : ''}
+          </td></tr>
+        </table>
+        <p style="margin:18px 0 0;color:rgba(184,189,200,0.6);font-size:11px;">FalconBridge Partners FZC LLC · falconbp.com</p>
+      </td></tr>
+    </table>
+  </div>`;
+  const text = [
+    `Dear ${name},`, ...paragraphs,
+    ...(button ? [`${button.label}: ${button.url}`] : []),
+    ...(closing ? [closing] : []),
+    'With kind regards,\nFalconBridge Partners',
+    `--\n${heading}\n${why}\nQuestions about the study: ${replyTo}\nFalconBridge Partners FZC LLC · falconbp.com`,
+  ].join('\n\n');
+  return { html, text };
+}
+
+/** Sent at once when a reader reserves a pack on a week placeholder: we have your details; the pack follows when it lands. */
+export function buildReservationEmail({ name, territory, weekText, pageUrl, signalUrl, replyTo }: {
+  name: string; territory: string; weekText: string; pageUrl: string; signalUrl: string | null; replyTo: string;
+}): { subject: string; html: string; text: string } {
+  const heading = `${territory} · ${weekText}`;
+  const paragraphs = [
+    `Thank you. The Global Discovery Research System (GDRS) study for ${territory} in ${weekText} is still being written. The research is done fresh each week, so the pack is released as soon as the study is complete, usually within a few days.`,
+    'When it lands you will be emailed a link to the full pack: the guide, the executive deck, the full report, the executive summary, the executive visual and the reference audit. Nothing else is sent in the meantime.',
+    ...(signalUrl ? ['The Weekly Signal that led to the study is already on the site, if you would like to read what prompted it.'] : []),
+  ];
+  const { html, text } = buildShortEmail({
+    heading, strap: 'The pack is on its way.', name, paragraphs,
+    button: signalUrl ? { label: 'Read the Weekly Signal', url: signalUrl } : { label: 'The study page', url: pageUrl },
+    why: 'You are receiving this because you reserved this research pack on falconbp.com and agreed that we may contact you about the study.', replyTo,
+  });
+  return { subject: `Reserved: the ${territory} research pack, ${weekText}`, html, text };
+}
+
+/** Sent once if the week's placeholder closes without a study: no pack this week; here is the Weekly Signal instead. */
+export function buildNoStudyEmail({ name, territory, weekText, signalUrl, libraryUrl, replyTo }: {
+  name: string; territory: string; weekText: string; signalUrl: string | null; libraryUrl: string; replyTo: string;
+}): { subject: string; html: string; text: string } {
+  const heading = `${territory} · ${weekText}`;
+  const paragraphs = [
+    `You reserved the research pack for ${territory} in ${weekText}. We only commission a study when a week's signals point to a question worth the work, and this week they did not, so no pack was produced.`,
+    signalUrl
+      ? 'The Weekly Signal for that week is on the site; it carries what we saw and why it did not become a study.'
+      : 'The research library carries every study published so far, including earlier weeks for this territory.',
+    `Your details are kept only for this reservation. Reserve again on any week's page and the pack follows when it lands.`,
+  ];
+  const { html, text } = buildShortEmail({
+    heading, strap: 'No study this week.', name, paragraphs,
+    button: signalUrl ? { label: 'Read the Weekly Signal', url: signalUrl } : { label: 'Open the research library', url: libraryUrl },
+    why: 'You are receiving this because you reserved this research pack on falconbp.com and agreed that we may contact you about the study. We send it once.', replyTo,
+  });
+  return { subject: `No study this week: ${territory}, ${weekText}`, html, text };
 }

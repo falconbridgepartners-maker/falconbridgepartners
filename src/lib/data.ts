@@ -16,6 +16,18 @@ export type Report = {
   published_at: string | null; cover_path: string | null; extract_path: string | null; extract_note: string | null; qualifier: string | null;
   body: string | null; facts: { figure: string; body: string }[]; featured: boolean; published: boolean; files?: ReportFile[];
   week_label?: string | null;
+  /** The GDRS report name as issued (e.g. "From Pump Price to Budget"), shown as a label above the title. */
+  report_title?: string | null;
+  /**
+   * A week placeholder (supabase/012_week_placeholders.sql): a page made on Monday at /research/studies/<year>-week-<nn>-<territory>
+   * before the study exists. It says "on its way" and takes reservations; the importer turns it into the study.
+   */
+  placeholder?: boolean;
+  placeholder_status?: 'pending' | 'no-study' | null;
+};
+export type PackReservation = {
+  id: string; report_id: string; full_name: string; email: string; organisation: string | null; consent: boolean; created_at: string;
+  fulfilled_at: string | null; access_request_id: string | null; closed_at: string | null;
 };
 export type Scan = {
   id: string; slug: string; title: string; territory: string; service: string; week_of: string; signal: string; question: string;
@@ -28,6 +40,8 @@ export type Scan = {
 export type Piece = {
   id: string; slug: string; title: string; series: string; territory: string; report_id: string | null; description: string | null;
   published_at: string | null; evidence_date: string | null; content: PieceContent; share_image_path: string | null; reviewed: boolean; published: boolean;
+  /** The piece's week: its study's week, or the week of its date when it has no study. Worked out on read, never stored. */
+  week_label?: string | null;
 };
 export type AccessRequest = {
   id: string; report_id: string; full_name: string; email: string; organisation: string; role: string | null; intended_use: string | null;
@@ -93,12 +107,19 @@ const safe = async <T,>(fn: () => Promise<T>, fallback: T): Promise<T> => {
   try { return await fn(); } catch (e) { console.error('[data]', e); return fallback; }
 };
 
+/** True for a week placeholder that is still waiting for its study, or closed without one. */
+export const isPlaceholder = (r: Pick<Report, 'placeholder'>) => Boolean(r.placeholder);
+
+/**
+ * The published studies, newest first. Week placeholders are left out: they are reachable at their own address
+ * (a post links there) but are not studies yet, so they never appear in the library, the sitemap or "other studies".
+ */
 export async function getPublishedReports(): Promise<Report[]> {
   return safe(async () => {
     const db = createAdminClient();
     const { data, error } = await db.from('reports').select('*').eq('published', true).order('published_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []) as Report[];
+    return ((data ?? []) as Report[]).filter((r) => !isPlaceholder(r));
   }, []);
 }
 
@@ -134,11 +155,11 @@ export async function getFeaturedReport(): Promise<Report | null> {
     }
     const { data: pinned } = await db.from('reports').select('*').eq('published', true).eq('featured', true).order('published_at', { ascending: false }).limit(1).maybeSingle();
     if (pinned) return pinned as Report;
-    const { data: recent } = await db.from('reports').select('*').eq('published', true).eq('kind', 'study').order('published_at', { ascending: false }).limit(ROTATION_SIZE);
-    const pool = (recent ?? []) as Report[];
+    const { data: recent } = await db.from('reports').select('*').eq('published', true).eq('kind', 'study').order('published_at', { ascending: false }).limit(ROTATION_SIZE + 6);
+    const pool = ((recent ?? []) as Report[]).filter((r) => !isPlaceholder(r)).slice(0, ROTATION_SIZE);
     if (pool.length === 0) {
-      const { data } = await db.from('reports').select('*').eq('published', true).order('published_at', { ascending: false }).limit(1).maybeSingle();
-      return (data as Report) ?? null;
+      const { data } = await db.from('reports').select('*').eq('published', true).order('published_at', { ascending: false }).limit(6);
+      return ((data ?? []) as Report[]).find((r) => !isPlaceholder(r)) ?? null;
     }
     const dubaiDay = Math.floor((Date.now() + 4 * 3_600_000) / 86_400_000);
     return pool[dubaiDay % pool.length];
@@ -203,22 +224,22 @@ export const hasRequestForm = (files: ReportFile[] | undefined) =>
 export async function getPublishedPieces(territory?: string): Promise<Piece[]> {
   return safe(async () => {
     const db = createAdminClient();
-    let q = db.from('pieces').select('*').eq('published', true).order('published_at', { ascending: false }).order('created_at', { ascending: false });
+    let q = db.from('pieces').select('*, report:reports(week_label)').eq('published', true).order('published_at', { ascending: false }).order('created_at', { ascending: false });
     if (territory) q = q.eq('territory', territory);
     const { data, error } = await q;
     if (error) return [];
-    return (data ?? []) as Piece[];
+    return (data ?? []).map(withPieceWeek);
   }, []);
 }
 
 export async function getPieceBySlug(slug: string, { includeUnpublished = false } = {}): Promise<Piece | null> {
   return safe(async () => {
     const db = createAdminClient();
-    let q = db.from('pieces').select('*').eq('slug', slug);
+    let q = db.from('pieces').select('*, report:reports(week_label)').eq('slug', slug);
     if (!includeUnpublished) q = q.eq('published', true);
     const { data, error } = await q.maybeSingle();
     if (error) return null;
-    return (data as Piece) ?? null;
+    return data ? withPieceWeek(data) : null;
   }, null);
 }
 
@@ -244,13 +265,16 @@ export async function getStudyForPiece(piece: Pick<Piece, 'report_id'>): Promise
   }, null);
 }
 
-/** The published study a scan led to (or null). Tolerates a database that predates the weekly pipeline. */
-export async function getStudyForScan(scan: Scan): Promise<Pick<Report, 'slug' | 'title' | 'subtitle'> | null> {
+/** The published study a scan led to (or null). A week placeholder still waiting is returned with `pending`; one closed without a study is not returned. */
+export async function getStudyForScan(scan: Scan): Promise<(Pick<Report, 'slug' | 'title' | 'subtitle'> & { pending?: boolean }) | null> {
   if (!scan.report_id) return null;
   return safe(async () => {
     const db = createAdminClient();
-    const { data } = await db.from('reports').select('slug, title, subtitle').eq('id', scan.report_id!).eq('published', true).maybeSingle();
-    return (data as Pick<Report, 'slug' | 'title' | 'subtitle'>) ?? null;
+    const { data } = await db.from('reports').select('*').eq('id', scan.report_id!).eq('published', true).maybeSingle();
+    const r = data as Report | null;
+    if (!r) return null;
+    if (r.placeholder) return r.placeholder_status === 'pending' ? { slug: r.slug, title: r.title, subtitle: r.subtitle, pending: true } : null;
+    return { slug: r.slug, title: r.title, subtitle: r.subtitle };
   }, null);
 }
 
@@ -262,6 +286,36 @@ export async function getScanForStudy(reportId: string): Promise<Pick<Scan, 'slu
     if (error) return null;
     return (data as Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'>) ?? null;
   }, null);
+}
+
+export type ScanLink = Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'>;
+
+/** The published Weekly Signal for a territory in a week (or null): what a week placeholder points to before it has a study. */
+export async function getScanForWeek(weekLabel: string, territory: string): Promise<ScanLink | null> {
+  return safe(async () => {
+    const db = createAdminClient();
+    const { data, error } = await db.from('scans').select('slug, question, week_of, territory, week_label').eq('week_label', weekLabel).eq('territory', territory).eq('published', true).order('week_of', { ascending: false }).limit(1).maybeSingle();
+    if (error) return null;
+    return (data as ScanLink) ?? null;
+  }, null);
+}
+
+/** FalconBridge week label for a date: ISO 8601 weeks (Week 1 of 2026 began Monday 29 Dec 2025). "2026-11-02" → "2026-W45". */
+export function weekLabelForDate(iso: string | null | undefined): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+  if (!m) return null;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day); // the Thursday of this week decides its year
+  const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
+  const week = Math.ceil(((d.getTime() - yearStart) / 86_400_000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+/** A piece row with its study's week attached; the joined study is dropped. */
+function withPieceWeek(row: Record<string, unknown>): Piece {
+  const { report, ...rest } = row as Piece & { report?: { week_label?: string | null } | null };
+  return { ...rest, week_label: report?.week_label || weekLabelForDate(rest.published_at) };
 }
 
 /** The weeks present in a set of rows, newest first, as filter options. */
