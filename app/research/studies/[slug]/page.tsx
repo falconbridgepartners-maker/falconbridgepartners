@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
       ...shareMetadata({
         pageTitle: `${place} · ${week} — FalconBridge Partners`,
         title: closed ? `No study for ${place} this week` : `The ${place} study for ${week} is on its way`,
-        description: closed ? 'No study was commissioned from this week’s signals. The Weekly Signal is on the site.' : 'Leave your name and email and the full research pack is emailed to you the moment the study is published.',
+        description: closed ? 'Nothing in this week’s Weekly Signal was worth a full study, so none will appear. The signal itself is on the site.' : 'Leave your name and email and the full research pack is emailed to you the moment the study is published.',
         path: `/research/studies/${s.slug}`,
         image: { url: generatedImagePath('study', s.slug), generated: true },
         publishedTime: s.published_at,
@@ -71,7 +71,7 @@ async function PlaceholderPage({ s }: { s: NonNullable<Awaited<ReturnType<typeof
         eyebrow={`Public study · ${place} · ${week}`}
         title={closed ? `No study for ${place} this week` : `The ${place} study for ${week} is on its way`}
         governing={closed
-          ? 'A study is commissioned only when a week’s signals point to a question worth the work. This week they did not.'
+          ? 'Nothing in this week’s Weekly Signal was worth a full research study, so no study will appear for this week.'
           : 'The research is done fresh each week. The pack is released the moment the study is complete — usually within a few days of the Weekly Signal.'}
       >
         {!closed && (
@@ -85,7 +85,7 @@ async function PlaceholderPage({ s }: { s: NonNullable<Awaited<ReturnType<typeof
           <div className="lg:col-span-7">
             <p className="text-white/70">
               {closed
-                ? `Every week the Weekly Signal for ${place} is scanned for a question that deserves a full Global Discovery Research System (GDRS) study. For ${week} the signals were read and recorded, and no study was commissioned. The signal itself is on the site; the library holds every ${place} study published so far.`
+                ? `Every week the Weekly Signal for ${place} is read for one question that deserves a full Global Discovery Research System (GDRS) study. For ${week} nothing in the signal was worth researching in that depth, so there is no study and no research pack for this week, and none will appear. The Weekly Signal itself is on the site, and the library holds every ${place} study published so far.`
                 : `Each week the Weekly Signal for ${place} is read for the one question that deserves a full Global Discovery Research System (GDRS) study. When the study for ${week} is published, this page becomes it: the Executive Summary and Executive Visual open to all, and the full pack — the guide, the executive deck, the full report and the reference audit — behind a short form. Leave your name and email now and the pack is emailed to you the moment it lands.`}
             </p>
             {!closed && (

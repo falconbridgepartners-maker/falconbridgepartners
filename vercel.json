@@ -9,6 +9,10 @@
       "schedule": "0 5 * * 1"
     },
     {
+      "path": "/api/cron/close-placeholders",
+      "schedule": "0 8 * * 4"
+    },
+    {
       "path": "/api/cron/weekly-import",
       "schedule": "0 4 * * *"
     },

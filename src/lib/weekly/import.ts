@@ -112,7 +112,7 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
     // ── What is already there ────────────────────────────────────────────────
     // eslint-disable-next-line prefer-const
     let [{ data: exReport }, { data: exScan }, { data: exPiece, error: pieceErr }] = await Promise.all([
-      entry.report ? db.from('reports').select('id, slug, title, published, extract_path, cover_path, placeholder').eq('slug', entry.report.slug).maybeSingle() : Promise.resolve({ data: null }),
+      entry.report ? db.from('reports').select('id, slug, title, published, extract_path, cover_path, placeholder, placeholder_status').eq('slug', entry.report.slug).maybeSingle() : Promise.resolve({ data: null }),
       entry.scan ? db.from('scans').select('id, published, reviewed').eq('slug', entry.scan.slug).maybeSingle() : Promise.resolve({ data: null }),
       entry.piece ? db.from('pieces').select('id, published, share_image_path').eq('slug', entry.piece.slug).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
@@ -121,17 +121,17 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
     // ── A week placeholder for this territory (src/lib/weekly/placeholders.ts) ──
     // Made on Monday at <year>-week-<nn>-<territory> so posts could link to it. The study takes that row over: same id,
     // same address, every field from the manifest. The manifest's own report slug is not used; the week address stays.
-    let placeholder: { id: string; slug: string } | null = null;
+    let placeholder: { id: string; slug: string; closed: boolean } | null = null;
     if (exReport?.placeholder) {
       // The manifest names the week address itself (2026-week-45-usa): that row is the placeholder, not a study.
       // Take it over like any other placeholder, or it stays "on its way" with the study's wording on it.
-      placeholder = { id: exReport.id, slug: exReport.slug };
+      placeholder = { id: exReport.id, slug: exReport.slug, closed: exReport.placeholder_status === 'no-study' };
       exReport = null;
     } else if (entry.report && !exReport) {
       const weekSlug = placeholderSlug(manifest.week_label, entry.territory);
-      const { data: ph } = await db.from('reports').select('id, slug, title, published, extract_path, cover_path, placeholder').eq('slug', weekSlug).maybeSingle();
+      const { data: ph } = await db.from('reports').select('id, slug, title, published, extract_path, cover_path, placeholder, placeholder_status').eq('slug', weekSlug).maybeSingle();
       if (ph?.placeholder) {
-        placeholder = { id: ph.id, slug: ph.slug };
+        placeholder = { id: ph.id, slug: ph.slug, closed: ph.placeholder_status === 'no-study' };
         if (ph.slug !== entry.report.slug) out.warnings.push(`study: published at the week address /research/studies/${ph.slug} (the manifest slug "${entry.report.slug}" is not used).`);
       } else if (ph) {
         // The week address already carries a study (an earlier import took the placeholder over): a re-run updates it.
@@ -207,7 +207,10 @@ export async function importEntry(manifest: WeeklyManifest, index: number, opts:
       const { error } = await db.from('reports').update(placeholder ? { published: true, placeholder: false, placeholder_status: null } : { published: true }).eq('id', reportId);
       if (error) throw new Error(`report: ${error.message}`);
       reportPublished = true;
-      if (placeholder) {
+      if (placeholder?.closed) {
+        // Arrived after Thursday's close (Joel, 29 Oct 2026): the page becomes the study, but nobody is emailed.
+        out.warnings.push('Study arrived after Thursday\u2019s close: published at the week address; readers who were told there would be no study are not emailed.');
+      } else if (placeholder) {
         try { const f = await fulfilReservations(reportId); if (f.sent || f.failed) out.warnings.push(`Reserved packs: ${f.sent} sent${f.failed ? `, ${f.failed} failed` : ''}.`); }
         catch (e) { out.warnings.push(`Reserved packs could not be sent: ${e instanceof Error ? e.message : String(e)}`); }
       }
