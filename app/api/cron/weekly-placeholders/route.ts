@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { SITE_DATA_TAG } from '@/lib/data';
 import { announceWeekPlaceholders, createWeekPlaceholders, isoWeekOf } from '@/lib/weekly/placeholders';
 
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,7 @@ export async function GET(req: Request) {
   const created = await createWeekPlaceholders(week);
   for (const p of ['/research', '/research/library', '/sitemap.xml']) revalidatePath(p);
   for (const slug of created.created) revalidatePath(`/research/studies/${slug}`);
+  revalidateTag(SITE_DATA_TAG);
   const announced = await announceWeekPlaceholders(week);
   return NextResponse.json({ ok: true, week, created, announced, at: new Date().toISOString() }, { headers: { 'cache-control': 'no-store' } });
 }

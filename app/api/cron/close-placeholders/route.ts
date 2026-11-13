@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { SITE_DATA_TAG } from '@/lib/data';
 import { closeWeekPlaceholders, isoWeekOf } from '@/lib/weekly/placeholders';
 
 export const dynamic = 'force-dynamic';
@@ -18,5 +19,6 @@ export async function GET(req: Request) {
   if (url.searchParams.get('dry') === '1') return NextResponse.json({ ok: true, dry: true, week }, { headers: { 'cache-control': 'no-store' } });
   const result = await closeWeekPlaceholders(week);
   for (const slug of result.closed) revalidatePath(`/research/studies/${slug}`);
+  revalidateTag(SITE_DATA_TAG);
   return NextResponse.json({ ok: true, ...result, at: new Date().toISOString() }, { headers: { 'cache-control': 'no-store' } });
 }

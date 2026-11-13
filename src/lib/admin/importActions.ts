@@ -1,8 +1,9 @@
 'use server';
 import { announcePublished } from '@/lib/weekly/announce';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { requireAdmin } from '@/lib/admin/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { SITE_DATA_TAG } from '@/lib/data';
 import { connectionStatus, disconnect, downloadText, dropboxConfigured, listFolder, publishPath, DropboxError, type DropboxConnection } from '@/lib/dropbox';
 import { parseManifest, previewEntries, type EntryPreview } from '@/lib/weekly/manifest';
 import { importEntry, type ImportResult } from '@/lib/weekly/import';
@@ -98,6 +99,7 @@ export async function importOne(source: string, index: number, opts: { publish: 
   if (result.report) revalidatePath(`/research/studies/${result.report.slug}`);
   if (result.scan) revalidatePath(`/research/weekly-scan/${result.scan.slug}`);
   revalidatePath('/admin', 'layout');
+  revalidateTag(SITE_DATA_TAG);
   return result;
 }
 
@@ -112,4 +114,5 @@ export async function disconnectDropbox(): Promise<void> {
   await requireAdmin();
   await disconnect();
   revalidatePath('/admin', 'layout');
+  revalidateTag(SITE_DATA_TAG);
 }
