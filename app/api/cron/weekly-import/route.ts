@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { SITE_DATA_TAG } from '@/lib/data';
 import { listFolder, downloadText, publishPath } from '@/lib/dropbox';
 import { parseManifest } from '@/lib/weekly/manifest';
 import { importEntry } from '@/lib/weekly/import';
@@ -79,6 +80,7 @@ export async function GET(req: Request) {
       }
     }
     if (!dry) for (const p of ['/', '/research', '/research/library', '/research/weekly-scan', '/research/professional-curiosity', '/sitemap.xml']) revalidatePath(p);
+    if (!dry) revalidateTag(SITE_DATA_TAG);
     const announced = dry ? null : await announcePublished();
     return NextResponse.json({ ok: true, dry, checked_at: new Date().toISOString(), report, announced }, { headers: { 'cache-control': 'no-store' } });
   } catch (e) {

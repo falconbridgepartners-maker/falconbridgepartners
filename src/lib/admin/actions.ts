@@ -1,11 +1,11 @@
 'use server';
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/auth';
-import { PUBLIC_MEDIA, RESEARCH_FILES } from '@/lib/data';
+import { PUBLIC_MEDIA, RESEARCH_FILES, SITE_DATA_TAG } from '@/lib/data';
 import { pieceContentErrors, PIECE_SERIES, type PieceContent } from '@/lib/pieces';
 import { fulfilReservations } from '@/lib/packReservations';
 
@@ -20,8 +20,11 @@ const str = (fd: FormData, k: string) => String(fd.get(k) ?? '').trim();
 const bool = (fd: FormData, k: string) => fd.get(k) === 'on' || fd.get(k) === 'true';
 const accessOf = (v: string) => (v === 'open' || v === 'internal' ? v : 'request');
 
-/** Purge the admin tree from Next's client Router Cache so edit pages reload fresh rows after a save/delete. */
-function revalidateAdmin() { revalidatePath('/admin', 'layout'); }
+/**
+ * Purge the admin tree from Next's client Router Cache so edit pages reload fresh rows after a save/delete,
+ * and drop the public site's kept reads (src/lib/data.ts) so the change shows on the site straight away.
+ */
+function revalidateAdmin() { revalidatePath('/admin', 'layout'); revalidateTag(SITE_DATA_TAG); }
 
 function revalidateResearch() {
   for (const p of ['/', '/research', '/research/library', '/research/weekly-scan', '/research/professional-curiosity', '/sitemap.xml']) revalidatePath(p);

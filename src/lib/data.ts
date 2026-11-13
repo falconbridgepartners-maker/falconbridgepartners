@@ -1,4 +1,5 @@
 import 'server-only';
+import { unstable_cache } from 'next/cache';
 import { createAdminClient, supabaseConfigured } from '@/lib/supabase/admin';
 import type { SignalContent } from '@/lib/weekly/manifest';
 import type { PieceContent } from '@/lib/pieces';
@@ -36,6 +37,7 @@ export type Scan = {
   /** The Weekly Signal as issued (see src/lib/weekly/manifest.ts). When present, the scan page shows it as written. */
   content?: SignalContent | null;
 };
+export type ScanLink = Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'>;
 /** A Professional Curiosity piece: a short opinion piece drawn from one of our own-account studies (see src/lib/pieces.ts). */
 export type Piece = {
   id: string; slug: string; title: string; series: string; territory: string; report_id: string | null; description: string | null;
@@ -107,6 +109,21 @@ const safe = async <T,>(fn: () => Promise<T>, fallback: T): Promise<T> => {
   try { return await fn(); } catch (e) { console.error('[data]', e); return fallback; }
 };
 
+/**
+ * Every public read below is kept for a few minutes instead of being asked of the database on every page view.
+ * Saving anything in the admin, and each weekly job, clears the lot at once (revalidateTag(SITE_DATA_TAG)),
+ * so an edit shows straight away; a change made directly in the database shows within SITE_DATA_TTL seconds.
+ * Admin reads (unpublished, inactive) never go through here. A failed read is not kept: it throws out of the
+ * cache and `safe` returns the fallback for that one request.
+ */
+export const SITE_DATA_TAG = 'site-data';
+export const SITE_DATA_TTL = 300;
+type Key = string | number | boolean | null | undefined;
+function cachedRead<A extends Key[], T>(name: string, fn: (...args: A) => Promise<T>, fallback: T): (...args: A) => Promise<T> {
+  const cached = unstable_cache(fn, ['site-data-v1', name], { revalidate: SITE_DATA_TTL, tags: [SITE_DATA_TAG] });
+  return (...args: A) => safe(() => cached(...args), fallback);
+}
+
 /** True for a week placeholder that is still waiting for its study, or closed without one. */
 export const isPlaceholder = (r: Pick<Report, 'placeholder'>) => Boolean(r.placeholder);
 
@@ -114,27 +131,27 @@ export const isPlaceholder = (r: Pick<Report, 'placeholder'>) => Boolean(r.place
  * The published studies, newest first. Week placeholders are left out: they are reachable at their own address
  * (a post links there) but are not studies yet, so they never appear in the library, the sitemap or "other studies".
  */
-export async function getPublishedReports(): Promise<Report[]> {
-  return safe(async () => {
-    const db = createAdminClient();
-    const { data, error } = await db.from('reports').select('*').eq('published', true).order('published_at', { ascending: false });
-    if (error) throw error;
-    return ((data ?? []) as Report[]).filter((r) => !isPlaceholder(r));
-  }, []);
-}
+export const getPublishedReports: () => Promise<Report[]> = cachedRead('published-reports', async () => {
+  const db = createAdminClient();
+  const { data, error } = await db.from('reports').select('*').eq('published', true).order('published_at', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as Report[]).filter((r) => !isPlaceholder(r));
+}, [] as Report[]);
 
+async function readReportBySlug(slug: string, includeUnpublished: boolean): Promise<Report | null> {
+  const db = createAdminClient();
+  let q = db.from('reports').select('*, files:report_files(*)').eq('slug', slug);
+  if (!includeUnpublished) q = q.eq('published', true);
+  const { data, error } = await q.maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const r = data as Report;
+  r.files = (r.files ?? []).sort((a, b) => a.sort_order - b.sort_order);
+  return r;
+}
+const cachedReportBySlug = cachedRead('report-by-slug', (slug: string) => readReportBySlug(slug, false), null as Report | null);
 export async function getReportBySlug(slug: string, { includeUnpublished = false } = {}): Promise<Report | null> {
-  return safe(async () => {
-    const db = createAdminClient();
-    let q = db.from('reports').select('*, files:report_files(*)').eq('slug', slug);
-    if (!includeUnpublished) q = q.eq('published', true);
-    const { data, error } = await q.maybeSingle();
-    if (error) throw error;
-    if (!data) return null;
-    const r = data as Report;
-    r.files = (r.files ?? []).sort((a, b) => a.sort_order - b.sort_order);
-    return r;
-  }, null);
+  return includeUnpublished ? safe(() => readReportBySlug(slug, true), null) : cachedReportBySlug(slug);
 }
 
 /** How many of the most recent public studies take turns on the home page and the research index. */
@@ -145,8 +162,7 @@ const ROTATION_SIZE = 12;
  * "featured" on its own form, is shown every time. Otherwise the most recent public studies take turns,
  * one a day (Dubai time), so the page is the same all day and a shared link lands on what was shown.
  */
-export async function getFeaturedReport(): Promise<Report | null> {
-  return safe(async () => {
+export const getFeaturedReport: () => Promise<Report | null> = cachedRead('featured-report', async () => {
     const db = createAdminClient();
     const { data: s } = await db.from('site_settings').select('featured_report_id').eq('id', 1).maybeSingle();
     if (s?.featured_report_id) {
@@ -163,38 +179,36 @@ export async function getFeaturedReport(): Promise<Report | null> {
     }
     const dubaiDay = Math.floor((Date.now() + 4 * 3_600_000) / 86_400_000);
     return pool[dubaiDay % pool.length];
-  }, null);
-}
+}, null as Report | null);
 
-export async function getPublishedScans(territory?: string): Promise<Scan[]> {
-  return safe(async () => {
-    const db = createAdminClient();
-    let q = db.from('scans').select('*').eq('published', true).order('week_of', { ascending: false });
-    if (territory) q = q.eq('territory', territory);
-    const { data, error } = await q;
-    if (error) throw error;
-    return (data ?? []) as Scan[];
-  }, []);
-}
+export const getPublishedScans: (territory?: string) => Promise<Scan[]> = cachedRead('published-scans', async (territory?: string) => {
+  const db = createAdminClient();
+  let q = db.from('scans').select('*').eq('published', true).order('week_of', { ascending: false });
+  if (territory) q = q.eq('territory', territory);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as Scan[];
+}, [] as Scan[]);
 
+async function readScanBySlug(slug: string, includeUnpublished: boolean): Promise<Scan | null> {
+  const db = createAdminClient();
+  let q = db.from('scans').select('*').eq('slug', slug);
+  if (!includeUnpublished) q = q.eq('published', true);
+  const { data, error } = await q.maybeSingle();
+  if (error) throw error;
+  return (data as Scan) ?? null;
+}
+const cachedScanBySlug = cachedRead('scan-by-slug', (slug: string) => readScanBySlug(slug, false), null as Scan | null);
 export async function getScanBySlug(slug: string, { includeUnpublished = false } = {}): Promise<Scan | null> {
-  return safe(async () => {
-    const db = createAdminClient();
-    let q = db.from('scans').select('*').eq('slug', slug);
-    if (!includeUnpublished) q = q.eq('published', true);
-    const { data, error } = await q.maybeSingle();
-    if (error) throw error;
-    return (data as Scan) ?? null;
-  }, null);
+  return includeUnpublished ? safe(() => readScanBySlug(slug, true), null) : cachedScanBySlug(slug);
 }
 
-export async function getSiteSettings(): Promise<SiteSettings> {
-  return safe(async () => {
-    const db = createAdminClient();
-    const { data } = await db.from('site_settings').select('featured_report_id, portraits').eq('id', 1).maybeSingle();
-    return { featured_report_id: data?.featured_report_id ?? null, portraits: (data?.portraits as Record<string, string>) ?? {} };
-  }, { featured_report_id: null, portraits: {} });
-}
+export const getSiteSettings: () => Promise<SiteSettings> = cachedRead('site-settings', async () => {
+  const db = createAdminClient();
+  const { data, error } = await db.from('site_settings').select('featured_report_id, portraits').eq('id', 1).maybeSingle();
+  if (error) throw error;
+  return { featured_report_id: data?.featured_report_id ?? null, portraits: (data?.portraits as Record<string, string>) ?? {} };
+}, { featured_report_id: null, portraits: {} } as SiteSettings);
 
 /** Signed URL for a package file. `download` sets the name the reader's copy is saved under. */
 export async function signedFileUrl(path: string, opts: { expiresIn?: number; download?: string | null } = {}): Promise<string | null> {
@@ -221,84 +235,82 @@ export const hasRequestForm = (files: ReportFile[] | undefined) =>
 // ── Professional Curiosity pieces ────────────────────────────────────────────
 // These tolerate a database that predates supabase/006_pieces.sql: with no pieces table they return nothing.
 
-export async function getPublishedPieces(territory?: string): Promise<Piece[]> {
-  return safe(async () => {
-    const db = createAdminClient();
-    let q = db.from('pieces').select('*, report:reports(week_label)').eq('published', true).order('published_at', { ascending: false }).order('created_at', { ascending: false });
-    if (territory) q = q.eq('territory', territory);
-    const { data, error } = await q;
-    if (error) return [];
-    return (data ?? []).map(withPieceWeek);
-  }, []);
-}
+export const getPublishedPieces: (territory?: string) => Promise<Piece[]> = cachedRead('published-pieces', async (territory?: string) => {
+  const db = createAdminClient();
+  let q = db.from('pieces').select('*, report:reports(week_label)').eq('published', true).order('published_at', { ascending: false }).order('created_at', { ascending: false });
+  if (territory) q = q.eq('territory', territory);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []).map(withPieceWeek);
+}, [] as Piece[]);
 
+async function readPieceBySlug(slug: string, includeUnpublished: boolean): Promise<Piece | null> {
+  const db = createAdminClient();
+  let q = db.from('pieces').select('*, report:reports(week_label)').eq('slug', slug);
+  if (!includeUnpublished) q = q.eq('published', true);
+  const { data, error } = await q.maybeSingle();
+  if (error) throw error;
+  return data ? withPieceWeek(data) : null;
+}
+const cachedPieceBySlug = cachedRead('piece-by-slug', (slug: string) => readPieceBySlug(slug, false), null as Piece | null);
 export async function getPieceBySlug(slug: string, { includeUnpublished = false } = {}): Promise<Piece | null> {
-  return safe(async () => {
-    const db = createAdminClient();
-    let q = db.from('pieces').select('*, report:reports(week_label)').eq('slug', slug);
-    if (!includeUnpublished) q = q.eq('published', true);
-    const { data, error } = await q.maybeSingle();
-    if (error) return null;
-    return data ? withPieceWeek(data) : null;
-  }, null);
+  return includeUnpublished ? safe(() => readPieceBySlug(slug, true), null) : cachedPieceBySlug(slug);
 }
 
+type PieceLink = Pick<Piece, 'slug' | 'title' | 'published_at'>;
 /** The published pieces drawn from a study, newest first. A study may have more than one. */
-export async function getPiecesForStudy(reportId: string): Promise<Pick<Piece, 'slug' | 'title' | 'published_at'>[]> {
-  return safe(async () => {
-    const db = createAdminClient();
-    const { data, error } = await db.from('pieces').select('slug, title, published_at').eq('report_id', reportId).eq('published', true).order('published_at', { ascending: false }).order('created_at', { ascending: true });
-    if (error) return [];
-    return (data ?? []) as Pick<Piece, 'slug' | 'title' | 'published_at'>[];
-  }, []);
-}
+export const getPiecesForStudy: (reportId: string) => Promise<PieceLink[]> = cachedRead('pieces-for-study', async (reportId: string) => {
+  const db = createAdminClient();
+  const { data, error } = await db.from('pieces').select('slug, title, published_at').eq('report_id', reportId).eq('published', true).order('published_at', { ascending: false }).order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as PieceLink[];
+}, [] as PieceLink[]);
 
+type StudyForPiece = Pick<Report, 'slug' | 'title' | 'subtitle'> & { canRequest: boolean };
+const cachedStudyForPiece = cachedRead('study-for-piece', async (reportId: string): Promise<StudyForPiece | null> => {
+  const db = createAdminClient();
+  const { data, error } = await db.from('reports').select('slug, title, subtitle, files:report_files(storage_path, access)').eq('id', reportId).eq('published', true).maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const r = data as Pick<Report, 'slug' | 'title' | 'subtitle'> & { files?: ReportFile[] };
+  return { slug: r.slug, title: r.title, subtitle: r.subtitle, canRequest: hasRequestForm(r.files) };
+}, null as StudyForPiece | null);
 /** The published study behind a piece (or null), and whether its page carries the request form. */
-export async function getStudyForPiece(piece: Pick<Piece, 'report_id'>): Promise<(Pick<Report, 'slug' | 'title' | 'subtitle'> & { canRequest: boolean }) | null> {
-  if (!piece.report_id) return null;
-  return safe(async () => {
-    const db = createAdminClient();
-    const { data, error } = await db.from('reports').select('slug, title, subtitle, files:report_files(storage_path, access)').eq('id', piece.report_id!).eq('published', true).maybeSingle();
-    if (error || !data) return null;
-    const r = data as Pick<Report, 'slug' | 'title' | 'subtitle'> & { files?: ReportFile[] };
-    return { slug: r.slug, title: r.title, subtitle: r.subtitle, canRequest: hasRequestForm(r.files) };
-  }, null);
+export async function getStudyForPiece(piece: Pick<Piece, 'report_id'>): Promise<StudyForPiece | null> {
+  return piece.report_id ? cachedStudyForPiece(piece.report_id) : null;
 }
 
+type StudyForScan = Pick<Report, 'slug' | 'title' | 'subtitle'> & { pending?: boolean };
+const cachedStudyForScan = cachedRead('study-for-scan', async (reportId: string): Promise<StudyForScan | null> => {
+  const db = createAdminClient();
+  const { data, error } = await db.from('reports').select('slug, title, subtitle, placeholder, placeholder_status').eq('id', reportId).eq('published', true).maybeSingle();
+  if (error) throw error;
+  const r = data as Pick<Report, 'slug' | 'title' | 'subtitle' | 'placeholder' | 'placeholder_status'> | null;
+  if (!r) return null;
+  if (r.placeholder) return r.placeholder_status === 'pending' ? { slug: r.slug, title: r.title, subtitle: r.subtitle, pending: true } : null;
+  return { slug: r.slug, title: r.title, subtitle: r.subtitle };
+}, null as StudyForScan | null);
 /** The published study a scan led to (or null). A week placeholder still waiting is returned with `pending`; one closed without a study is not returned. */
-export async function getStudyForScan(scan: Scan): Promise<(Pick<Report, 'slug' | 'title' | 'subtitle'> & { pending?: boolean }) | null> {
-  if (!scan.report_id) return null;
-  return safe(async () => {
-    const db = createAdminClient();
-    const { data } = await db.from('reports').select('*').eq('id', scan.report_id!).eq('published', true).maybeSingle();
-    const r = data as Report | null;
-    if (!r) return null;
-    if (r.placeholder) return r.placeholder_status === 'pending' ? { slug: r.slug, title: r.title, subtitle: r.subtitle, pending: true } : null;
-    return { slug: r.slug, title: r.title, subtitle: r.subtitle };
-  }, null);
+export async function getStudyForScan(scan: Pick<Scan, 'report_id'>): Promise<StudyForScan | null> {
+  return scan.report_id ? cachedStudyForScan(scan.report_id) : null;
 }
 
 /** The published scan entry behind a study (or null). */
-export async function getScanForStudy(reportId: string): Promise<Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'> | null> {
-  return safe(async () => {
-    const db = createAdminClient();
-    const { data, error } = await db.from('scans').select('slug, question, week_of, territory, week_label').eq('report_id', reportId).eq('published', true).order('week_of', { ascending: false }).limit(1).maybeSingle();
-    if (error) return null;
-    return (data as Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'>) ?? null;
-  }, null);
-}
+export const getScanForStudy: (reportId: string) => Promise<ScanLink | null> = cachedRead('scan-for-study', async (reportId: string) => {
+  const db = createAdminClient();
+  const { data, error } = await db.from('scans').select('slug, question, week_of, territory, week_label').eq('report_id', reportId).eq('published', true).order('week_of', { ascending: false }).limit(1).maybeSingle();
+  if (error) throw error;
+  return (data as ScanLink) ?? null;
+}, null as ScanLink | null);
 
-export type ScanLink = Pick<Scan, 'slug' | 'question' | 'week_of' | 'territory' | 'week_label'>;
 
 /** The published Weekly Signal for a territory in a week (or null): what a week placeholder points to before it has a study. */
-export async function getScanForWeek(weekLabel: string, territory: string): Promise<ScanLink | null> {
-  return safe(async () => {
-    const db = createAdminClient();
-    const { data, error } = await db.from('scans').select('slug, question, week_of, territory, week_label').eq('week_label', weekLabel).eq('territory', territory).eq('published', true).order('week_of', { ascending: false }).limit(1).maybeSingle();
-    if (error) return null;
-    return (data as ScanLink) ?? null;
-  }, null);
-}
+export const getScanForWeek: (weekLabel: string, territory: string) => Promise<ScanLink | null> = cachedRead('scan-for-week', async (weekLabel: string, territory: string) => {
+  const db = createAdminClient();
+  const { data, error } = await db.from('scans').select('slug, question, week_of, territory, week_label').eq('week_label', weekLabel).eq('territory', territory).eq('published', true).order('week_of', { ascending: false }).limit(1).maybeSingle();
+  if (error) throw error;
+  return (data as ScanLink) ?? null;
+}, null as ScanLink | null);
 
 /** FalconBridge week label for a date: ISO 8601 weeks (Week 1 of 2026 began Monday 29 Dec 2025). "2026-11-02" → "2026-W45". */
 export function weekLabelForDate(iso: string | null | undefined): string | null {
@@ -331,24 +343,28 @@ export const weekText = (label: string | null | undefined) => {
 };
 
 /** Active partners in display order. Empty when the partners table has not been created yet — callers fall back to the built-in list. */
+async function readPartners(includeInactive: boolean): Promise<PartnerRow[]> {
+  const db = createAdminClient();
+  let q = db.from('partners').select('*').order('sort_order');
+  if (!includeInactive) q = q.eq('active', true);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as PartnerRow[];
+}
+const cachedPartners = cachedRead('partners', () => readPartners(false), [] as PartnerRow[]);
 export async function getPartners({ includeInactive = false } = {}): Promise<PartnerRow[]> {
-  return safe(async () => {
-    const db = createAdminClient();
-    let q = db.from('partners').select('*').order('sort_order');
-    if (!includeInactive) q = q.eq('active', true);
-    const { data, error } = await q;
-    if (error) throw error;
-    return (data ?? []) as PartnerRow[];
-  }, []);
+  return includeInactive ? safe(() => readPartners(true), []) : cachedPartners();
 }
 
+async function readTeam(includeInactive: boolean): Promise<TeamMember[]> {
+  const db = createAdminClient();
+  let q = db.from('team_members').select('*').order('sort_order');
+  if (!includeInactive) q = q.eq('active', true);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as TeamMember[];
+}
+const cachedTeam = cachedRead('team', () => readTeam(false), [] as TeamMember[]);
 export async function getTeam({ includeInactive = false } = {}): Promise<TeamMember[]> {
-  return safe(async () => {
-    const db = createAdminClient();
-    let q = db.from('team_members').select('*').order('sort_order');
-    if (!includeInactive) q = q.eq('active', true);
-    const { data, error } = await q;
-    if (error) throw error;
-    return (data ?? []) as TeamMember[];
-  }, []);
+  return includeInactive ? safe(() => readTeam(true), []) : cachedTeam();
 }
