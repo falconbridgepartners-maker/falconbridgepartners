@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import PageHero from '@/components/dss/PageHero';
+import ResearchBreakNotice from '@/components/dss/ResearchBreakNotice';
 import Invitation from '@/components/dss/Invitation';
 import PieceCard from '@/components/dss/PieceCard';
 import ResearchFilters from '@/components/dss/ResearchFilters';
@@ -20,7 +21,7 @@ export default async function ProfessionalCuriosityPage({ searchParams }: { sear
   const pieces = w ? inTerritory.filter((p) => p.week_label === w) : inTerritory;
   return (
     <>
-      <PageHero eyebrow="Research · Professional Curiosity" title="Professional Curiosity" intro="Opinion pieces drawn from our studies." />
+      <PageHero eyebrow="Research · Professional Curiosity" title="Professional Curiosity" intro="Opinion pieces drawn from our studies."><ResearchBreakNotice /></PageHero>
       <Section>
         <ResearchFilters basePath="/research/professional-curiosity" territory={t} week={w} weeks={weekOptions(inTerritory)} count={pieces.length} noun={['piece', 'pieces']} />
         {pieces.length === 0 ? <p className="text-white/60">Nothing published for this selection yet.</p> : (

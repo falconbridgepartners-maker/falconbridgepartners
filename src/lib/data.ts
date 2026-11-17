@@ -124,6 +124,19 @@ function cachedRead<A extends Key[], T>(name: string, fn: (...args: A) => Promis
   return (...args: A) => safe(() => cached(...args), fallback);
 }
 
+/**
+ * The year-end research break (CJ, 17 Nov 2026): the notice goes up at close of business on Wed 25 Nov 2026, after
+ * the Week 48 run, and comes down on the day the first research of the new year is out. It needs no one to switch
+ * it on or off. Change these two values for the next break. Times are Dubai time.
+ */
+export const RESEARCH_BREAK = { startsAt: '2026-11-25T18:00:00+04:00', returnsAt: '2027-01-11T00:00:00+04:00' } as const;
+/** True while the break notice should show. Preview deployments always show it, so it can be checked before the break. */
+export function researchBreakActive(now: Date = new Date()): boolean {
+  if (process.env.VERCEL_ENV === 'preview') return true;
+  const t = now.getTime();
+  return t >= Date.parse(RESEARCH_BREAK.startsAt) && t < Date.parse(RESEARCH_BREAK.returnsAt);
+}
+
 /** True for a week placeholder that is still waiting for its study, or closed without one. */
 export const isPlaceholder = (r: Pick<Report, 'placeholder'>) => Boolean(r.placeholder);
 

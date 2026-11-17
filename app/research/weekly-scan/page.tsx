@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import PageHero from '@/components/dss/PageHero';
+import ResearchBreakNotice from '@/components/dss/ResearchBreakNotice';
 import Invitation from '@/components/dss/Invitation';
 import { Section, Band } from '@/components/dss/Tiles';
 import { research } from '@/content/site';
@@ -24,7 +25,7 @@ export default async function WeeklyScanPage({ searchParams }: { searchParams?: 
   const hasSamples = scans.some((s) => s.sample);
   return (
     <>
-      <PageHero eyebrow="Research · Weekly Scan" title="Signals worth a question" intro="Systematic territorial scans identify significant developments. Our interpretation turns a development into a question worth testing. Findings and FBP’s interpretation are kept visibly distinct." />
+      <PageHero eyebrow="Research · Weekly Scan" title="Signals worth a question" intro="Systematic territorial scans identify significant developments. Our interpretation turns a development into a question worth testing. Findings and FBP’s interpretation are kept visibly distinct."><ResearchBreakNotice /></PageHero>
       <Section>
         <ResearchFilters basePath="/research/weekly-scan" territory={filter} week={week} weeks={weeks} count={scans.length} noun={['signal', 'signals']} aside={<a href="/research/weekly-scan/rss.xml" className="text-sm text-white/45 hover:text-white">RSS</a>} />
         {hasSamples && (
