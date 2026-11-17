@@ -125,24 +125,16 @@ function cachedRead<A extends Key[], T>(name: string, fn: (...args: A) => Promis
 }
 
 /**
- * The year-end research break (CJ, 17 Nov 2026): the notice goes up once the last week's run is published and
- * comes down on the day the first research of the new year is out. It needs no one to switch it on or off.
- * Change these three values for the next break.
+ * The year-end research break (CJ, 17 Nov 2026): the notice goes up at close of business on Wed 25 Nov 2026, after
+ * the Week 48 run, and comes down on the day the first research of the new year is out. It needs no one to switch
+ * it on or off. Change these two values for the next break. Times are Dubai time.
  */
-export const RESEARCH_BREAK = { lastWeek: '2026-W48', startsBy: '2026-11-30', returnsOn: '2027-01-11' } as const;
-const lastWeekPublished: () => Promise<boolean> = cachedRead('research-break-last-week', async () => {
-  const db = createAdminClient();
-  const { data, error } = await db.from('scans').select('territory').eq('week_label', RESEARCH_BREAK.lastWeek).eq('published', true);
-  if (error) throw error;
-  return new Set((data ?? []).map((r) => r.territory)).size >= TERRITORIES.length;
-}, false);
-/** True while the break notice should show. Dates are read in Dubai time. Preview deployments always show it, so it can be checked before the break. */
-export async function researchBreakActive(): Promise<boolean> {
+export const RESEARCH_BREAK = { startsAt: '2026-11-25T18:00:00+04:00', returnsAt: '2027-01-11T00:00:00+04:00' } as const;
+/** True while the break notice should show. Preview deployments always show it, so it can be checked before the break. */
+export function researchBreakActive(now: Date = new Date()): boolean {
   if (process.env.VERCEL_ENV === 'preview') return true;
-  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(new Date());
-  if (today >= RESEARCH_BREAK.returnsOn) return false;
-  if (today >= RESEARCH_BREAK.startsBy) return true;
-  return lastWeekPublished();
+  const t = now.getTime();
+  return t >= Date.parse(RESEARCH_BREAK.startsAt) && t < Date.parse(RESEARCH_BREAK.returnsAt);
 }
 
 /** True for a week placeholder that is still waiting for its study, or closed without one. */

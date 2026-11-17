@@ -1,8 +1,8 @@
 import { researchBreakActive } from '@/lib/data';
 
 /** Year-end research break notice. Shows itself after the last run of the year and removes itself on the return date. */
-export default async function ResearchBreakNotice() {
-  if (!(await researchBreakActive())) return null;
+export default function ResearchBreakNotice() {
+  if (!researchBreakActive()) return null;
   return (
     <aside aria-label="Year-end research break" className="mt-8 max-w-3xl rounded-lg border border-brand-gold/40 bg-white/5 p-5 md:p-6">
       <p className="label-tech mb-2">Year-end research break</p>
