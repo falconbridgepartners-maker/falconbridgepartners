@@ -13,7 +13,7 @@ const API = 'https://api.dropboxapi.com';
 const CONTENT = 'https://content.dropboxapi.com';
 const SECRET_KEY = 'dropbox_refresh_token';
 
-export const DEFAULT_PUBLISH_PATH = '/FalconBridge Workspace [Shared - All]/W. Website Publishing';
+export const DEFAULT_PUBLISH_PATH = '/FalconBridge Workspace [Shared - All]/P. Outreach AI/B. Website Publishing';
 export const publishPath = () => (process.env.DROPBOX_PUBLISH_PATH || DEFAULT_PUBLISH_PATH).replace(/\/+$/, '');
 
 export const dropboxConfigured = () => Boolean(process.env.DROPBOX_APP_KEY && process.env.DROPBOX_APP_SECRET);

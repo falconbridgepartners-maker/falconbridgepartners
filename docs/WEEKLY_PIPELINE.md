@@ -19,7 +19,7 @@ Each file's level is a setting on the study in `/admin/reports`: **Open download
 ## The weekly run (Wednesday, once all five packs are in Dropbox)
 
 1. Read the week's five folders in `K2. RaaS Engagements` and write the public copy.
-2. Save one `manifest.json` to `W. Website Publishing/<year>-W<week>/` in the shared Dropbox.
+2. Save one `manifest.json` to `P. Outreach AI/B. Website Publishing/` in the shared Dropbox.
 3. Open `/admin/import`. The week appears with each territory and its files.
 4. **Import as drafts** to review first, or **Import and publish**.
 5. The importer copies the pack files from Dropbox into private storage and creates the scan entry and the study for each territory, linked to each other.
@@ -141,7 +141,7 @@ The same rule applies: a piece goes up as issued. The manifest carries its wordi
 
 The routine step at the end of a study:
 
-1. Save a manifest with a `piece` to `W. Website Publishing`, exactly like a week's manifest. It can be a manifest of its own (the usual case, because the study is already live) or part of the study's entry.
+1. Save a manifest with a `piece` to `P. Outreach AI/B. Website Publishing`, exactly like a week's manifest. It can be a manifest of its own (the usual case, because the study is already live) or part of the study's entry.
 2. Open `/admin/import`. The entry shows `piece: new`.
 3. **Import as drafts** and open **Preview piece** to read it as a reader will, or **Import and publish**.
 
