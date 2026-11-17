@@ -29,6 +29,33 @@ export function filterHref(basePath: string, params: Record<string, string | und
   return `${basePath}${q ? `?${q}` : ''}`;
 }
 
+/** The three research lists, in the order the research page shows them. */
+const LISTS = [
+  { label: 'Weekly Scan', href: '/research/weekly-scan' },
+  { label: 'Research Library', href: '/research/library' },
+  { label: 'Professional Curiosity', href: '/research/professional-curiosity' },
+] as const;
+
+/**
+ * Moves a reader between the three research lists without going back to the research page. The territory in
+ * view is carried across; the week and the library's type are not, since the other list may have nothing for them.
+ */
+export function ResearchSwitcher({ basePath, territory }: { basePath: string; territory?: string }) {
+  return (
+    <nav aria-label="Research sections" className="flex flex-wrap items-end gap-x-8 gap-y-2 mb-8 border-b border-brand-gold/20">
+      {LISTS.map((x) => {
+        const current = x.href === basePath;
+        return (
+          <Link key={x.href} href={filterHref(x.href, { territory })} aria-current={current ? 'page' : undefined}
+            className={`-mb-px pb-3 text-sm tracking-wide border-b-2 transition-colors ${current ? 'border-brand-gold text-white font-semibold' : 'border-transparent text-white/55 hover:text-white'}`}>
+            {x.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 /**
  * The one filter block for the three research lists (Weekly Signal, studies, Professional Curiosity): the same
  * territory chips, the same week menu and the same count line, in the same order, so a reader moves between them
@@ -39,6 +66,7 @@ export default function ResearchFilters({ basePath, territory, week, weeks, para
   const filtered = Boolean(territory || week || Object.values(params).some(Boolean));
   return (
     <div className="mb-10">
+      <ResearchSwitcher basePath={basePath} territory={territory} />
       <div className="flex flex-wrap gap-2 mb-4">
         <Link href={href()} className={chip(!territory)}>All territories</Link>
         {TERRITORIES.map((x) => <Link key={x.value} href={href(x.value)} className={chip(territory === x.value)}>{x.label}</Link>)}
