@@ -133,6 +133,10 @@ export const RESEARCH_BREAK = { startsAt: '2026-11-25T18:00:00+04:00', returnsAt
 /** True while the break notice should show. Preview deployments always show it, so it can be checked before the break. */
 export function researchBreakActive(now: Date = new Date()): boolean {
   if (process.env.VERCEL_ENV === 'preview') return true;
+  return inResearchBreak(now);
+}
+/** True between the two dates above, whatever the deployment. The Monday placeholder job uses it to stand down for the break. */
+export function inResearchBreak(now: Date = new Date()): boolean {
   const t = now.getTime();
   return t >= Date.parse(RESEARCH_BREAK.startsAt) && t < Date.parse(RESEARCH_BREAK.returnsAt);
 }
