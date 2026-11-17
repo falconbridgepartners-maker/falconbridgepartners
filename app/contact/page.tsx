@@ -1,5 +1,9 @@
 import type { Metadata } from 'next';
 import ContactForm from '@/components/dss/ContactForm';
+import { researchBreakActive } from '@/lib/data';
+
+// Rendered per request so the year-end notice appears and disappears on its dates.
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/contact' },
@@ -8,5 +12,5 @@ export const metadata: Metadata = {
 };
 
 export default function ContactPage() {
-  return <ContactForm />;
+  return <ContactForm researchBreak={researchBreakActive()} />;
 }
