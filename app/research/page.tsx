@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import PageHero from '@/components/dss/PageHero';
+import ResearchBreakNotice from '@/components/dss/ResearchBreakNotice';
 import Invitation from '@/components/dss/Invitation';
 import TerritoryMap from '@/components/dss/TerritoryMap';
 import { Section, Tile, ThreeColumns, Band, NextLink } from '@/components/dss/Tiles';
@@ -24,7 +25,7 @@ export default async function ResearchPage() {
   const cover = publicMediaUrl(featuredStudy?.cover_path);
   return (
     <>
-      <PageHero eyebrow="Research" title={research.heading} intro={research.intro} />
+      <PageHero eyebrow="Research" title={research.heading} intro={research.intro}><ResearchBreakNotice /></PageHero>
 
       <Section>
         <ThreeColumns items={research.columns} />

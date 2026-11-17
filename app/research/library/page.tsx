@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import PageHero from '@/components/dss/PageHero';
+import ResearchBreakNotice from '@/components/dss/ResearchBreakNotice';
 import Invitation from '@/components/dss/Invitation';
 import ReportCard from '@/components/dss/ReportCard';
 import { Section, Band } from '@/components/dss/Tiles';
@@ -22,7 +23,7 @@ export default async function LibraryPage({ searchParams }: { searchParams?: { t
   const reports = w ? inSelection.filter((r) => r.week_label === w) : inSelection;
   return (
     <>
-      <PageHero eyebrow="Research · Library" title="Research available to readers" intro={research.publicNote} />
+      <PageHero eyebrow="Research · Library" title="Research available to readers" intro={research.publicNote}><ResearchBreakNotice /></PageHero>
       <Section>
         <ResearchFilters basePath="/research/library" territory={t} week={w} weeks={weekOptions(inSelection)} params={{ kind: k }} count={reports.length} noun={['study', 'studies']}>
           <div className="flex flex-wrap gap-2 mb-4">

@@ -124,6 +124,27 @@ function cachedRead<A extends Key[], T>(name: string, fn: (...args: A) => Promis
   return (...args: A) => safe(() => cached(...args), fallback);
 }
 
+/**
+ * The year-end research break (CJ, 17 Nov 2026): the notice goes up once the last week's run is published and
+ * comes down on the day the first research of the new year is out. It needs no one to switch it on or off.
+ * Change these three values for the next break.
+ */
+export const RESEARCH_BREAK = { lastWeek: '2026-W48', startsBy: '2026-11-30', returnsOn: '2027-01-11' } as const;
+const lastWeekPublished: () => Promise<boolean> = cachedRead('research-break-last-week', async () => {
+  const db = createAdminClient();
+  const { data, error } = await db.from('scans').select('territory').eq('week_label', RESEARCH_BREAK.lastWeek).eq('published', true);
+  if (error) throw error;
+  return new Set((data ?? []).map((r) => r.territory)).size >= TERRITORIES.length;
+}, false);
+/** True while the break notice should show. Dates are read in Dubai time. Preview deployments always show it, so it can be checked before the break. */
+export async function researchBreakActive(): Promise<boolean> {
+  if (process.env.VERCEL_ENV === 'preview') return true;
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dubai' }).format(new Date());
+  if (today >= RESEARCH_BREAK.returnsOn) return false;
+  if (today >= RESEARCH_BREAK.startsBy) return true;
+  return lastWeekPublished();
+}
+
 /** True for a week placeholder that is still waiting for its study, or closed without one. */
 export const isPlaceholder = (r: Pick<Report, 'placeholder'>) => Boolean(r.placeholder);
 
