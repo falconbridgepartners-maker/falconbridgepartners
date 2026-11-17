@@ -14,7 +14,7 @@ const labelClass = "text-xs font-bold text-white/70 block";
 
 const regions = ['Middle East and Africa', 'Americas', 'Asia-Pacific', 'Europe', 'Other'];
 
-const ContactForm: React.FC<{ partners?: PartnerView[]; variant?: 'contact' | 'territory' }> = ({ variant = 'contact' }) => {
+const ContactForm: React.FC<{ partners?: PartnerView[]; variant?: 'contact' | 'territory'; researchBreak?: boolean }> = ({ variant = 'contact', researchBreak = false }) => {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -67,6 +67,12 @@ const ContactForm: React.FC<{ partners?: PartnerView[]; variant?: 'contact' | 't
             {variant === 'contact' ? (
                 <PageHero eyebrow="A conversation about your decision" title="What needs to be understood" governing="before your next decision?" intro={firm.invitation.body}>
                     <p className="mt-6 text-sm text-brand-gold-pale">{firm.professionalExchange}</p>
+                    {researchBreak && (
+                        <aside aria-label="Year-end research break" className="mt-8 max-w-3xl rounded-lg border border-brand-gold/40 bg-white/5 p-5 md:p-6">
+                            <p className="label-tech mb-2">Year-end research break</p>
+                            <p className="text-white/85 text-base md:text-lg">Client research requests received during the break will be handled from Monday 11 January 2027.</p>
+                        </aside>
+                    )}
                 </PageHero>
             ) : (
                 <PageHero eyebrow={territoryPartners.eyebrow} title={territoryPartners.heading} intro={territoryPartners.intro} />
