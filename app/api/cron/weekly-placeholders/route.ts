@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
-import { SITE_DATA_TAG } from '@/lib/data';
+import { SITE_DATA_TAG, inResearchBreak, RESEARCH_BREAK } from '@/lib/data';
 import { announceWeekPlaceholders, createWeekPlaceholders, isoWeekOf } from '@/lib/weekly/placeholders';
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,7 @@ export const maxDuration = 120;
  * Monday's job (vercel.json: 0 5 * * 1 is 9am in Dubai, after the 08:10 weekly run has published the week's signals).
  * It makes the week's placeholder study pages, one per territory, links each to its Weekly Signal, and emails Jessica the
  * week's addresses. Sending reserved packs and closing empty placeholders is the daily job's (/api/cron/pack-follow-up). `?week=2026-W44` runs it for another week; `?dry=1` only reports what it would do.
+ * It stands down during the year-end research break (RESEARCH_BREAK in src/lib/data.ts).
  * Requires CRON_SECRET: Vercel's scheduler sends it; anyone else is turned away.
  */
 export async function GET(req: Request) {
@@ -17,6 +18,11 @@ export async function GET(req: Request) {
   if (!secret || req.headers.get('authorization') !== `Bearer ${secret}`) return new NextResponse('Not authorised.', { status: 401 });
   const url = new URL(req.url);
   const week = /^\d{4}-W\d{2}$/.test(url.searchParams.get('week') ?? '') ? url.searchParams.get('week')! : isoWeekOf().label;
+  // Year-end research break (CJ, 17 Nov 2026): no placeholder pages and no week email to Jessica while research is closed.
+  // A run asked for by hand with ?week= still goes ahead.
+  if (!url.searchParams.get('week') && inResearchBreak()) {
+    return NextResponse.json({ ok: true, skipped: 'research break', week, resumes: RESEARCH_BREAK.returnsAt }, { headers: { 'cache-control': 'no-store' } });
+  }
   if (url.searchParams.get('dry') === '1') return NextResponse.json({ ok: true, dry: true, week }, { headers: { 'cache-control': 'no-store' } });
 
   const created = await createWeekPlaceholders(week);
