@@ -2,7 +2,7 @@ import 'server-only';
 import { Resend } from 'resend';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { territoryName } from '@/lib/data';
-import { siteSender } from '@/lib/mail';
+import { sendFromSite } from '@/lib/mail';
 
 /**
  * After a weekly upload, tells Jessica which pages are new so she can use them in her posts:
@@ -15,7 +15,6 @@ import { siteSender } from '@/lib/mail';
 const RECENT_DAYS = 10;
 const TO = 'jessica@falconbp.com';
 const CC = 'joel@falconbp.com'; // Joel is copied so he sees each email arrive in his own inbox
-const FROM_DISPLAY = 'Joel Arcus <joel@falconbp.com>';
 const SITE = 'https://falconbp.com';
 
 type Kind = 'signal' | 'study' | 'piece';
@@ -62,9 +61,8 @@ export async function announcePublished(): Promise<AnnounceResult> {
       .map((i) => `<p style="margin:0 0 14px"><strong>${esc(i.territory)}</strong>: ${esc(i.title)}<br>Slug: <code>${esc(i.slug)}</code><br><a href="${i.url}">${i.url}</a></p>`).join('')}<p>Joel</p></div>`;
 
     const send = (from: string) => resend.emails.send({ from, to: TO, cc: CC, replyTo: 'joel@falconbp.com', subject: m.subject, text, html });
-    // From Joel's own address if the mail service accepts it; otherwise from the site's address, with replies still going to Joel.
-    let res = await send(FROM_DISPLAY);
-    if (res.error) { console.error('[announce] joel@ refused:', res.error); res = await send(siteSender('website')); }
+    // From the verified notifications sender (website@notifications.falconbp.com); replies still go to Joel.
+    const res = await sendFromSite('website', send);
     if (res.error) { out.failed.push(`${m.heading}: ${(res.error as { message?: string }).message ?? 'send failed'}`); continue; }
     await db.from('import_log').insert(items.map((i) => ({ week_label: null, published: true, source: `announced:${kind}:${i.slug}`, created_by: 'announce', result: { to: TO, kind, slug: i.slug } })));
     out.sent.push({ kind, count: items.length });

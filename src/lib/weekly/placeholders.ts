@@ -3,7 +3,7 @@ import { Resend } from 'resend';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { territoryName, weekText, type Report } from '@/lib/data';
 import { TERRITORY_KEYS } from '@/lib/weekly/manifest';
-import { siteSender } from '@/lib/mail';
+import { sendFromSite } from '@/lib/mail';
 import { closeReservations } from '@/lib/packReservations';
 
 /**
@@ -109,7 +109,6 @@ export async function closeWeekPlaceholders(throughWeek = isoWeekOf().label): Pr
 
 const TO = 'jessica@falconbp.com';
 const CC = 'joel@falconbp.com';
-const FROM_DISPLAY = 'Joel Arcus <joel@falconbp.com>';
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /**
@@ -149,8 +148,8 @@ export async function announceWeekPlaceholders(weekLabel = isoWeekOf().label): P
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const send = (from: string) => resend.emails.send({ from, to: TO, cc: CC, replyTo: 'joel@falconbp.com', subject: `Study pages for ${wk} on falconbp.com`, text, html });
-  let res = await send(FROM_DISPLAY);
-  if (res.error) { console.error('[placeholders] joel@ refused:', res.error); res = await send(siteSender('website')); }
+  // From the verified notifications sender (website@notifications.falconbp.com); replies still go to Joel.
+  const res = await sendFromSite('website', send);
   if (res.error) { console.error('[placeholders] announce', res.error); return 'failed'; }
   await db.from('import_log').insert({ week_label: weekLabel, published: true, source: key, created_by: 'placeholders', result: { to: TO, lines } });
   return 'sent';
