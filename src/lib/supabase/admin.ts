@@ -1,5 +1,6 @@
 import 'server-only';
 import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js';
+import { staticGenerationAsyncStorage } from 'next/dist/client/components/static-generation-async-storage.external';
 
 let cached: SupabaseClient | null = null;
 
@@ -12,7 +13,13 @@ export function createAdminClient(): SupabaseClient {
   cached = createSupabaseClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
     // Admin reads must never be served from Next's Data Cache (it persists across deployments on Vercel).
-    global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) },
+    // Inside an unstable_cache callback (the public reads in lib/data.ts) Next already forces every fetch past the
+    // Data Cache, and an explicit cache: 'no-store' there makes the background refresh of a static page throw
+    // "Dynamic server usage: no-store fetch", so the page kept serving stale data. There we leave cache unset.
+    global: {
+      fetch: (input, init) =>
+        staticGenerationAsyncStorage.getStore()?.isUnstableCacheCallback ? fetch(input, init) : fetch(input, { ...init, cache: 'no-store' }),
+    },
   });
   return cached;
 }
