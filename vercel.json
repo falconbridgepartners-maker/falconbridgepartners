@@ -5,6 +5,14 @@
       "schedule": "0 5 * * *"
     },
     {
+      "path": "/api/cron/pack-follow-up",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/pack-follow-up",
+      "schedule": "0 13 * * *"
+    },
+    {
       "path": "/api/cron/weekly-placeholders",
       "schedule": "0 5 * * 1"
     },
