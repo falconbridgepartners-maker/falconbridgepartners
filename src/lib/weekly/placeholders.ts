@@ -18,8 +18,8 @@ import { closeReservations } from '@/lib/packReservations';
  * after that still goes live at the same address, but nobody is emailed (Joel, 29 Oct 2026).
  */
 
-/** The territories that get a placeholder each week. Singapore is not yet live (October 2026). */
-export const PLACEHOLDER_TERRITORIES: readonly string[] = TERRITORY_KEYS.filter((t) => t !== 'singapore');
+/** The territories that get a placeholder each week: all of them, Singapore included from Week 49. */
+export const PLACEHOLDER_TERRITORIES: readonly string[] = TERRITORY_KEYS; // Singapore included from Week 49 (CJ approved 23 Nov 2026)
 
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://falconbp.com').replace(/\/+$/, '');
 const DUBAI_OFFSET_MS = 4 * 3_600_000;
