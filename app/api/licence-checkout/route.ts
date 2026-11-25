@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       cancelUrl: `${SITE_URL}/research/studies/${o.slug}/buy`,
       metadata: {
         slug: o.slug, licence: o.licence, country: o.country, company: o.company, full_name: o.fullName,
-        address: o.address, objective: o.objective, fee_usd: String(o.q.usd), vat_usd: String(o.q.vat), terms: '1.0',
+        address: o.address, objective: o.objective, fee_usd: String(o.q.usd), vat_usd: String(o.q.vat), terms: '1.0', country_declared: 'yes',
       },
     });
     return NextResponse.json({ url: session.url });

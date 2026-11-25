@@ -121,6 +121,24 @@ export async function createCheckoutSession(args: {
   return { id: data.id, url: data.url };
 }
 
+/**
+ * Where the card that paid a checkout was issued, and the billing country the buyer gave, as ISO codes.
+ * Used to flag reduced-price orders paid from high-income countries. Empty if Stripe does not say.
+ */
+export async function cardCountries(sessionId: string): Promise<{ card?: string; billing?: string }> {
+  try {
+    const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}?expand[]=payment_intent.latest_charge`, {
+      headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` },
+    });
+    if (!res.ok) return {};
+    const d = await res.json();
+    const charge = d?.payment_intent?.latest_charge;
+    const card = charge?.payment_method_details?.card?.country || undefined;
+    const billing = d?.customer_details?.address?.country || charge?.billing_details?.address?.country || undefined;
+    return { card: card?.toUpperCase(), billing: billing?.toUpperCase() };
+  } catch { return {}; }
+}
+
 /** Verifies the Stripe-Signature header (v1, HMAC-SHA256) and returns the event, or null if it does not check out. */
 export function verifyWebhook(raw: string, header: string | null, toleranceSec = 300): { type: string; data: { object: Record<string, unknown> } } | null {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;

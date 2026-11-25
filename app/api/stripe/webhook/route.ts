@@ -4,7 +4,8 @@ import { buildBrandedEmail } from '@/lib/emailTemplates';
 import { territoryName } from '@/lib/data';
 import { orderFields, parseOrder, priceOrder, recordOrder } from '@/lib/licenceOrder';
 import { leadsAddress, sendFromSite } from '@/lib/mail';
-import { stripeTestMode, verifyWebhook } from '@/lib/stripe';
+import { cardCountries, stripeTestMode, verifyWebhook } from '@/lib/stripe';
+import { HIGH_INCOME, countryName } from '@/lib/licencePricing';
 import { deliverLicence } from '@/lib/licenceDelivery';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
   if (s.payment_status !== 'paid') return NextResponse.json({ received: true });
   const m = s.metadata ?? {};
   try {
-    const parsed = parseOrder({ slug: m.slug, licence: m.licence, country: m.country, company: m.company, fullName: m.full_name, email: s.customer_details?.email ?? s.customer_email, address: m.address, objective: m.objective, accepted: true });
+    const parsed = parseOrder({ slug: m.slug, licence: m.licence, country: m.country, company: m.company, fullName: m.full_name, email: s.customer_details?.email ?? s.customer_email, address: m.address, objective: m.objective, accepted: true, declared: true });
     if ('error' in parsed) { console.error('[stripe-webhook] order', s.id, parsed.error); return NextResponse.json({ received: true }); }
     const o = await priceOrder(parsed.order);
     if (!o) { console.error('[stripe-webhook] study not found', s.id, m.slug); return NextResponse.json({ received: true }); }
@@ -38,8 +39,18 @@ export async function POST(request: NextRequest) {
     const { duplicate } = await recordOrder(o, { paid_at: now, invoiced_at: now, stripe_session_id: s.id });
     if (duplicate) return NextResponse.json({ received: true, duplicate: true });
 
-    // Deliver straight away when the amount matches; otherwise hold it for the firm to check.
-    const delivery = matches ? await deliverLicence(o, s.id) : { delivered: false as const, reason: 'The amount collected does not match the price list.' };
+    // Safeguard: a reduced-price order paid with a card from a high-income country is held for the firm to check.
+    const cc = await cardCountries(s.id);
+    const payCountry = cc.card ?? cc.billing;
+    const highCountry = o.q.reduced ? [cc.card, cc.billing].find((x) => x && HIGH_INCOME.has(x)) : undefined;
+    const heldForCountry = Boolean(highCountry);
+    const countryNote = !payCountry ? 'Not reported by Stripe'
+      : `Card issued in ${cc.card ? countryName(cc.card) : 'unknown'}${cc.billing ? ` · billing address in ${countryName(cc.billing)}` : ''}${payCountry === o.country ? ' · matches the declared country' : ` · DIFFERS from the declared country (${o.countryName})`}${heldForCountry ? ' · reduced price paid from a high-income country: HELD' : ''}`;
+
+    // Deliver straight away when the amount matches and the country check passes; otherwise hold it for the firm.
+    const delivery = !matches ? { delivered: false as const, reason: 'The amount collected does not match the price list.' }
+      : heldForCountry ? { delivered: false as const, reason: `The reduced price was paid with a card or billing address in ${countryName(highCountry!)}, a high-income country. Confirm where the licensee is registered (for example, its trade licence) before delivering, or invoice the difference.` }
+      : await deliverLicence(o, s.id);
 
     if (process.env.RESEND_API_KEY) {
       const resend = new Resend(process.env.RESEND_API_KEY);
@@ -54,6 +65,7 @@ export async function POST(request: NextRequest) {
           fields: [
             ...orderFields(o),
             { label: 'Collected by Stripe', value: `US$${paidUsd.toLocaleString('en-US')}${local}${matches ? '' : ' · DOES NOT MATCH THE PRICE LIST, check before delivering'}` },
+            { label: 'Payment country', value: countryNote },
             { label: 'Delivery', value: delivery.delivered ? `Sent automatically: pack link (works until ${delivery.expires}) and the completed licence statement, valid until ${delivery.until}` : `NOT SENT: ${delivery.reason} Deliver by hand.` },
             { label: 'Stripe session', value: s.id },
           ],
@@ -83,7 +95,7 @@ async function invoicePaid(inv: InvoiceObj) {
     // Claim it: only the first invoice.paid for this invoice updates the row and goes on to deliver.
     const { data: claimed, error: claimError } = await db.from('licence_requests').update({ paid_at: now }).eq('stripe_session_id', inv.id).is('paid_at', null).select('id');
     if (!claimError && claimed && claimed.length === 0) return NextResponse.json({ received: true, duplicate: true });
-    const parsed = parseOrder({ slug: m.slug, licence: m.licence, country: m.country, company: m.company, fullName: m.full_name, email: m.email, address: m.address, objective: m.objective, accepted: true });
+    const parsed = parseOrder({ slug: m.slug, licence: m.licence, country: m.country, company: m.company, fullName: m.full_name, email: m.email, address: m.address, objective: m.objective, accepted: true, declared: true });
     if ('error' in parsed) { console.error('[stripe-webhook] invoice order', inv.id, parsed.error); return NextResponse.json({ received: true }); }
     const o = await priceOrder(parsed.order);
     if (!o) { console.error('[stripe-webhook] invoice study not found', inv.id, m.slug); return NextResponse.json({ received: true }); }

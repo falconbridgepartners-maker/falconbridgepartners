@@ -14,6 +14,7 @@ export type PricedOrder = LicenceOrder & { report: Report; tier: Tier; q: Quote 
 export function parseOrder(data: Record<string, unknown>): { order: LicenceOrder } | { error: string } {
   if (!data.slug || !data.company || !data.fullName || !data.email || !data.address) return { error: 'Please complete the form.' };
   if (data.accepted !== true) return { error: 'Please tick to accept the terms first.' };
+  if (data.declared !== true) return { error: 'Please confirm the country where the licensee is registered.' };
   const licence = LICENCES.find((l) => l.id === String(data.licence));
   if (!licence) return { error: 'Please choose a licence.' };
   const country = String(data.country || '');
@@ -67,6 +68,7 @@ export function orderFields(o: PricedOrder) {
     { label: 'Licence fee', value: `US$${fmt(o.q.usd)}` },
     { label: 'VAT', value: o.q.uae ? `UAE VAT 5%: US$${fmt(o.q.vat)}` : 'Not charged (outside the UAE)' },
     { label: 'Total', value: `US$${fmt(o.q.total)}` },
+    { label: 'Country declared', value: `Buyer confirmed the licensee is registered in ${o.countryName}` },
     { label: 'Terms accepted', value: 'Research Licences v1.0, including the Common Terms' },
   ];
 }
