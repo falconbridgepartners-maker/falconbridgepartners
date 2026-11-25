@@ -40,14 +40,17 @@ export async function priceOrder(order: LicenceOrder): Promise<PricedOrder | nul
 }
 
 /** Keeps the request in licence_requests (supabase/013). Logs and carries on if the table is not there yet. */
-export async function recordOrder(o: PricedOrder, extra: Record<string, unknown> = {}) {
+export async function recordOrder(o: PricedOrder, extra: Record<string, unknown> = {}): Promise<{ duplicate: boolean }> {
   const db = createAdminClient();
   const { error } = await db.from('licence_requests').insert({
     report_id: o.report.id, licence: o.licence, tier: o.tier, country: o.country, price_band: o.q.reduced ? 'reduced' : 'standard',
     fee_usd: o.q.usd, vat_usd: o.q.vat, total_usd: o.q.total, company: o.company, full_name: o.fullName, email: o.email,
     invoice_address: o.address, stated_objective: o.objective || null, terms_version: '1.0', accepted_at: new Date().toISOString(), ...extra,
   });
+  // 23505: this Stripe session was already recorded (Stripe sent the same event twice).
+  if (error?.code === '23505') return { duplicate: true };
   if (error) console.error('[licence] record (the email is the record)', error);
+  return { duplicate: false };
 }
 
 const fmt = (n: number) => n.toLocaleString('en-US');
