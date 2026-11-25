@@ -78,7 +78,7 @@ const RequestReport: React.FC<Props> = ({ studyTitle, slug, auto = false, packFi
                 <Button variant="primary" size="md" icon={ArrowRight} onClick={() => setOpen(true)}>{auto ? 'Get the research pack' : 'Request the full report'}</Button>
                 <p className="text-sm text-white/50">
                     {auto ? 'Tell us who is reading and the pack is emailed to you straight away. ' : ''}
-                    The package is released under a Type-1 licence for the requester’s own use. Public access does not transfer ownership.
+                    Free download under a Type 1 licence: personal, non-commercial use for 90 days. Business use requires a paid licence. See our <Link href="/legal/research-licences" className="text-brand-gold-pale underline underline-offset-4">Research Licences</Link>.
                 </p>
             </div>
         );
