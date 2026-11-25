@@ -32,11 +32,10 @@ function textsOf(c: SignalContent): Array<[string, string]> {
   c.themes?.forEach((t, i) => item(`theme ${i + 1}`, t));
   item('lead', c.lead);
   if (c.watch) out.push(['one to watch', c.watch]);
-  c.audit_log?.forEach((l, i) => out.push([`audit log ${i + 1}`, l]));
   return out;
 }
 
-/** Returns the entry with footer lines removed from the audit log, plus anything that must stop it publishing. */
+/** Returns the entry with the article audit log removed (never published, CJ 25 Nov 2026), plus anything that must stop it publishing. */
 export function sweepEntry(entry: ManifestEntry, weekLabel: string): { entry: ManifestEntry; findings: Finding[] } {
   const findings: Finding[] = [];
   const add = (where: string, problem: string) => findings.push({ territory: entry.territory, where, problem });
@@ -48,19 +47,19 @@ export function sweepEntry(entry: ManifestEntry, weekLabel: string): { entry: Ma
     if (!c) add('scan', 'No signal content: the scan would publish without the signal as issued.');
     else {
       if (c.format !== 'weekly-signal-v1') add('scan', 'Unknown signal format.');
-      const cleaned: SignalContent = { ...c, audit_log: (c.audit_log ?? []).filter((l) => !isFooterLine(l)) };
+      const { audit_log: _dropped, ...rest } = c; void _dropped;
+      const cleaned: SignalContent = rest;
       out = { ...entry, scan: { ...s, content: cleaned } };
       if (!c.lead?.title || !c.lead?.body) add('lead topic', 'Lead topic is missing its title or body.');
       if (!c.themes || c.themes.length === 0) add('themes', 'No themes.');
       if (!c.watch) add('one to watch', 'Missing.');
-      if (!c.audit_log || cleaned.audit_log!.length === 0) add('audit log', 'Empty.');
       for (const [where, t] of textsOf(cleaned)) {
         if (!t || !t.trim()) { add(where, 'Empty.'); continue; }
         if (GARBLE.test(t)) add(where, `Garbled text: "${t.match(GARBLE)![0]}".`);
         if (PHONE.test(t)) add(where, 'Contains a phone number.');
         if (WRAPPER.test(t)) add(where, 'Email wrapper text left in.');
         if (LOST_FIGURE.test(t)) add(where, `A figure looks cut off: "${t.match(LOST_FIGURE)![0]}".`);
-        if (isFooterLine(t) && !where.startsWith('audit log')) add(where, 'Footer or credit line left in.');
+        if (isFooterLine(t)) add(where, 'Footer or credit line left in.');
       }
     }
     const wk = s.slug.match(/-week-(\d+)-/)?.[1];
