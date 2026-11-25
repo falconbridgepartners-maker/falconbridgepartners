@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
           customFields: [{ name: 'Licensee', value: o.company }, { name: 'Licence', value: o.licenceName }],
           metadata: {
             kind: 'licence-invoice', slug: o.slug, licence: o.licence, country: o.country, company: o.company, full_name: o.fullName,
-            email: o.email, address: o.address, objective: o.objective, fee_usd: String(o.q.usd), vat_usd: String(o.q.vat), terms: '1.0',
+            email: o.email, address: o.address, objective: o.objective, fee_usd: String(o.q.usd), vat_usd: String(o.q.vat), terms: '1.0', country_declared: 'yes',
           },
         });
       } catch (e) { console.error('[licence-request] stripe invoice', e); /* the firm invoices by hand */ }

@@ -32,6 +32,7 @@ export default function BuyLicence({ slug, title, tier, countries, defaultCountr
   const [country, setCountry] = useState(defaultCountry);
   const [form, setForm] = useState({ company: '', fullName: '', email: '', address: '', objective: '' });
   const [accepted, setAccepted] = useState(false);
+  const [declared, setDeclared] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -49,6 +50,7 @@ export default function BuyLicence({ slug, title, tier, countries, defaultCountr
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
+    if (!declared) { setError('Please confirm the country where the licensee is registered.'); return; }
     if (!accepted) { setError('Please tick to accept the terms first.'); return; }
     if (!token) { setError('Unable to verify the request. Please try again.'); return; }
     setBusy(true); setError(null);
@@ -56,7 +58,7 @@ export default function BuyLicence({ slug, title, tier, countries, defaultCountr
       const res = await fetch(mode === 'card' ? '/api/licence-checkout' : '/api/licence-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, slug, licence: lic, country: c.code, accepted, turnstileToken: token }),
+        body: JSON.stringify({ ...form, slug, licence: lic, country: c.code, accepted, declared, turnstileToken: token }),
       });
       if (res.ok && mode === 'card') {
         const d = await res.json();
@@ -100,7 +102,7 @@ export default function BuyLicence({ slug, title, tier, countries, defaultCountr
         <fieldset className="space-y-2">
           <legend className="label-tech mb-4">2. Country of registration</legend>
           <label htmlFor="bl-country" className={labelClass}>Where your organisation is registered</label>
-          <select id="bl-country" value={country} onChange={(e) => setCountry(e.target.value)} className={inputClass}>
+          <select id="bl-country" value={country} onChange={(e) => { setCountry(e.target.value); setDeclared(false); }} className={inputClass}>
             {countries.map((x) => <option key={x.code} value={x.code} className="bg-[#151C2F]">{x.name}</option>)}
           </select>
           <p className="text-sm text-white/50">
@@ -151,6 +153,10 @@ export default function BuyLicence({ slug, title, tier, countries, defaultCountr
             <p className="text-sm mt-3">Read the full terms: <Link href="/legal/research-licences" target="_blank" className="text-brand-gold-pale underline underline-offset-4">Research Licences (v1.0)</Link>.</p>
           </div>
 
+          <label className="flex items-start gap-3 text-sm text-white/75">
+            <input type="checkbox" checked={declared} onChange={(e) => { setDeclared(e.target.checked); setError(null); }} className="mt-1 accent-[#c8a86a]" />
+            <span>I confirm the licensee organisation is registered in <span className="text-white">{c.name}</span>. The price and VAT are set by this country, and we may ask for proof of registration before delivery.</span>
+          </label>
           <label className="flex items-start gap-3 text-sm text-white/75">
             <input type="checkbox" checked={accepted} onChange={(e) => { setAccepted(e.target.checked); setError(null); }} className="mt-1 accent-[#c8a86a]" />
             <span>I have read and accept the FalconBridge Research Licences (v1.0), including the Common Terms, for this licence.</span>
