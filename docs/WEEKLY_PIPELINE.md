@@ -126,7 +126,7 @@ One JSON file per week. Whoever writes it — a person, Claude or HT+ — the im
 - An entry may carry a scan, a report, a piece, or any combination. `files` need a report.
 - Slots and their default access: 1 User guide (pack), 2 Executive deck (pack), 3 Full research report (pack), 4 Executive summary (open), 5 Executive visual (open), 6 Reference and link audit (pack). The Partner Brief is never uploaded. `label` and `access` override the defaults. A slot left out is created empty and internal.
 - `extract_image` is the Executive Visual as PNG, JPEG or WebP; it is shown on the study page. `cover_image` (3:4) is optional.
-- `scan.content` carries the Weekly Signal exactly as issued, and the scan page then shows it as written: `{ "format": "weekly-signal-v1", "heading", "issue", "review_period", "briefing", "themes": [{ "title", "body", "lens", "sources" }], "lead": { … }, "watch", "audit_log": ["…"] }`. `signal` and `question` stay required (lists, the feed and search use them): give the lead topic's text and headline. Needs `supabase/005_scan_signal.sql`.
+- `scan.content` carries the Weekly Signal exactly as issued, and the scan page then shows it as written: `{ "format": "weekly-signal-v1", "heading", "issue", "review_period", "briefing", "themes": [{ "title", "body", "lens", "sources" }], "lead": { … }, "watch" }`. `signal` and `question` stay required (lists, the feed and search use them): give the lead topic's text and headline. Needs `supabase/005_scan_signal.sql`.
 - Pack files may be PDF, PPTX, DOCX or ZIP.
 
 The validator is `src/lib/weekly/manifest.ts`; the import screen lists every problem before anything is written.
@@ -214,7 +214,7 @@ LinkedIn and X keep their own copy of a preview. After changing a headline or im
 - Only entries whose scan, study and piece slugs are not on the site are published. Anything already there, live or taken down, is left alone.
 - An entry with any sweep finding (`src/lib/weekly/sweep.ts`: garbled text, phone numbers, email wrapper text, cut-off figures, missing sections, week mismatch) is held and listed in the response. The rest of the manifest still goes.
 - A manifest revision is marked handled in `import_log` (source `auto:<file id>@<rev>`) once no entry failed. Saving a new revision of the file makes it eligible again.
-- Email footer lines are dropped from the audit log on import and hidden on the page.
+- The article audit log is never published (CJ, 25 Nov 2026): import drops it and the page does not show it. Older scans that still hold one in the database keep it as a hidden archive.
 - The sweep checks form, not truth. Figures and attributions are still source-checked by a person before the manifest is saved.
 
 ## Email to Jessica after an upload
