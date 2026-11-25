@@ -33,6 +33,8 @@ export async function POST(request: NextRequest) {
 
     const session = await createCheckoutSession({
       lines, email: o.email, reference: `${o.slug}:${o.licence}`,
+      invoiceDescription: `Research licence: ${o.licenceName} for “${o.report.title}”. Paid by card.`,
+      customFields: [{ name: 'Licensee', value: o.company }, { name: 'Licence', value: o.licenceName }],
       successUrl: `${SITE_URL}/research/studies/${o.slug}/buy/thanks?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${SITE_URL}/research/studies/${o.slug}/buy`,
       metadata: {

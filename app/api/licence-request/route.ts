@@ -7,6 +7,7 @@ import { supabaseConfigured } from '@/lib/supabase/admin';
 import { territoryName } from '@/lib/data';
 import { orderFields, parseOrder, priceOrder, recordOrder } from '@/lib/licenceOrder';
 import { leadsAddress, sendFromSite } from '@/lib/mail';
+import { sendLicenceInvoice, stripeConfigured } from '@/lib/stripe';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,17 +34,37 @@ export async function POST(request: NextRequest) {
     const o = await priceOrder(parsed.order);
     if (!o) return bad('This study cannot be licensed online. Please write to joel@falconbp.com.', 404);
 
-    await recordOrder(o);
+    // With Stripe set up, the buyer is sent a numbered, branded invoice with the WIO bank details and a pay-online
+    // link. When it is paid (card, or marked paid in Stripe once the transfer lands) the pack is delivered.
+    let invoice: { id: string; number: string | null; url: string | null } | null = null;
+    if (stripeConfigured()) {
+      try {
+        const lines = [{ name: `${o.licenceShort} licence: ${o.report.title}`, description: `FalconBridge Research Licences v1.0 · ${o.licenceName}`, usdCents: o.q.usd * 100 }];
+        if (o.q.vat) lines.push({ name: 'UAE VAT 5%', description: 'Value added tax, United Arab Emirates', usdCents: o.q.vat * 100 });
+        invoice = await sendLicenceInvoice({
+          email: o.email, company: o.company, contact: o.fullName, address: o.address, country: o.country, lines,
+          description: `Research licence: ${o.licenceName} for “${o.report.title}”. The report and licence statement are emailed once payment is received.`,
+          customFields: [{ name: 'Licensee', value: o.company }, { name: 'Licence', value: o.licenceName }],
+          metadata: {
+            kind: 'licence-invoice', slug: o.slug, licence: o.licence, country: o.country, company: o.company, full_name: o.fullName,
+            email: o.email, address: o.address, objective: o.objective, fee_usd: String(o.q.usd), vat_usd: String(o.q.vat), terms: '1.0',
+          },
+        });
+      } catch (e) { console.error('[licence-request] stripe invoice', e); /* the firm invoices by hand */ }
+    }
+    await recordOrder(o, invoice ? { stripe_session_id: invoice.id, invoiced_at: new Date().toISOString() } : {});
 
     const resend = new Resend(process.env.RESEND_API_KEY);
     const firm = await sendFromSite('website', (from) => resend.emails.send({
       from, to: Array.from(new Set([leadsAddress().toLowerCase(), INVOICING])), replyTo: o.email,
-      subject: `Licence request (invoice): ${o.licenceShort} · ${o.report.title} — ${o.company}`,
+      subject: invoice ? `Licence invoiced (${invoice.number ?? invoice.id}): ${o.licenceShort} · ${o.report.title} — ${o.company}` : `Licence request (invoice): ${o.licenceShort} · ${o.report.title} — ${o.company}`,
       html: buildBrandedEmail({
-        title: 'A research licence was requested: please invoice',
+        title: invoice ? `Invoice ${invoice.number ?? ''} sent: a research licence was requested` : 'A research licence was requested: please invoice',
         subtitle: `${o.report.title} · ${territoryName[o.report.territory] ?? o.report.territory} · ${o.tier === 'back' ? 'Back catalogue' : 'New report'}`,
-        fields: orderFields(o),
-        footerNote: 'Issue the invoice to the buyer and deliver the report with its licence statement once payment is received. Reply to this message to write to the buyer.',
+        fields: [...orderFields(o), ...(invoice ? [{ label: 'Stripe invoice', value: `${invoice.number ?? invoice.id} · due in 14 days${invoice.url ? ` · ${invoice.url}` : ''}` }] : [])],
+        footerNote: invoice
+          ? 'Stripe has emailed the buyer the invoice, with the WIO bank details and a pay-online link. If they pay by card, the pack is delivered automatically. When a bank transfer lands, open the invoice in Stripe and choose "Mark as paid" (paid outside Stripe): the pack and licence statement then go out automatically.'
+          : 'Issue the invoice to the buyer and deliver the report with its licence statement once payment is received. Reply to this message to write to the buyer.',
       }),
     }));
     if (firm.error) { console.error('[licence-request] firm email', firm.error); return bad('The request could not be sent. Please try again or write to joel@falconbp.com.', 502); }
@@ -60,7 +81,9 @@ export async function POST(request: NextRequest) {
             ...(o.objective ? [{ label: 'Stated objective', value: o.objective }] : []),
             { label: 'Total', value: `US$${fmt(o.q.total)}${o.q.uae ? ' including UAE VAT 5%' : ''}` },
           ],
-          footerNote: 'Your invoice follows by email. The report is delivered with its licence statement as soon as payment is received. The full terms are at falconbp.com/legal/research-licences.',
+          footerNote: invoice
+            ? `Your invoice ${invoice.number ?? ''} has been emailed to you separately, with our bank details for a transfer and a link to pay online by card. Your research pack and licence statement are emailed as soon as payment is received. The full terms are at falconbp.com/legal/research-licences.`
+            : 'Your invoice follows by email. The report is delivered with its licence statement as soon as payment is received. The full terms are at falconbp.com/legal/research-licences.',
         }),
       }));
     } catch (e) { console.error('[licence-request] buyer email', e); }
