@@ -101,7 +101,7 @@ export default function BuyLicence({ slug, title, tier, countries, defaultCountr
           <legend className="label-tech mb-4">2. Country of registration</legend>
           <label htmlFor="bl-country" className={labelClass}>Where your organisation is registered</label>
           <select id="bl-country" value={country} onChange={(e) => setCountry(e.target.value)} className={inputClass}>
-            {countries.map((x) => <option key={x.code} value={x.code} className="bg-[#151C2F]">{x.name}{x.high ? '' : ' · reduced price'}</option>)}
+            {countries.map((x) => <option key={x.code} value={x.code} className="bg-[#151C2F]">{x.name}</option>)}
           </select>
           <p className="text-sm text-white/50">
             Your country sets the price band and whether UAE VAT applies{detected ? '. We pre-selected it from your location; change it if your organisation is registered elsewhere' : ''}.
