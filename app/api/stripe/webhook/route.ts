@@ -5,6 +5,7 @@ import { territoryName } from '@/lib/data';
 import { orderFields, parseOrder, priceOrder, recordOrder } from '@/lib/licenceOrder';
 import { leadsAddress, sendFromSite } from '@/lib/mail';
 import { stripeTestMode, verifyWebhook } from '@/lib/stripe';
+import { deliverLicence } from '@/lib/licenceDelivery';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,11 @@ export async function POST(request: NextRequest) {
     const paidUsd = (s.amount_total ?? 0) / 100;
     const matches = s.currency === 'usd' && paidUsd === o.q.total;
     const now = new Date().toISOString();
-    await recordOrder(o, { paid_at: now, invoiced_at: now, stripe_session_id: s.id });
+    const { duplicate } = await recordOrder(o, { paid_at: now, invoiced_at: now, stripe_session_id: s.id });
+    if (duplicate) return NextResponse.json({ received: true, duplicate: true });
+
+    // Deliver straight away when the amount matches; otherwise hold it for the firm to check.
+    const delivery = matches ? await deliverLicence(o, s.id) : { delivered: false as const, reason: 'The amount collected does not match the price list.' };
 
     if (process.env.RESEND_API_KEY) {
       const resend = new Resend(process.env.RESEND_API_KEY);
@@ -40,12 +45,19 @@ export async function POST(request: NextRequest) {
         ? ` (buyer paid ${(s.presentment_details.presentment_amount ?? 0) / 100} ${s.presentment_details.presentment_currency.toUpperCase()})` : '';
       await sendFromSite('website', (from) => resend.emails.send({
         from, to: Array.from(new Set([leadsAddress().toLowerCase(), INVOICING])), replyTo: o.email,
-        subject: `${stripeTestMode() ? '[TEST] ' : ''}Licence PAID: ${o.licenceShort} · ${o.report.title} — ${o.company}`,
+        subject: `${stripeTestMode() ? '[TEST] ' : ''}Licence PAID${delivery.delivered ? ' and delivered' : ' · DELIVER BY HAND'}: ${o.licenceShort} · ${o.report.title} — ${o.company}`,
         html: buildBrandedEmail({
           title: `${stripeTestMode() ? 'Test payment: ' : ''}a research licence was paid by card`,
           subtitle: `${o.report.title} · ${territoryName[o.report.territory] ?? o.report.territory}`,
-          fields: [...orderFields(o), { label: 'Collected by Stripe', value: `US$${paidUsd.toLocaleString('en-US')}${local}${matches ? '' : ' · DOES NOT MATCH THE PRICE LIST, check before delivering'}` }, { label: 'Stripe session', value: s.id }],
-          footerNote: 'Payment is complete and Stripe has emailed the buyer a receipt and invoice. Deliver the report with its completed licence statement.',
+          fields: [
+            ...orderFields(o),
+            { label: 'Collected by Stripe', value: `US$${paidUsd.toLocaleString('en-US')}${local}${matches ? '' : ' · DOES NOT MATCH THE PRICE LIST, check before delivering'}` },
+            { label: 'Delivery', value: delivery.delivered ? `Sent automatically: pack link (works until ${delivery.expires}) and the completed licence statement, valid until ${delivery.until}` : `NOT SENT: ${delivery.reason} Deliver by hand.` },
+            { label: 'Stripe session', value: s.id },
+          ],
+          footerNote: delivery.delivered
+            ? 'Payment is complete. Stripe has emailed the buyer a receipt and invoice, and the site has emailed the pack and licence statement. Nothing more to do.'
+            : 'Payment is complete and Stripe has emailed the buyer a receipt and invoice. The pack was NOT sent automatically: deliver it by hand with the completed licence statement.',
         }),
       }));
     }

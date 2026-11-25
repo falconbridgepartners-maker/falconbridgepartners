@@ -105,11 +105,13 @@ const PACK = { charcoal: '#262626', tile: '#2e2e2e', ivory: '#F4F2EC', gold: '#C
  * The email a reader receives after completing the pack form: one button, the file list, the expiry date.
  * With `reserved`, the same email goes to a reader who asked for the pack before it existed: the opening line says it has landed.
  */
-export function buildPackEmail({ name, studyTitle, link, expires, files, replyTo, reserved = false }: {
+export function buildPackEmail({ name, studyTitle, link, expires, files, replyTo, reserved = false, licence }: {
   name: string; studyTitle: string; link: string; expires: string; files: string[]; replyTo: string; reserved?: boolean;
+  /** A paid licence: its name and the completed licence statement (already escaped HTML). Replaces the free-use note. */
+  licence?: { name: string; html: string };
 }) {
   const items = files.map((f) => `<tr><td style="padding:7px 0;color:${PACK.ivory};font-size:15px;line-height:1.5;border-bottom:1px solid rgba(200,168,106,0.18);">${escapeHtml(f)}</td></tr>`).join('');
-  const strap = reserved ? 'The research pack you reserved has landed.' : 'The research pack you asked for.';
+  const strap = licence ? 'Your licensed research pack.' : reserved ? 'The research pack you reserved has landed.' : 'The research pack you asked for.';
   const opening = reserved
     ? `${escapeHtml(name)}, the study is published and your pack is ready. The link below opens a page with each document. It works until ${escapeHtml(expires)}.`
     : `${escapeHtml(name)}, the pack is ready. The link below opens a page with each document. It works until ${escapeHtml(expires)}.`;
@@ -131,9 +133,16 @@ export function buildPackEmail({ name, studyTitle, link, expires, files, replyTo
             <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 20px;">${items}</table>
             <p style="margin:0 0 14px;">Start with the first document, the guide. It explains how the report is built, what the evidence grades mean and where to enter the report for the time you have.</p>
             <p style="margin:0 0 14px;">The findings are bounded by their scope, evidence and date. The research supports your decision. It does not make it for you.</p>
-          </td></tr>
+          </td></tr>${licence ? `
+          <tr><td style="padding:6px 34px 18px;">
+            <div style="border:1px solid rgba(200,168,106,0.35);border-radius:10px;padding:18px 20px;color:${PACK.grey};font-size:13px;line-height:1.6;">
+              <p style="margin:0 0 10px;color:${PACK.goldPale};font-size:12px;letter-spacing:0.12em;text-transform:uppercase;">Your licence · ${escapeHtml(licence.name)}</p>
+              ${licence.html}
+              <p style="margin:12px 0 0;font-size:12px;">Keep this email: it is your licence statement. Full terms: <a href="https://falconbp.com/legal/research-licences" style="color:${PACK.goldPale};">falconbp.com/legal/research-licences</a>.</p>
+            </div>
+          </td></tr>` : ''}
           <tr><td style="padding:18px 34px 26px;border-top:1px solid rgba(200,168,106,0.18);font-size:12px;color:${PACK.grey};line-height:1.65;">
-            The pack is released under a Type-1 licence for your own use. FalconBridge Partners retains its research IP; wider circulation or publication needs our agreement.
+            ${licence ? 'Use of the pack is governed by the licence above. FalconBridge Partners retains its research IP.' : 'The pack is released under a Type-1 licence for your own use. FalconBridge Partners retains its research IP; wider circulation or publication needs our agreement.'}
             Questions about the study: <a href="mailto:${escapeHtml(replyTo)}" style="color:${PACK.goldPale};">${escapeHtml(replyTo)}</a>.
             If the button does not work, paste this address into your browser:<br /><span style="color:${PACK.goldPale};word-break:break-all;">${link}</span>
           </td></tr>

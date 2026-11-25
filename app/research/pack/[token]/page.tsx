@@ -6,6 +6,7 @@ import Invitation from '@/components/dss/Invitation';
 import { Section, Band } from '@/components/dss/Tiles';
 import { territoryName } from '@/lib/data';
 import { resolvePack, recordOpen } from '@/lib/packAccess';
+import { PAID_PREFIX } from '@/lib/licenceDelivery';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -64,7 +65,9 @@ export default async function PackPage({ params }: { params: { token: string } }
         <p className="text-white/60 text-sm mt-6 max-w-3xl">Read them in the order shown. The first document explains how the report is built, what the evidence grades mean and where to enter the report for the time you have.</p>
         <div className="mt-12 space-y-8">
           <Band title="Findings are bounded" body={report.qualifier || 'Findings remain bounded by scope, evidence and date. The research supports your decision. It does not make it for you.'} />
-          <Band title="Licensed for your own use" body="The pack is released under a Type-1 licence for the requester’s own use. FalconBridge Partners retains its research IP. Wider circulation, publication or reproduction needs our agreement." />
+          {request.intended_use?.startsWith(PAID_PREFIX)
+            ? <Band title="Your business licence" body={`Licensed to ${request.organisation} under the ${request.intended_use.slice(PAID_PREFIX.length).split(' · ')[0]}. Your licence statement was emailed with this link and sets out what you may do. FalconBridge Partners retains its research IP.`} />
+            : <Band title="Licensed for your own use" body="The pack is released under a Type-1 licence for the requester’s own use. FalconBridge Partners retains its research IP. Wider circulation, publication or reproduction needs our agreement." />}
         </div>
       </Section>
       <Invitation compact />
