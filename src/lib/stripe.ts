@@ -15,8 +15,71 @@ function form(obj: Record<string, string | number | undefined>, out = new URLSea
   return out;
 }
 
+/**
+ * What every FalconBridge invoice carries, besides the branding set in the Stripe dashboard.
+ * INVOICE_TRN: the firm's UAE VAT registration number. INVOICE_BANK_DETAILS: the WIO account to pay by transfer,
+ * as the lines to print (entered by CJ in Vercel; the site never holds them in code).
+ */
+const trn = () => (process.env.INVOICE_TRN || '').trim();
+const bankDetails = () => (process.env.INVOICE_BANK_DETAILS || '').replace(/\\n/g, '\n').trim();
+export const bankTransferReady = () => Boolean(bankDetails());
+
+/** Stripe allows four custom fields on an invoice, each name ≤ 40 and value ≤ 140 characters. */
+function invoiceCustomFields(extra: { name: string; value: string }[] = []) {
+  const fields = [...(trn() ? [{ name: 'Supplier TRN (UAE VAT)', value: trn() }] : []), ...extra];
+  return fields.slice(0, 4).map((f) => ({ name: f.name.slice(0, 40), value: f.value.slice(0, 140) }));
+}
+
+function invoiceFooter(bankTransfer: boolean) {
+  const lines = ['FalconBridge Partners FZC LLC · falconbp.com · Research Licences v1.0 apply: falconbp.com/legal/research-licences'];
+  if (bankTransfer && bankDetails()) lines.unshift(`Pay by bank transfer to:\n${bankDetails()}\nPlease quote the invoice number as the payment reference. Bank charges are for the payer's account.`);
+  return lines.join('\n\n').slice(0, 5000);
+}
+
+async function stripePost<T = Record<string, unknown>>(path: string, body: URLSearchParams): Promise<T> {
+  const res = await fetch(`https://api.stripe.com/v1/${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Stripe ${path} ${res.status}: ${data?.error?.message ?? 'error'}`);
+  return data as T;
+}
+
+/**
+ * Creates and emails a Stripe invoice for a buyer who chose to pay later. It shows the WIO bank details for a
+ * transfer and also lets the buyer pay online by card. Due in 14 days. When it is paid (by card, or marked paid in
+ * the Stripe dashboard once the transfer lands), Stripe sends invoice.paid and the site delivers the pack.
+ */
+export async function sendLicenceInvoice(args: {
+  email: string; company: string; contact: string; address: string; country: string; lines: Line[];
+  description: string; customFields: { name: string; value: string }[]; metadata: Record<string, string>;
+}): Promise<{ id: string; number: string | null; url: string | null }> {
+  const customer = await stripePost<{ id: string }>('customers', form({
+    email: args.email, name: args.company, description: `Contact: ${args.contact}`,
+    'address[line1]': args.address.split('\n')[0]?.slice(0, 200), 'address[line2]': args.address.split('\n').slice(1).join(', ').slice(0, 200),
+    'address[country]': args.country, 'metadata[contact]': args.contact,
+  }));
+  const inv = form({
+    customer: customer.id, collection_method: 'send_invoice', days_until_due: 14, currency: 'usd',
+    pending_invoice_items_behavior: 'exclude', description: args.description, footer: invoiceFooter(true),
+    'payment_settings[payment_method_types][0]': 'card',
+  });
+  invoiceCustomFields(args.customFields).forEach((f, i) => { inv.append(`custom_fields[${i}][name]`, f.name); inv.append(`custom_fields[${i}][value]`, f.value); });
+  for (const [k, v] of Object.entries(args.metadata)) inv.append(`metadata[${k}]`, v.slice(0, 500));
+  const invoice = await stripePost<{ id: string }>('invoices', inv);
+  for (const l of args.lines) {
+    await stripePost('invoiceitems', form({ customer: customer.id, invoice: invoice.id, currency: 'usd', amount: l.usdCents, description: l.description ? `${l.name} · ${l.description}` : l.name }));
+  }
+  await stripePost(`invoices/${invoice.id}/finalize`, form({ auto_advance: 'false' }));
+  const sent = await stripePost<{ id: string; number: string | null; hosted_invoice_url: string | null }>(`invoices/${invoice.id}/send`, new URLSearchParams());
+  return { id: sent.id, number: sent.number, url: sent.hosted_invoice_url };
+}
+
 export async function createCheckoutSession(args: {
   lines: Line[]; email: string; successUrl: string; cancelUrl: string; metadata: Record<string, string>; reference: string;
+  invoiceDescription?: string; customFields?: { name: string; value: string }[];
 }): Promise<{ id: string; url: string }> {
   const body = form({
     mode: 'payment',
@@ -27,6 +90,12 @@ export async function createCheckoutSession(args: {
     'payment_intent_data[statement_descriptor_suffix]': 'RESEARCH',
     'payment_intent_data[description]': args.lines[0]?.name,
     'invoice_creation[enabled]': 'true',
+    'invoice_creation[invoice_data][description]': args.invoiceDescription,
+    'invoice_creation[invoice_data][footer]': invoiceFooter(false),
+  });
+  invoiceCustomFields(args.customFields).forEach((f, i) => {
+    body.append(`invoice_creation[invoice_data][custom_fields][${i}][name]`, f.name);
+    body.append(`invoice_creation[invoice_data][custom_fields][${i}][value]`, f.value);
   });
   args.lines.forEach((l, i) => {
     form({

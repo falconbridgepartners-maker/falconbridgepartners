@@ -161,7 +161,7 @@ export default function BuyLicence({ slug, title, tier, countries, defaultCountr
             <fieldset className="space-y-2">
               <legend className="sr-only">How you want to pay</legend>
               <label className="flex items-start gap-3 text-sm text-white/80"><input type="radio" name="pay" checked={mode === 'card'} onChange={() => setMode('card')} className="mt-1 accent-[#c8a86a]" /><span>Pay now by card (secure checkout by Stripe)</span></label>
-              <label className="flex items-start gap-3 text-sm text-white/80"><input type="radio" name="pay" checked={mode === 'invoice'} onChange={() => setMode('invoice')} className="mt-1 accent-[#c8a86a]" /><span>Request an invoice and pay by bank transfer</span></label>
+              <label className="flex items-start gap-3 text-sm text-white/80"><input type="radio" name="pay" checked={mode === 'invoice'} onChange={() => setMode('invoice')} className="mt-1 accent-[#c8a86a]" /><span>Request an invoice: pay by bank transfer, or online by card within 14 days</span></label>
             </fieldset>
           )}
           <Button type="submit" variant="primary" size="md" icon={ArrowRight} disabled={busy}>{busy ? 'Sending…' : mode === 'card' ? `Pay US$${fmt(q.total)} by card` : 'Request licence and invoice'}</Button>
