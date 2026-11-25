@@ -7,6 +7,7 @@ import BuyLicence from '@/components/dss/BuyLicence';
 import { getReportBySlug, isPlaceholder } from '@/lib/data';
 import { AED_PRICES, COUNTRIES, isCountry, tierFor, usdFromAed, usdRates } from '@/lib/licencePricing';
 import { summaryRows } from '@/content/researchLicences';
+import { stripeConfigured, stripeTestMode } from '@/lib/stripe';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +48,8 @@ export default async function BuyPage({ params }: { params: { slug: string } }) 
           defaultCountry={defaultCountry}
           detected={isCountry(ip)}
           summary={summary}
+          card={stripeConfigured()}
+          testMode={stripeConfigured() && stripeTestMode()}
         />
       </Section>
     </>

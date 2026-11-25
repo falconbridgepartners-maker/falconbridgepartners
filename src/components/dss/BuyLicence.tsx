@@ -17,6 +17,9 @@ type Props = {
   /** True when the country came from the visitor's location. */
   detected: boolean;
   summary: Record<LicenceId, { k: string; v: string }[]>;
+  /** Card payment through Stripe Checkout is switched on. */
+  card: boolean;
+  testMode: boolean;
 };
 
 const inputClass = 'w-full rounded-lg bg-white/3 border border-brand-gold/25 px-3.5 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-brand-gold/70 transition-colors';
@@ -24,7 +27,7 @@ const labelClass = 'text-xs font-bold text-white/70 block';
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
 
 /** Step 1 of research licence sales: the buyer chooses a licence and requests it; we invoice and deliver on payment. */
-export default function BuyLicence({ slug, title, tier, countries, defaultCountry, detected, summary }: Props) {
+export default function BuyLicence({ slug, title, tier, countries, defaultCountry, detected, summary, card, testMode }: Props) {
   const [lic, setLic] = useState<LicenceId>('t2');
   const [country, setCountry] = useState(defaultCountry);
   const [form, setForm] = useState({ company: '', fullName: '', email: '', address: '', objective: '' });
@@ -41,6 +44,8 @@ export default function BuyLicence({ slug, title, tier, countries, defaultCountr
 
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
+  const [mode, setMode] = useState<'card' | 'invoice'>(card ? 'card' : 'invoice');
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
@@ -48,12 +53,16 @@ export default function BuyLicence({ slug, title, tier, countries, defaultCountr
     if (!token) { setError('Unable to verify the request. Please try again.'); return; }
     setBusy(true); setError(null);
     try {
-      const res = await fetch('/api/licence-request', {
+      const res = await fetch(mode === 'card' ? '/api/licence-checkout' : '/api/licence-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, slug, licence: lic, country: c.code, accepted, turnstileToken: token }),
       });
-      if (res.ok) setDone(true);
+      if (res.ok && mode === 'card') {
+        const d = await res.json();
+        if (d?.url) { window.location.href = d.url; return; }
+        setError('Card checkout could not be started. Please try again or request an invoice.');
+      } else if (res.ok) setDone(true);
       else {
         let msg = `The request could not be sent (${res.status}).`;
         try { const d = await res.json(); if (d?.error) msg = d.error; } catch { /* ignore */ }
@@ -130,7 +139,7 @@ export default function BuyLicence({ slug, title, tier, countries, defaultCountr
             <div className="flex justify-between gap-4 border-t border-white/10 pt-3"><dt className="text-white font-bold">Total</dt><dd className="text-white font-bold text-lg">US${fmt(q.total)}</dd></div>
             {local && <div className="text-right text-white/60">{local}</div>}
           </dl>
-          <p className="text-xs text-white/45">{local ? `The local amount is an estimate at today’s rate. You are invoiced in US$.` : 'Invoiced in US$.'}</p>
+          <p className="text-xs text-white/45">{local ? `The local amount is an estimate at today’s rate.${card ? ' Card checkout shows the exact amount in your currency, and you can pay in either.' : ' You are invoiced in US$.'}` : 'Charged in US$.'}</p>
           {q.reduced && <p className="text-sm text-brand-gold-pale">Reduced price: 40% below the standard US${fmt(q.usdStandard)}.</p>}
 
           <div className="border-t border-white/10 pt-4">
@@ -148,8 +157,16 @@ export default function BuyLicence({ slug, title, tier, countries, defaultCountr
           </label>
           <TurnstileWidget onTokenChange={setToken} />
           {error && <p className="text-red-200 text-sm bg-red-900/20 border border-red-500/30 rounded-lg p-3" role="alert">{error}</p>}
-          <Button type="submit" variant="primary" size="md" icon={ArrowRight} disabled={busy}>{busy ? 'Sending…' : 'Request licence and invoice'}</Button>
-          <p className="text-xs text-white/45">No card payment yet: we invoice and deliver on payment.</p>
+          {card && (
+            <fieldset className="space-y-2">
+              <legend className="sr-only">How you want to pay</legend>
+              <label className="flex items-start gap-3 text-sm text-white/80"><input type="radio" name="pay" checked={mode === 'card'} onChange={() => setMode('card')} className="mt-1 accent-[#c8a86a]" /><span>Pay now by card (secure checkout by Stripe)</span></label>
+              <label className="flex items-start gap-3 text-sm text-white/80"><input type="radio" name="pay" checked={mode === 'invoice'} onChange={() => setMode('invoice')} className="mt-1 accent-[#c8a86a]" /><span>Request an invoice and pay by bank transfer</span></label>
+            </fieldset>
+          )}
+          <Button type="submit" variant="primary" size="md" icon={ArrowRight} disabled={busy}>{busy ? 'Sending…' : mode === 'card' ? `Pay US$${fmt(q.total)} by card` : 'Request licence and invoice'}</Button>
+          <p className="text-xs text-white/45">{mode === 'card' ? 'The report is delivered with its licence statement once payment is complete.' : 'We invoice and deliver on payment.'}</p>
+          {testMode && <p className="text-xs text-amber-300">Test mode: no real card is charged.</p>}
         </div>
       </aside>
     </form>
