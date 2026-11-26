@@ -5,7 +5,7 @@ import PageHero from '@/components/dss/PageHero';
 import { Section } from '@/components/dss/Tiles';
 import BuyLicence from '@/components/dss/BuyLicence';
 import { getReportBySlug, isPlaceholder } from '@/lib/data';
-import { AED_PRICES, COUNTRIES, isCountry, tierFor, usdFromAed, usdRates } from '@/lib/licencePricing';
+import { licenceSalesOpen, AED_PRICES, COUNTRIES, isCountry, tierFor, usdFromAed, usdRates } from '@/lib/licencePricing';
 import { summaryRows } from '@/content/researchLicences';
 import { stripeConfigured, stripeTestMode } from '@/lib/stripe';
 
@@ -22,6 +22,19 @@ const fmt = (n: number) => n.toLocaleString('en-US');
 export default async function BuyPage({ params }: { params: { slug: string } }) {
   const s = await getReportBySlug(params.slug);
   if (!s || isPlaceholder(s) || s.kind !== 'study') notFound();
+  if (!licenceSalesOpen()) {
+    return (
+      <>
+        <PageHero eyebrow="Business licences" title={s.title} governing="Online licence purchase is paused for a short while." />
+        <Section>
+          <div className="tile p-8 max-w-2xl space-y-3">
+            <p className="text-white/75">You can still download this study free for personal use from its page. To license it for your business now, write to <a href="mailto:joel@falconbp.com" className="text-brand-gold-pale underline underline-offset-4">joel@falconbp.com</a> and we will set it up with you.</p>
+            <p className="text-white/75"><a href={`/research/studies/${s.slug}`} className="text-brand-gold-pale underline underline-offset-4">Back to the study</a></p>
+          </div>
+        </Section>
+      </>
+    );
+  }
   const tier = tierFor(s.published_at);
   // Vercel tells us where the visitor is; it pre-selects the country and sets the local-currency estimate.
   const ip = headers().get('x-vercel-ip-country');

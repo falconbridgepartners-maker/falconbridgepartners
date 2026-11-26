@@ -111,3 +111,11 @@ export async function usdRates(): Promise<Record<string, number>> {
   } catch { /* estimate omitted */ }
   return out;
 }
+
+/**
+ * Licence sales switch (CJ, 26 Nov 2026: take purchase offline while changes are made).
+ * Off unless LICENCE_SALES_OPEN is "true" in the environment. When off, the Buy page shows a paused notice,
+ * study pages hide the Buy button, and the order routes refuse new orders. The Stripe webhook still runs,
+ * so invoices already issued are still delivered when paid.
+ */
+export const licenceSalesOpen = () => process.env.LICENCE_SALES_OPEN === 'true';

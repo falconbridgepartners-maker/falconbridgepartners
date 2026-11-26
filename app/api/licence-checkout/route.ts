@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyTurnstile } from '@/lib/security';
 import { checkRateLimit } from '@/lib/rateLimit';
 import { supabaseConfigured } from '@/lib/supabase/admin';
+import { licenceSalesOpen } from '@/lib/licencePricing';
 import { parseOrder, priceOrder } from '@/lib/licenceOrder';
 import { createCheckoutSession, stripeConfigured } from '@/lib/stripe';
 
@@ -16,6 +17,7 @@ const bad = (error: string, status = 400) => NextResponse.json({ error }, { stat
  */
 export async function POST(request: NextRequest) {
   try {
+    if (!licenceSalesOpen()) return bad('Online licence purchase is paused. Please write to joel@falconbp.com.', 503);
     if (!stripeConfigured() || !supabaseConfigured()) return bad('Card payment is not available at the moment. Please request an invoice instead.', 503);
     const forwardedFor = request.headers.get('x-forwarded-for');
     const ip = (forwardedFor ? forwardedFor.split(',')[0].trim() : null) || request.headers.get('x-real-ip') || 'unknown';
