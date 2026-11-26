@@ -5,6 +5,7 @@ import { buildBrandedEmail } from '@/lib/emailTemplates';
 import { checkRateLimit } from '@/lib/rateLimit';
 import { supabaseConfigured } from '@/lib/supabase/admin';
 import { territoryName } from '@/lib/data';
+import { licenceSalesOpen } from '@/lib/licencePricing';
 import { orderFields, parseOrder, priceOrder, recordOrder } from '@/lib/licenceOrder';
 import { leadsAddress, sendFromSite } from '@/lib/mail';
 import { sendLicenceInvoice, stripeConfigured } from '@/lib/stripe';
@@ -22,6 +23,7 @@ const INVOICING = 'joel@falconbp.com';
  */
 export async function POST(request: NextRequest) {
   try {
+    if (!licenceSalesOpen()) return bad('Online licence purchase is paused. Please write to joel@falconbp.com.', 503);
     if (!process.env.RESEND_API_KEY || !supabaseConfigured()) return bad('Licences cannot be requested at the moment. Please write to joel@falconbp.com.', 503);
     const forwardedFor = request.headers.get('x-forwarded-for');
     const ip = (forwardedFor ? forwardedFor.split(',')[0].trim() : null) || request.headers.get('x-real-ip') || 'unknown';

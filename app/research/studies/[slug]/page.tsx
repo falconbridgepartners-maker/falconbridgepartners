@@ -11,7 +11,7 @@ import { clip } from '@/lib/pieces';
 import { generatedImagePath, shareMetadata } from '@/lib/share';
 import ReservePack from '@/components/dss/ReservePack';
 import GetThisStudy from '@/components/dss/GetThisStudy';
-import { fromPrice, tierFor } from '@/lib/licencePricing';
+import { fromPrice, licenceSalesOpen, tierFor } from '@/lib/licencePricing';
 import { getPiecesForStudy, getPublishedReports, getReportBySlug, getScanForStudy, getScanForWeek, hasGatedPack, hasRequestForm, isPlaceholder, publicMediaUrl, readerFiles, territoryName, weekText } from '@/lib/data';
 import { otherStudies, territoryPath } from '@/lib/related';
 import { StudyLinks, TerritoryLine } from '@/components/dss/RelatedResearch';
@@ -166,7 +166,7 @@ export default async function StudyPage({ params }: { params: { slug: string } }
             {s.body && <p className={`text-white/70 whitespace-pre-line ${extract || s.extract_note ? 'mt-6' : ''}`}>{acronymize(s.body)}</p>}
           </div>
           <div className="lg:col-span-5 space-y-4">
-            {s.kind === 'study' && <GetThisStudy slug={s.slug} fromUsd={fromPrice(tierFor(s.published_at))} freeHref={hasRequest ? '#research-pack' : null} />}
+            {s.kind === 'study' && <GetThisStudy slug={s.slug} fromUsd={fromPrice(tierFor(s.published_at))} freeHref={hasRequest ? '#research-pack' : null} salesOpen={licenceSalesOpen()} />}
             {s.facts.map((f) => (
               <div key={f.figure} className="tile-ivory p-6">
                 <p className="governing text-2xl mb-1" style={{ color: '#262626' }}>{f.figure}</p>
